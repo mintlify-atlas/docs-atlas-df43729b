@@ -1,0 +1,458 @@
+---
+title: Roadmapper Agent
+description: Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation
+---
+
+# Roadmapper Agent
+
+The **roadmapper agent** transforms requirements into a phase structure that delivers the project, mapping every v1 requirement to exactly one phase with observable success criteria.
+
+## Purpose
+
+Create project roadmaps that map requirements to phases with goal-backward success criteria.
+
+<Info>
+Every v1 requirement must map to exactly one phase. No orphans. No duplicates. Coverage is non-negotiable.
+</Info>
+
+## When Invoked
+
+Spawned by `/gsd:new-project` orchestrator (unified project initialization).
+
+## Downstream Consumer: Plan-Phase
+
+Your ROADMAP.md is consumed by `/gsd:plan-phase` which uses it to:
+
+| Output | How Plan-Phase Uses It |
+|--------|------------------------|
+| Phase goals | Decomposed into executable plans |
+| Success criteria | Inform must_haves derivation |
+| Requirement mappings | Ensure plans cover phase scope |
+| Dependencies | Order plan execution |
+
+**Be specific.** Success criteria must be observable user behaviors, not implementation tasks.
+
+## What It Does
+
+### 1. Phase Identification
+
+**Derive phases from requirements. Don't impose structure.**
+
+<Steps>
+  <Step title="Group by Category">
+    Requirements already have categories (AUTH, CONTENT, SOCIAL, etc.)
+    
+    Start by examining these natural groupings
+  </Step>
+  <Step title="Identify Dependencies">
+    Which categories depend on others?
+    - SOCIAL needs CONTENT (can't share what doesn't exist)
+    - CONTENT needs AUTH (can't own content without users)
+    - Everything needs SETUP (foundation)
+  </Step>
+  <Step title="Create Delivery Boundaries">
+    Each phase delivers a coherent, verifiable capability
+    
+    **Good boundaries:**
+    - Complete a requirement category
+    - Enable a user workflow end-to-end
+    - Unblock the next phase
+    
+    **Bad boundaries:**
+    - Arbitrary technical layers (all models, then all APIs)
+    - Partial features (half of auth)
+    - Artificial splits to hit a number
+  </Step>
+  <Step title="Assign Requirements">
+    Map every v1 requirement to exactly one phase
+    
+    Track coverage as you go
+  </Step>
+</Steps>
+
+### 2. Phase Numbering
+
+**Integer phases (1, 2, 3):** Planned milestone work
+
+**Decimal phases (2.1, 2.2):** Urgent insertions after planning
+- Created via `/gsd:insert-phase`
+- Execute between integers: 1 → 1.1 → 1.2 → 2
+
+**Starting number:**
+- New milestone: Start at 1
+- Continuing milestone: Check existing phases, start at last + 1
+
+### 3. Granularity Calibration
+
+Read granularity from config.json:
+
+| Granularity | Typical Phases | What It Means |
+|-------------|----------------|---------------|
+| Coarse | 3-5 | Combine aggressively, critical path only |
+| Standard | 5-8 | Balanced grouping |
+| Fine | 8-12 | Let natural boundaries stand |
+
+Derive phases from work, then apply granularity as compression guidance. Don't pad small projects or compress complex ones.
+
+### 4. Goal-Backward Success Criteria
+
+**For each phase, ask: "What must be TRUE for users when this phase completes?"**
+
+<Steps>
+  <Step title="State the Phase Goal">
+    This is the outcome, not work
+    - Good: "Users can securely access their accounts" (outcome)
+    - Bad: "Build authentication" (task)
+  </Step>
+  <Step title="Derive Observable Truths (2-5 per phase)">
+    List what users can observe/do when the phase completes
+    
+    For "Users can securely access their accounts":
+    - User can create account with email/password
+    - User can log in and stay logged in across browser sessions
+    - User can log out from any page
+    - User can reset forgotten password
+    
+    **Test:** Each truth should be verifiable by a human using the application
+  </Step>
+  <Step title="Cross-Check Against Requirements">
+    For each success criterion:
+    - Does at least one requirement support this?
+    - If not → gap found
+    
+    For each requirement mapped to this phase:
+    - Does it contribute to at least one success criterion?
+    - If not → question if it belongs here
+  </Step>
+  <Step title="Resolve Gaps">
+    Success criterion with no supporting requirement:
+    - Add requirement to REQUIREMENTS.md, OR
+    - Mark criterion as out of scope for this phase
+    
+    Requirement that supports no criterion:
+    - Question if it belongs in this phase
+    - Maybe it's v2 scope
+    - Maybe it belongs in different phase
+  </Step>
+</Steps>
+
+### 5. Coverage Validation
+
+**After phase identification, verify every v1 requirement is mapped.**
+
+**Build coverage map:**
+
+```
+AUTH-01 → Phase 2
+AUTH-02 → Phase 2
+AUTH-03 → Phase 2
+PROF-01 → Phase 3
+PROF-02 → Phase 3
+CONT-01 → Phase 4
+CONT-02 → Phase 4
+...
+
+Mapped: 12/12 ✓
+```
+
+**If orphaned requirements found:**
+
+```
+⚠️ Orphaned requirements (no phase):
+- NOTF-01: User receives in-app notifications
+- NOTF-02: User receives email for followers
+
+Options:
+1. Create Phase 6: Notifications
+2. Add to existing Phase 5
+3. Defer to v2 (update REQUIREMENTS.md)
+```
+
+<Warning>
+**Do not proceed until coverage = 100%.**
+</Warning>
+
+## What It Produces
+
+### ROADMAP.md Structure
+
+**CRITICAL: ROADMAP.md requires TWO phase representations. Both are mandatory.**
+
+#### 1. Summary Checklist (under `## Phases`)
+
+```markdown
+- [ ] **Phase 1: Name** - One-line description
+- [ ] **Phase 2: Name** - One-line description
+- [ ] **Phase 3: Name** - One-line description
+```
+
+#### 2. Detail Sections (under `## Phase Details`)
+
+```markdown
+### Phase 1: Name
+**Goal**: What this phase delivers
+**Depends on**: Nothing (first phase)
+**Requirements**: REQ-01, REQ-02
+**Success Criteria** (what must be TRUE):
+  1. Observable behavior from user perspective
+  2. Observable behavior from user perspective
+**Plans**: TBD
+
+### Phase 2: Name
+**Goal**: What this phase delivers
+**Depends on**: Phase 1
+...
+```
+
+<Warning>
+**The `### Phase X:` headers are parsed by downstream tools.** If you only write the summary checklist, phase lookups will fail.
+</Warning>
+
+#### 3. Progress Table
+
+```markdown
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------||
+| 1. Name | 0/3 | Not started | - |
+| 2. Name | 0/2 | Not started | - |
+```
+
+### STATE.md Structure
+
+Use template from `~/.claude/get-shit-done/templates/state.md`.
+
+Key sections:
+- Project Reference (core value, current focus)
+- Current Position (phase, plan, status, progress bar)
+- Performance Metrics
+- Accumulated Context (decisions, todos, blockers)
+- Session Continuity
+
+### Traceability Update
+
+After roadmap creation, REQUIREMENTS.md gets updated with phase mappings:
+
+```markdown
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| AUTH-01 | Phase 2 | Pending |
+| AUTH-02 | Phase 2 | Pending |
+| PROF-01 | Phase 3 | Pending |
+...
+```
+
+## Philosophy
+
+### Solo Developer + Claude Workflow
+
+Roadmapping for ONE person (the user) and ONE implementer (Claude).
+- No teams, stakeholders, sprints, resource allocation
+- User is the visionary/product owner
+- Claude is the builder
+- Phases are buckets of work, not project management artifacts
+
+### Anti-Enterprise
+
+NEVER include phases for:
+- Team coordination, stakeholder management
+- Sprint ceremonies, retrospectives
+- Documentation for documentation's sake
+- Change management processes
+
+If it sounds like corporate PM theater, delete it.
+
+### Requirements Drive Structure
+
+**Derive phases from requirements. Don't impose structure.**
+
+Bad: "Every project needs Setup → Core → Features → Polish"
+
+Good: "These 12 requirements cluster into 4 natural delivery boundaries"
+
+Let the work determine the phases, not a template.
+
+## Good Phase Patterns
+
+<Tabs>
+  <Tab title="Foundation → Features → Enhancement">
+    ```
+    Phase 1: Setup (project scaffolding, CI/CD)
+    Phase 2: Auth (user accounts)
+    Phase 3: Core Content (main features)
+    Phase 4: Social (sharing, following)
+    Phase 5: Polish (performance, edge cases)
+    ```
+  </Tab>
+  <Tab title="Vertical Slices (Independent Features)">
+    ```
+    Phase 1: Setup
+    Phase 2: User Profiles (complete feature)
+    Phase 3: Content Creation (complete feature)
+    Phase 4: Discovery (complete feature)
+    ```
+  </Tab>
+  <Tab title="Anti-Pattern: Horizontal Layers">
+    ```
+    Phase 1: All database models ← Too coupled
+    Phase 2: All API endpoints ← Can't verify independently
+    Phase 3: All UI components ← Nothing works until end
+    ```
+  </Tab>
+</Tabs>
+
+## Execution Flow
+
+<Steps>
+  <Step title="Receive Context">
+    Orchestrator provides:
+    - PROJECT.md content (core value, constraints)
+    - REQUIREMENTS.md content (v1 requirements with REQ-IDs)
+    - research/SUMMARY.md content (if exists - phase suggestions)
+    - config.json (granularity setting)
+  </Step>
+  <Step title="Extract Requirements">
+    Parse REQUIREMENTS.md:
+    - Count total v1 requirements
+    - Extract categories (AUTH, CONTENT, etc.)
+    - Build requirement list with IDs
+  </Step>
+  <Step title="Load Research Context (if exists)">
+    If research/SUMMARY.md provided:
+    - Extract suggested phase structure from "Implications for Roadmap"
+    - Note research flags
+    - Use as input, not mandate
+  </Step>
+  <Step title="Identify Phases">
+    Apply phase identification methodology:
+    1. Group requirements by natural delivery boundaries
+    2. Identify dependencies between groups
+    3. Create phases that complete coherent capabilities
+    4. Check granularity setting for compression guidance
+  </Step>
+  <Step title="Derive Success Criteria">
+    For each phase, apply goal-backward:
+    1. State phase goal (outcome, not task)
+    2. Derive 2-5 observable truths (user perspective)
+    3. Cross-check against requirements
+    4. Flag any gaps
+  </Step>
+  <Step title="Validate Coverage">
+    Verify 100% requirement mapping:
+    - Every v1 requirement → exactly one phase
+    - No orphans, no duplicates
+    
+    If gaps found, include in draft for user decision
+  </Step>
+  <Step title="Write Files Immediately">
+    **ALWAYS use the Write tool** — never heredoc
+    
+    1. Write ROADMAP.md
+    2. Write STATE.md
+    3. Update REQUIREMENTS.md traceability section
+    
+    Files on disk = context preserved
+  </Step>
+  <Step title="Return Summary">
+    Return `## ROADMAP CREATED` with summary of what was written
+  </Step>
+  <Step title="Handle Revision (if needed)">
+    If orchestrator provides revision feedback:
+    - Parse specific concerns
+    - Update files in place (Edit, not rewrite)
+    - Re-validate coverage
+    - Return `## ROADMAP REVISED` with changes made
+  </Step>
+</Steps>
+
+## Structured Returns
+
+### Roadmap Created
+
+```markdown
+## ROADMAP CREATED
+
+**Files written:**
+- .planning/ROADMAP.md
+- .planning/STATE.md
+
+**Updated:**
+- .planning/REQUIREMENTS.md (traceability section)
+
+### Summary
+
+**Phases:** {N}
+**Granularity:** {from config}
+**Coverage:** {X}/{X} requirements mapped ✓
+
+| Phase | Goal | Requirements |
+|-------|------|-------------|
+| 1 - {name} | {goal} | {req-ids} |
+| 2 - {name} | {goal} | {req-ids} |
+
+### Success Criteria Preview
+
+**Phase 1: {name}**
+1. {criterion}
+2. {criterion}
+
+**Phase 2: {name}**
+1. {criterion}
+2. {criterion}
+
+### Files Ready for Review
+
+User can review actual files:
+- `cat .planning/ROADMAP.md`
+- `cat .planning/STATE.md`
+```
+
+## Anti-Patterns
+
+<CardGroup cols={2}>
+  <Card title="Don't impose arbitrary structure" icon="ban">
+    Bad: "All projects need 5-7 phases"
+    
+    Good: Derive phases from requirements
+  </Card>
+  <Card title="Don't use horizontal layers" icon="layer-group">
+    Bad: Phase 1: Models, Phase 2: APIs, Phase 3: UI
+    
+    Good: Phase 1: Complete Auth feature, Phase 2: Complete Content feature
+  </Card>
+  <Card title="Don't skip coverage validation" icon="shield-check">
+    Bad: "Looks like we covered everything"
+    
+    Good: Explicit mapping of every requirement to exactly one phase
+  </Card>
+  <Card title="Don't write vague success criteria" icon="circle-question">
+    Bad: "Authentication works"
+    
+    Good: "User can log in with email/password and stay logged in across sessions"
+  </Card>
+  <Card title="Don't add project management artifacts" icon="briefcase">
+    Bad: Time estimates, Gantt charts, resource allocation, risk matrices
+    
+    Good: Phases, goals, requirements, success criteria
+  </Card>
+  <Card title="Don't duplicate requirements across phases" icon="copy">
+    Bad: AUTH-01 in Phase 2 AND Phase 3
+    
+    Good: AUTH-01 in Phase 2 only
+  </Card>
+</CardGroup>
+
+## Related Agents
+
+<CardGroup cols={3}>
+  <Card title="Research Synthesizer" icon="merge" href="/agents/research-synthesizer">
+    Provides research that informs roadmap
+  </Card>
+  <Card title="Planner" icon="diagram-project" href="/agents/planner">
+    Consumes roadmap to create phase plans
+  </Card>
+  <Card title="Project Researcher" icon="globe" href="/agents/project-researcher">
+    Researches domain before roadmap creation
+  </Card>
+</CardGroup>

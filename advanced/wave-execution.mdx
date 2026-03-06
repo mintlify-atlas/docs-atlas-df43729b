@@ -1,0 +1,460 @@
+---
+title: "Wave Execution"
+description: "Deep dive on parallel execution with dependencies, wave coordination, and execution flow"
+---
+
+## What Are Waves?
+
+Waves are **execution groups based on dependencies**. Plans in the same wave run in parallel. Waves run sequentially.
+
+```
+Wave 1 (parallel)          Wave 2 (parallel)          Wave 3
+┌─────────┐ ┌─────────┐    ┌─────────┐ ┌─────────┐    ┌─────────┐
+│ Plan 01 │ │ Plan 02 │ →  │ Plan 03 │ │ Plan 04 │ →  │ Plan 05 │
+│         │ │         │    │         │ │         │    │         │
+│ User    │ │ Product │    │ Orders  │ │ Cart    │    │ Checkout│
+│ Model   │ │ Model   │    │ API     │ │ API     │    │ UI      │
+└─────────┘ └─────────┘    └─────────┘ └─────────┘    └─────────┘
+     │           │              ↑           ↑              ↑
+     └───────────┴──────────────┴───────────┘              │
+            Dependencies: Plan 03 needs Plan 01            │
+                        Plan 04 needs Plan 02              │
+                        Plan 05 needs Plans 03 + 04        │
+```
+
+<Info>
+**Key insight**: Independent work parallelizes. Dependent work waits. Wave execution maximizes throughput while respecting dependencies.
+</Info>
+
+## How Wave Assignment Works
+
+### Dependency Declaration
+
+Plans declare dependencies in frontmatter:
+
+```yaml
+---
+phase: 03
+plan: 03
+wave: 2
+depends_on:
+  - 03-01
+  - 03-02
+---
+```
+
+**This means**: Plan 03-03 runs in Wave 2, AFTER plans 03-01 and 03-02 complete.
+
+### Wave Calculation Algorithm
+
+```
+1. Start with all plans at wave 0
+2. For each plan:
+   a. Find all dependencies (depends_on)
+   b. Get max wave of dependencies
+   c. Assign this plan to max_wave + 1
+3. Repeat until no changes (handle transitive deps)
+4. Group plans by wave number
+```
+
+**Example**:
+
+| Plan | Depends On | Max Dep Wave | Assigned Wave |
+|------|------------|--------------|---------------|
+| 01-01 | (none) | - | 1 |
+| 01-02 | (none) | - | 1 |
+| 01-03 | 01-01 | 1 | 2 |
+| 01-04 | 01-02 | 1 | 2 |
+| 01-05 | 01-03, 01-04 | 2 | 3 |
+
+**Result**: Wave 1 has 2 plans (parallel), Wave 2 has 2 plans (parallel), Wave 3 has 1 plan.
+
+### Vertical vs Horizontal Slicing
+
+**Vertical slices** (better parallelization):
+```
+Plan 01: User feature (model + API + UI)
+Plan 02: Product feature (model + API + UI)
+└─→ Both Wave 1, run in parallel
+```
+
+**Horizontal layers** (forced sequential):
+```
+Plan 01: All models
+Plan 02: All APIs (depends on Plan 01)
+Plan 03: All UI (depends on Plan 02)
+└─→ Wave 1, Wave 2, Wave 3 (sequential)
+```
+
+<Warning>
+**Planning principle**: Prefer vertical slices for maximum parallelization. Each slice is an end-to-end feature that can execute independently.
+</Warning>
+
+## Execution Orchestration
+
+### Wave Execution Flow
+
+```
+┌───────────────────────────────────────────────┐
+│  /gsd:execute-phase 3                         │
+├───────────────────────────────────────────────┤
+│  1. Discover plans in phase                   │
+│  2. Analyze dependencies, group into waves    │
+│  3. Report execution plan to user             │
+│  4. FOR EACH WAVE:                            │
+│     a. Describe what's being built            │
+│     b. Spawn executor agents (parallel)       │
+│     c. WAIT for all agents in wave            │
+│     d. Spot-check results (SUMMARY, commits)  │
+│     e. Report wave completion                 │
+│     f. Handle checkpoints (if any)            │
+│     g. Proceed to next wave                   │
+│  5. Spawn verifier (check goal achievement)   │
+│  6. Update ROADMAP, commit                    │
+│  7. Route to next action                      │
+└───────────────────────────────────────────────┘
+```
+
+### Orchestrator Context Efficiency
+
+**Problem**: If orchestrator reads all code and summaries, context fills up.
+
+**Solution**: Executors read files themselves. Orchestrator only passes **paths**.
+
+```javascript
+// Orchestrator stays lean (10-15% context)
+Task(
+  subagent_type="gsd-executor",
+  prompt="
+    <files_to_read>
+    Read these files at execution start:
+    - .planning/phases/03-auth/03-02-PLAN.md
+    - .planning/STATE.md
+    - .planning/config.json
+    </files_to_read>
+  "
+)
+// Executor loads files with fresh 200K context
+```
+
+Result: Orchestrator context stays constant regardless of phase size.
+
+## Parallel Execution
+
+### Enabling Parallelization
+
+Controlled by config:
+
+```json
+{
+  "parallelization": {
+    "enabled": true
+  }
+}
+```
+
+When `true`: Plans within a wave spawn simultaneously.
+When `false`: Plans within a wave run sequentially (one at a time).
+
+### Parallel Safety
+
+Parallelization is **safe when**:
+- Plans modify different files
+- Plans have no shared state
+- Plans are truly independent
+
+Parallelization **conflicts when**:
+- Plans modify the same file (git merge conflicts)
+- Plans share mutable state (database, global config)
+- Plans have implicit dependencies (not declared in frontmatter)
+
+<Note>
+**Planner's responsibility**: Ensure plans in the same wave are truly independent. If file conflicts exist, plans must be sequential or merged into one plan.
+</Note>
+
+### Handling Conflicts
+
+If parallel execution causes git conflicts:
+
+1. **Prevention (planning stage)**: Plan-checker validates wave assignments
+2. **Detection (execution stage)**: Executor detects merge conflicts, reports failure
+3. **Resolution**: User re-plans with sequential dependency or merged plans
+
+## Wave Execution Example
+
+### Phase: User Authentication
+
+**Plans**:
+1. `03-01-PLAN.md`: User model + database migration
+2. `03-02-PLAN.md`: Password hashing utilities
+3. `03-03-PLAN.md`: Login API endpoint (needs User model)
+4. `03-04-PLAN.md`: Registration API endpoint (needs User model, password utils)
+5. `03-05-PLAN.md`: Login UI (needs Login API)
+
+**Dependency graph**:
+```
+03-01 (User model)
+  ↓
+03-03 (Login API)
+  ↓
+03-05 (Login UI)
+
+03-02 (Password utils)
+  ↓
+03-04 (Registration API)
+```
+
+**Wave assignments**:
+- **Wave 1**: 03-01, 03-02 (parallel — independent)
+- **Wave 2**: 03-03, 03-04 (parallel — both depend on Wave 1)
+- **Wave 3**: 03-05 (depends on 03-03)
+
+### Execution Timeline
+
+```
+[Wave 1 Start]
+  └─ Spawn executor for 03-01 (User model)
+  └─ Spawn executor for 03-02 (Password utils)
+  └─ WAIT (both running in parallel)
+[Wave 1 Complete — 8 minutes elapsed]
+
+[Wave 2 Start]
+  └─ Spawn executor for 03-03 (Login API)
+  └─ Spawn executor for 03-04 (Registration API)
+  └─ WAIT (both running in parallel)
+[Wave 2 Complete — 15 minutes elapsed]
+
+[Wave 3 Start]
+  └─ Spawn executor for 03-05 (Login UI)
+  └─ WAIT
+[Wave 3 Complete — 22 minutes elapsed]
+
+[Verification]
+  └─ Spawn verifier
+  └─ Check: User can log in with email
+  └─ Check: User can register new account
+  └─ VERIFICATION.md: status = passed
+```
+
+**Sequential execution (for comparison)**: 5 plans × ~5 min = 25 minutes
+**Wave execution (actual)**: 3 waves, max 8 min = 22 minutes
+
+<Info>
+Parallelization saves time proportional to plan independence. More vertical slices = more parallelization = faster execution.
+</Info>
+
+## Checkpoints in Waves
+
+Plans can pause at **checkpoints** for human input:
+
+```yaml
+---
+phase: 04
+plan: 02
+autonomous: false  # Has checkpoints
+wave: 2
+---
+
+<task type="checkpoint" checkpoint_type="human-verify">
+  <name>Manual OAuth consent screen setup</name>
+  <action>
+    Instructions to configure Google OAuth consent screen.
+  </action>
+  <awaiting>
+    User to complete OAuth setup and confirm.
+  </awaiting>
+</task>
+```
+
+### Checkpoint Execution Flow
+
+```
+[Wave 2 Start]
+  └─ Spawn executor for 04-01 (autonomous)
+  └─ Spawn executor for 04-02 (has checkpoint)
+  └─ WAIT
+
+[04-01 completes normally → SUMMARY.md]
+[04-02 hits checkpoint → RETURNS EARLY]
+
+[Orchestrator presents checkpoint to user]
+  "Plan 04-02 paused at Task 2: Manual OAuth setup"
+  "Awaiting: User to configure consent screen"
+  "Enter 'done' when complete: ___"
+
+[User responds: "done"]
+
+[Orchestrator spawns continuation agent]
+  └─ Continuation agent resumes from Task 2
+  └─ Completes remaining tasks → SUMMARY.md
+
+[Wave 2 Complete]
+```
+
+<Note>
+Checkpoints do NOT block other plans in the wave. Autonomous plans complete while checkpoint plans pause.
+</Note>
+
+### Auto-Advance Checkpoint Handling
+
+When `workflow.auto_advance` is enabled or `--auto` flag present:
+
+| Checkpoint Type | Auto Behavior |
+|----------------|---------------|
+| **human-verify** | Auto-approve with `{user_response}` = `"approved"` |
+| **decision** | Auto-select first option from checkpoint details |
+| **human-action** | CANNOT auto-advance (manual auth gates) |
+
+## Failure Handling
+
+### Mid-Wave Failures
+
+If a plan fails during execution:
+
+```
+[Wave 2 Start]
+  └─ Spawn executor for 03-03 (Login API)
+  └─ Spawn executor for 03-04 (Registration API)
+  └─ WAIT
+
+[03-03 FAILS — missing dependency]
+[03-04 completes normally]
+
+[Orchestrator detects failure]
+  "Plan 03-03 failed: Missing bcrypt library"
+  "Plan 03-04 complete: Registration API"
+  
+  Options:
+  1. Continue with Wave 3 (may cascade failures)
+  2. Stop execution (investigate failure)
+  3. Retry failed plan
+```
+
+User decides how to proceed. Partial progress is tracked in STATE.md.
+
+### Dependency Chain Breaks
+
+If Wave 1 fails, dependent Wave 2 plans likely fail:
+
+```
+[Wave 1: 03-01 FAILS (User model)]
+
+[Wave 2: 03-03 depends on 03-01]
+  → Orchestrator: "Wave 1 failure affects Wave 2 plans"
+  → Options: Skip Wave 2, attempt anyway, stop execution
+```
+
+<Warning>
+**Best practice**: Stop execution on critical failures. Fix the root cause, re-run `/gsd:execute-phase`. GSD skips completed plans (via SUMMARY.md check).
+</Warning>
+
+## Resuming Execution
+
+Execution is **resumable**:
+
+```bash
+# Phase execution interrupted
+# Some plans complete (have SUMMARY.md), others don't
+
+# Re-run the command
+/gsd:execute-phase 3
+
+# Orchestrator:
+# 1. Discovers all plans
+# 2. Checks for SUMMARY.md (completion marker)
+# 3. Filters to incomplete plans only
+# 4. Recalculates waves from incomplete set
+# 5. Continues execution
+```
+
+**Example**:
+
+| Plan | Status Before | Action |
+|------|--------------|--------|
+| 03-01 | Complete (has SUMMARY.md) | Skip |
+| 03-02 | Complete (has SUMMARY.md) | Skip |
+| 03-03 | Incomplete | Execute |
+| 03-04 | Incomplete | Execute |
+| 03-05 | Incomplete | Execute |
+
+Waves recalculated: 03-03 and 03-04 → Wave 1 (parallel), 03-05 → Wave 2
+
+## Verification After Waves
+
+After all waves complete:
+
+```
+[All Waves Complete]
+  └─ Spawn verifier
+  └─ Load: ROADMAP (phase goal), REQUIREMENTS (must-haves)
+  └─ Verify: Codebase delivers what phase promised
+  └─ Create: VERIFICATION.md
+
+Possible outcomes:
+  - status: passed → Phase complete, update roadmap
+  - status: human_needed → Manual testing required
+  - status: gaps_found → Missing features, offer gap closure
+```
+
+**Gap closure cycle**:
+1. `/gsd:plan-phase 3 --gaps` → reads VERIFICATION.md → creates gap plans
+2. `/gsd:execute-phase 3 --gaps-only` → executes only gap plans
+3. Verifier re-runs → checks if gaps resolved
+
+## Performance Characteristics
+
+**Execution speed**:
+- Sequential: `N plans × avg_time_per_plan`
+- Wave-based: `W waves × max_time_in_wave`
+
+**Context efficiency**:
+- Orchestrator: 10-15% (constant, regardless of phase size)
+- Each executor: Fresh 200K (peak quality)
+
+**Scalability**:
+- Single plan: ~5-10 min execution
+- Phase (5 plans, 2 waves): ~15 min execution
+- Phase (10 plans, 3 waves): ~25 min execution
+
+Parallelization provides **sub-linear scaling** for well-structured phases.
+
+## Optimizing Wave Execution
+
+### Planning for Parallelization
+
+1. **Vertical slices** (features, not layers)
+2. **Minimize cross-plan dependencies** (prefer self-contained work)
+3. **Declare dependencies explicitly** (in frontmatter)
+4. **File ownership** (each plan owns different files)
+5. **2-3 tasks per plan** (atomic, executable in single context)
+
+### Example: Bad vs Good Planning
+
+**Bad** (horizontal layers, forced sequential):
+```
+Plan 01: All database models (User, Product, Order)
+Plan 02: All API routes (depends on 01)
+Plan 03: All UI components (depends on 02)
+└─→ 3 waves, sequential only
+```
+
+**Good** (vertical slices, parallel):
+```
+Plan 01: User feature (model + API + UI)
+Plan 02: Product feature (model + API + UI)
+Plan 03: Order feature (model + API + UI)
+└─→ 1 wave, all parallel
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agent System" icon="users" href="/advanced/agent-system">
+    How agents coordinate wave execution
+  </Card>
+  <Card title="State Management" icon="database" href="/advanced/state-management">
+    How STATE.md tracks wave progress
+  </Card>
+</CardGroup>

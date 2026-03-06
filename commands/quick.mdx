@@ -1,0 +1,252 @@
+---
+title: "quick"
+description: "Execute quick tasks with GSD guarantees but skip optional agents"
+---
+
+## Overview
+
+The `quick` command executes small, ad-hoc tasks with full GSD guarantees (atomic commits, state tracking) while skipping optional quality gates. Perfect for tasks you know how to do without extensive planning.
+
+## Syntax
+
+```bash
+/gsd:quick [flags]
+```
+
+<ParamField path="--discuss" type="flag" optional>
+  Enable lightweight discussion phase before planning. Surfaces assumptions, clarifies gray areas, captures decisions in CONTEXT.md. Use when the task has ambiguity worth resolving upfront.
+</ParamField>
+
+<ParamField path="--full" type="flag" optional>
+  Enable plan-checking (max 2 iterations) and post-execution verification. Use when you want quality guarantees without full milestone ceremony.
+</ParamField>
+
+## How It Works
+
+Quick mode runs the same GSD system with a shorter path:
+
+1. **Spawns gsd-planner** in quick mode (skips research by default)
+2. **Spawns gsd-executor(s)** to implement the plan
+3. **Tracks in `.planning/quick/`** separate from planned phases
+4. **Updates STATE.md** "Quick Tasks Completed" table (not ROADMAP.md)
+5. **Creates atomic commit** with descriptive message
+
+## Mode Comparison
+
+### Default Quick Mode (no flags)
+- ❌ Research agent
+- ❌ Discussion phase
+- ❌ Plan checker
+- ❌ Verifier agent
+- ✅ Planning and execution
+- ✅ Atomic commits
+- ✅ State tracking
+
+**Use when:** You know exactly what to do, task is straightforward
+
+### Quick with `--discuss`
+- ❌ Research agent
+- ✅ **Discussion phase**
+- ❌ Plan checker
+- ❌ Verifier agent
+- ✅ Planning and execution
+- ✅ Atomic commits
+- ✅ State tracking
+
+**Use when:** Task has ambiguity, assumptions need clarification
+
+### Quick with `--full`
+- ❌ Research agent
+- ❌ Discussion phase
+- ✅ **Plan checking** (max 2 iterations)
+- ✅ **Verification**
+- ✅ Planning and execution
+- ✅ Atomic commits
+- ✅ State tracking
+
+**Use when:** Want quality gates without full ceremony
+
+### Quick with `--discuss --full`
+- ❌ Research agent
+- ✅ **Discussion phase**
+- ✅ **Plan checking** (max 2 iterations)
+- ✅ **Verification**
+- ✅ Planning and execution
+- ✅ Atomic commits
+- ✅ State tracking
+
+**Use when:** Task is complex but doesn't warrant full phase
+
+## Usage Examples
+
+### Simple bug fix
+
+```bash
+/gsd:quick
+```
+
+**You:** Fix the validation error in user signup form
+
+**GSD:**
+- Creates plan to fix validation
+- Executes fix
+- Commits: `fix: correct email validation in signup form`
+- Updates STATE.md quick tasks table
+
+### Ambiguous task with discussion
+
+```bash
+/gsd:quick --discuss
+```
+
+**You:** Add caching to the product API
+
+**GSD (Discussion):**
+- Where should cache live? (Redis, in-memory, CDN?)
+- What's the TTL strategy?
+- Which endpoints need caching?
+
+**GSD (After discussion):**
+- Captures decisions in CONTEXT.md
+- Creates informed plan
+- Executes implementation
+- Commits with context
+
+### Important task with quality gates
+
+```bash
+/gsd:quick --full
+```
+
+**You:** Refactor authentication middleware
+
+**GSD:**
+- Creates refactoring plan
+- **Plan checker reviews** (catches issues)
+- Revises plan if needed (max 2 iterations)
+- Executes refactoring
+- **Verifier checks** implementation
+- Commits if verified
+
+### Complex quick task
+
+```bash
+/gsd:quick --discuss --full
+```
+
+**You:** Optimize database queries in dashboard
+
+**GSD:**
+- Discusses optimization approach
+- Captures decisions
+- Creates detailed plan
+- Plan checker reviews
+- Executes optimization
+- Verifier validates performance
+- Commits with full context
+
+## When to Use Quick vs Phase
+
+<Card title="Use /gsd:quick" icon="bolt">
+  - Bug fixes
+  - Small features (< 1 hour)
+  - Refactoring isolated components
+  - Configuration changes
+  - Documentation updates
+  - Quick experiments
+  - Hot fixes
+</Card>
+
+<Card title="Use /gsd:plan-phase" icon="map">
+  - New features (> 1 hour)
+  - Architecture changes
+  - Multiple file changes
+  - Cross-cutting concerns
+  - Requires research
+  - Part of roadmap
+  - Needs milestone tracking
+</Card>
+
+## Directory Structure
+
+Quick tasks are tracked separately:
+
+```
+.planning/
+├── quick/
+│   ├── 001-fix-signup-validation.md
+│   ├── 002-add-api-caching.md
+│   └── 003-optimize-dashboard-queries.md
+└── STATE.md  # "Quick Tasks Completed" table
+```
+
+Not added to ROADMAP.md - keeps roadmap focused on planned phases.
+
+## State Tracking
+
+Completed quick tasks appear in STATE.md:
+
+```markdown
+## Quick Tasks Completed
+
+| # | Task | Completed | Commit |
+|---|------|-----------|--------|
+| 1 | Fix signup validation | 2026-03-06 | a1b2c3d |
+| 2 | Add API caching | 2026-03-06 | d4e5f6g |
+| 3 | Optimize dashboard | 2026-03-06 | g7h8i9j |
+```
+
+## Commit Messages
+
+Quick tasks generate descriptive atomic commits:
+
+```bash
+# Bug fix
+fix: correct email validation in signup form
+
+# Feature addition
+feat: add Redis caching to product API endpoints
+
+# Refactoring
+refactor: simplify authentication middleware logic
+
+# Performance
+perf: optimize database queries in dashboard
+```
+
+## Flag Composition
+
+Flags can be combined for different quality levels:
+
+| Flags | Research | Discussion | Plan Check | Verification |
+|-------|----------|------------|------------|-------------|
+| _(none)_ | ❌ | ❌ | ❌ | ❌ |
+| `--discuss` | ❌ | ✅ | ❌ | ❌ |
+| `--full` | ❌ | ❌ | ✅ | ✅ |
+| `--discuss --full` | ❌ | ✅ | ✅ | ✅ |
+
+## Success Criteria
+
+- ✅ Task description captured
+- ✅ Plan created (with optional checking)
+- ✅ Implementation executed
+- ✅ Optional verification passed
+- ✅ Atomic commit created
+- ✅ STATE.md updated
+- ✅ Task file in `.planning/quick/`
+
+## Context Loading
+
+Quick mode loads minimal context:
+
+- STATE.md for project overview
+- CONTEXT.md for relevant decisions
+- Related files mentioned in task
+- No full codebase scan (use phase planning for that)
+
+## Related Commands
+
+- [`plan-phase`](/commands/plan-phase) - For larger, planned work
+- [`execute`](/commands/execute) - Run existing phase plan
+- [`add-todo`](/commands/add-todo) - Capture ideas for later
+- [`progress`](/commands/progress) - See quick tasks in context

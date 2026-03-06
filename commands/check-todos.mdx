@@ -1,0 +1,381 @@
+---
+title: "check-todos"
+description: "List pending todos and select one to work on"
+---
+
+## Overview
+
+The `check-todos` command lists all pending todos with area filtering, allows interactive selection, loads full context for the selected todo, and routes to appropriate action.
+
+## Syntax
+
+```bash
+/gsd:check-todos [area]
+```
+
+<ParamField path="area" type="string" optional>
+  Filter todos by area (e.g., 'api', 'auth', 'frontend'). Shows all areas if omitted.
+</ParamField>
+
+## How It Works
+
+1. **Counts and lists todos** with optional area filtering
+2. **Presents interactive selection** with summaries
+3. **Loads full context** when todo selected
+4. **Checks roadmap correlation** - Is this already planned?
+5. **Offers action routing** - Quick fix, add to phase, plan new phase, brainstorm
+6. **Updates STATE.md** when todo is actioned
+7. **Commits changes** to track todo resolution
+
+## Usage Examples
+
+### List all todos
+
+```bash
+/gsd:check-todos
+```
+
+**Output:**
+```
+Pending Todos (6 total)
+
+API (2):
+1. Add rate limiting to endpoints
+   Priority: high
+   Files: src/api/middleware.ts
+
+2. Implement response caching
+   Priority: medium
+   Files: src/api/handlers.ts
+
+Auth (2):
+3. Add refresh token rotation
+   Priority: high
+   Files: src/auth/tokens.ts
+
+4. Fix session timeout config
+   Priority: medium
+   Files: src/auth/session.ts
+
+Database (1):
+5. Add indexes to user_events
+   Priority: high
+   Files: src/db/schema.ts
+
+General (1):
+6. Improve error messages
+   Priority: low
+   Files: src/utils/errors.ts
+
+Select a number to see details, or type 'cancel':
+```
+
+### Filter by area
+
+```bash
+/gsd:check-todos auth
+```
+
+**Output:**
+```
+Auth Todos (2):
+
+1. Add refresh token rotation
+   Priority: high
+   Added: 2026-03-04
+   Files: src/auth/tokens.ts
+   
+   Context: Current implementation uses long-lived
+   refresh tokens. Security best practice is rotation.
+
+2. Fix session timeout config
+   Priority: medium  
+   Added: 2026-03-05
+   Files: src/auth/session.ts
+   
+   Context: From debug session - intermittent logouts
+   caused by misconfigured timeout.
+
+Select a number, or type 'cancel':
+```
+
+### Select and act on todo
+
+```bash
+/gsd:check-todos
+> 1  # Select "Add rate limiting"
+```
+
+**GSD loads full context:**
+```
+Todo: Add rate limiting to API endpoints
+Area: api
+Priority: high
+Added: 2026-03-04
+
+## Context
+Currently no rate limiting on public endpoints.
+Vulnerable to abuse and DDoS.
+
+## Proposed Action
+- Add express-rate-limit middleware
+- Configure per-endpoint limits
+- Add Redis for distributed rate limiting
+- Return 429 with Retry-After header
+
+## Related Files
+- src/api/middleware.ts
+- src/api/app.ts
+- src/config/rate-limits.ts
+
+## Roadmap Check
+Not found in existing phase plans.
+
+How would you like to proceed?
+
+1. Quick fix (/gsd:quick)
+   - Fast implementation for straightforward todos
+   
+2. Add to existing phase
+   - Phase 4: API improvements (in progress)
+   
+3. Plan new phase
+   - Create dedicated phase for this work
+   
+4. Brainstorm first (/gsd:discuss)
+   - Explore approach before committing
+   
+5. Mark as planned
+   - You'll handle this manually
+   
+6. Back to list
+```
+
+## Action Routes
+
+### 1. Quick Fix
+
+Executes todo as quick task:
+
+```bash
+You: 1  # Quick fix
+
+GSD: Executing as quick task...
+[Spawns gsd-planner + gsd-executor]
+[Implements rate limiting]
+[Commits changes]
+
+Todo completed: add-rate-limiting.md → .done/
+STATE.md updated.
+```
+
+### 2. Add to Existing Phase
+
+Appends to in-progress phase:
+
+```bash
+You: 2  # Add to Phase 4
+
+GSD: Adding to Phase 4: API improvements
+
+Updated PLAN.md:
+## Tasks
+1. [x] Optimize query endpoints
+2. [x] Add request validation
+3. [ ] Add rate limiting (from todo)
+
+Use /gsd:execute 4 to continue phase.
+```
+
+### 3. Plan New Phase
+
+Creates dedicated phase:
+
+```bash
+You: 3  # Plan new phase
+
+GSD: Creating phase from todo...
+
+Phase 7: API rate limiting and protection
+
+Goals:
+- Prevent API abuse
+- Implement distributed rate limiting
+- Add proper 429 responses
+
+Context from todo loaded into phase PLAN.md.
+Use /gsd:execute 7 when ready.
+```
+
+### 4. Brainstorm First
+
+Discuss before acting:
+
+```bash
+You: 4  # Brainstorm
+
+GSD: Let's explore rate limiting approaches...
+
+Questions:
+1. Which endpoints need limiting?
+   - All public endpoints?
+   - Just high-cost operations?
+   
+2. Rate limit strategy?
+   - Per IP?
+   - Per user?
+   - Per API key?
+   
+3. Storage backend?
+   - Redis for distributed?
+   - In-memory for single instance?
+
+[Discussion continues...]
+[Decisions captured in CONTEXT.md]
+
+Ready to proceed? 
+- Quick fix with decisions
+- Plan phase with full context
+```
+
+### 5. Mark as Planned
+
+Track without immediate action:
+
+```bash
+You: 5  # Mark as planned
+
+GSD: Marked as planned. Moving to .planning/todos/.planned/
+
+You can reference this later when planning related work.
+```
+
+## Roadmap Correlation
+
+GSD checks if the todo is already addressed:
+
+```bash
+## Roadmap Check
+✓ Related to Phase 4: API improvements
+  - Task 3 mentions rate limiting
+  - 60% complete
+
+This todo might overlap with planned work.
+Review Phase 4 plan before creating duplicate phase.
+```
+
+## Directory Structure
+
+### Active todos
+```
+.planning/todos/
+├── api/
+│   ├── add-rate-limiting.md
+│   └── implement-caching.md
+├── auth/
+│   └── refresh-token-rotation.md
+└── database/
+    └── add-indexes.md
+```
+
+### Completed todos
+```
+.planning/todos/.done/
+├── api/
+│   └── 2026-03-06-add-rate-limiting.md
+└── auth/
+    └── 2026-03-05-fix-session-timeout.md
+```
+
+### Planned (not yet actioned)
+```
+.planning/todos/.planned/
+└── general/
+    └── improve-error-messages.md
+```
+
+## Priority Sorting
+
+Todos are sorted by:
+1. **Priority** (high → medium → low)
+2. **Date added** (oldest first)
+3. **Area** (alphabetical)
+
+High-priority todos always appear first.
+
+## Empty State
+
+```bash
+/gsd:check-todos
+```
+
+**No todos:**
+```
+No pending todos! 🎉
+
+Capture ideas as they come up:
+/gsd:add-todo [description]
+
+Or check completed work:
+ls .planning/todos/.done/
+```
+
+## STATE.md Updates
+
+When todos are actioned:
+
+```markdown
+## Quick Tasks Completed
+| # | Task | Completed | Source | Commit |
+|---|------|-----------|--------|--------|
+| 5 | Add API rate limiting | 2026-03-06 | todo | a1b2c3d |
+```
+
+Or added to phase:
+
+```markdown
+## Current Phase
+Phase 4: API improvements (65% complete)
+- Tasks: 3/5 complete
+- Added from todo: rate limiting
+```
+
+## When to Use
+
+<Card title="Perfect for" icon="list-check">
+  - Reviewing accumulated ideas
+  - Prioritizing next work
+  - Finding quick wins
+  - Planning sprint work
+  - Clearing technical debt
+  - After completing a phase
+  - During planning sessions
+</Card>
+
+<Card title="Workflow integration" icon="arrows-spin">
+  **Regular review cycle:**
+  1. Capture ideas with `/gsd:add-todo`
+  2. Build up todo backlog
+  3. Periodically `/gsd:check-todos`
+  4. Work through high-priority items
+  5. Convert valuable todos to phases
+</Card>
+
+## Success Criteria
+
+- ✅ Todo existence checked
+- ✅ Area filtering applied (if specified)
+- ✅ Interactive listing presented
+- ✅ Full context loaded on selection
+- ✅ Roadmap correlation checked
+- ✅ Action offered and executed
+- ✅ STATE.md updated
+- ✅ Git commit created (if changes made)
+
+## Related Commands
+
+- [`add-todo`](/commands/add-todo) - Capture new todos
+- [`quick`](/commands/quick) - Execute todo as quick task
+- [`plan-phase`](/commands/plan-phase) - Convert todo to phase
+- [`discuss`](/commands/discuss) - Brainstorm todo approach
+- [`progress`](/commands/progress) - See todos in project context

@@ -1,0 +1,179 @@
+---
+title: 'gsd:plan-milestone-gaps'
+description: 'Create phases to close all gaps identified by milestone audit'
+---
+
+## Overview
+
+Create all phases necessary to close gaps identified by `/gsd:audit-milestone`. This command reads the milestone audit report, groups gaps into logical phases, creates phase entries in ROADMAP.md, and offers to plan each phase. One command creates all fix phases without requiring manual `/gsd:add-phase` per gap.
+
+## Syntax
+
+```bash
+/gsd:plan-milestone-gaps
+```
+
+No arguments required. The command automatically uses the most recent milestone audit file.
+
+## Purpose
+
+Streamline the gap-closing process by:
+- Automatically reading audit results
+- Grouping related gaps into coherent phases
+- Creating all necessary phase entries at once
+- Offering to plan each gap-closing phase
+
+## Process
+
+The command executes the plan-milestone-gaps workflow:
+
+1. **Load Audit** - Reads most recent `.planning/v*-MILESTONE-AUDIT.md` file
+2. **Extract Gaps** - Identifies all gaps, missing requirements, and integration issues
+3. **Prioritize** - Groups gaps by urgency and type
+4. **Group into Phases** - Creates logical phase groupings for related gaps
+5. **Present Plan** - Shows proposed phases with gap assignments
+6. **User Confirmation** - Waits for approval before creating phases
+7. **Update Roadmap** - Adds all gap-closing phases to ROADMAP.md
+8. **Offer Planning** - Prompts to plan each new phase
+
+## Input Files
+
+- `.planning/v*-MILESTONE-AUDIT.md` - Most recent milestone audit (required)
+- `.planning/ROADMAP.md` - Current roadmap for phase insertion
+- `.planning/STATE.md` - State tracking for updates
+- Original planning files loaded on demand as needed
+
+## Gap Types Addressed
+
+### Missing Requirements
+Requirements from REQUIREMENTS.md not covered by any completed phase.
+
+### Integration Issues
+Cross-phase wiring problems identified during integration check.
+
+### Technical Debt
+Deferred work that should be completed before milestone completion.
+
+### End-to-End Gaps
+Missing user flows or incomplete feature implementations.
+
+## Phase Grouping Strategy
+
+Gaps are grouped into phases by:
+- **Related functionality** - Similar features or areas
+- **Dependencies** - Gaps that must be fixed together
+- **Urgency** - Critical vs nice-to-have fixes
+- **Size** - Balanced phase scope (not too large or small)
+
+## Examples
+
+### Close All Audit Gaps
+
+```bash
+/gsd:plan-milestone-gaps
+```
+
+Reads the most recent audit, groups gaps, and creates all necessary fix phases.
+
+### After Failed Audit
+
+```bash
+/gsd:audit-milestone
+# Audit shows 5 gaps across 3 areas
+/gsd:plan-milestone-gaps
+# Creates 3 phases to address all gaps
+```
+
+## Phase Creation
+
+For each gap grouping, the command:
+- Generates descriptive phase title (e.g., "Close authentication gaps")
+- Creates phase entry in ROADMAP.md
+- Includes list of gaps addressed in phase description
+- Creates phase directory `.planning/phases/{N}-{slug}/`
+- Updates STATE.md with roadmap evolution
+
+## User Confirmation Gates
+
+### 1. Gap Review
+Presents all identified gaps with severity and area.
+
+### 2. Phase Proposal
+Shows proposed phase groupings and asks for approval.
+
+### 3. Planning Offer
+After creation, offers to plan each phase immediately.
+
+## Output Files
+
+- Updated `.planning/ROADMAP.md` - New gap-closing phases added
+- Updated `.planning/STATE.md` - Roadmap evolution tracked
+- New phase directories in `.planning/phases/`
+- Optional: PLAN.md files if user chooses immediate planning
+
+## Next Steps After Execution
+
+### Option 1: Plan Phases Immediately
+```bash
+/gsd:plan-phase {N}
+```
+Plan and execute each gap-closing phase.
+
+### Option 2: Complete Other Work First
+Continue with current work, plan gap phases later.
+
+### Option 3: Re-audit After Planning
+```bash
+/gsd:audit-milestone
+```
+After planning gap phases, run audit again to verify all gaps are addressed.
+
+## When to Use
+
+- After `/gsd:audit-milestone` reports gaps
+- Before `/gsd:complete-milestone` to ensure quality
+- When audit status is `gaps_found`
+- To systematically address technical debt
+
+## When NOT to Use
+
+- **Audit passed**: No gaps to address
+- **Accepting tech debt**: If you're okay shipping with gaps
+- **Next milestone work**: If gaps are deferred to future milestone
+
+## Workflow Gates Preserved
+
+The command maintains these validation points:
+- Audit file exists and is recent
+- Gaps are properly categorized
+- Phase groupings are logical
+- User approves before creating phases
+- Roadmap updates are valid
+
+## Success Criteria
+
+- All audit gaps assigned to phases
+- Phases created in roadmap
+- Phase directories created
+- User knows how to proceed
+- No gaps left unaddressed
+
+## Integration with Other Commands
+
+This command is part of the milestone completion workflow:
+
+1. `/gsd:audit-milestone` - Identify gaps
+2. `/gsd:plan-milestone-gaps` - Create phases to close gaps
+3. `/gsd:plan-phase` - Plan each gap-closing phase
+4. `/gsd:execute-phase` - Execute gap-closing work
+5. `/gsd:audit-milestone` - Re-audit to verify gaps closed
+6. `/gsd:complete-milestone` - Archive milestone
+
+## Allowed Tools
+
+- Read
+- Write
+- Bash
+- Glob
+- Grep
+- AskUserQuestion

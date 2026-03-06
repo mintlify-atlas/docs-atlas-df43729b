@@ -1,0 +1,503 @@
+---
+title: Multi-Agent Orchestration
+description: How GSD uses specialized agents to keep context fresh and quality high
+---
+
+## The Orchestrator Pattern
+
+GSD's architecture follows a consistent pattern: **thin orchestrators spawn specialized agents**.
+
+The orchestrator never does heavy lifting. It:
+1. Spawns agents with fresh 200K context windows
+2. Waits for results
+3. Integrates outputs
+4. Routes to next step
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      USER SESSION                               │
+│                   (orchestrator layer)                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  /gsd:plan-phase 1                                              │
+│         │                                                       │
+│         ├── Spawns: Researcher (200K fresh)                    │
+│         │     └── Output: RESEARCH.md                          │
+│         │                                                       │
+│         ├── Spawns: Planner (200K fresh)                       │
+│         │     └── Output: 01-01-PLAN.md, 01-02-PLAN.md         │
+│         │                                                       │
+│         └── Spawns: Checker (200K fresh)                       │
+│               └── Output: Validation results                   │
+│                                                                 │
+│  /gsd:execute-phase 1                                           │
+│         │                                                       │
+│         ├── Wave 1 (parallel):                                 │
+│         │     ├── Executor A (200K fresh) → commits            │
+│         │     └── Executor B (200K fresh) → commits            │
+│         │                                                       │
+│         ├── Wave 2 (depends on Wave 1):                        │
+│         │     └── Executor C (200K fresh) → commits            │
+│         │                                                       │
+│         └── Spawns: Verifier (200K fresh)                      │
+│               └── Output: VERIFICATION.md                      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+  Your session context: 30-40% (just coordination)
+  Heavy work: Fresh 200K contexts per agent
+```
+
+<Info>
+**Key insight:** Your main session stays lean because it's just coordination. The actual work happens in fresh subagent contexts.
+</Info>
+
+## Agent Roles
+
+GSD includes 12 specialized agents:
+
+### Planning Agents
+
+<AccordionGroup>
+  <Accordion title="gsd-roadmapper">
+    **Role:** Creates milestone roadmaps from requirements
+    
+    **Spawned by:** `/gsd:new-project`, `/gsd:new-milestone`
+    
+    **Input:** PROJECT.md, REQUIREMENTS.md, research findings
+    
+    **Output:** ROADMAP.md with phases, must-haves, traceability
+    
+    **Model (balanced profile):** Sonnet
+  </Accordion>
+  
+  <Accordion title="gsd-phase-researcher">
+    **Role:** Investigates how to implement a phase
+    
+    **Spawned by:** `/gsd:plan-phase` (4 parallel instances)
+    
+    **Input:** Phase description, CONTEXT.md, existing codebase
+    
+    **Output:** RESEARCH.md (stack, features, architecture, pitfalls)
+    
+    **Model (balanced profile):** Sonnet
+  </Accordion>
+  
+  <Accordion title="gsd-planner">
+    **Role:** Creates executable phase plans with task breakdown
+    
+    **Spawned by:** `/gsd:plan-phase`
+    
+    **Input:** PROJECT.md, REQUIREMENTS.md, CONTEXT.md, RESEARCH.md
+    
+    **Output:** PLAN.md files with XML structure
+    
+    **Model (balanced profile):** Opus (where architectural decisions happen)
+  </Accordion>
+  
+  <Accordion title="gsd-plan-checker">
+    **Role:** Verifies plans achieve phase goals before execution
+    
+    **Spawned by:** `/gsd:plan-phase` (iterative loop)
+    
+    **Input:** PLAN.md files, REQUIREMENTS.md, must_haves
+    
+    **Output:** Validation results, revision suggestions
+    
+    **Model (balanced profile):** Sonnet
+  </Accordion>
+</AccordionGroup>
+
+### Execution Agents
+
+<AccordionGroup>
+  <Accordion title="gsd-executor">
+    **Role:** Executes PLAN.md files atomically with per-task commits
+    
+    **Spawned by:** `/gsd:execute-phase` (multiple in parallel)
+    
+    **Input:** PLAN.md, PROJECT.md, STATE.md, @-referenced files
+    
+    **Output:** Code changes, atomic commits, SUMMARY.md
+    
+    **Model (balanced profile):** Sonnet
+    
+    **Special behaviors:**
+    - Auto-fixes bugs (Rule 1)
+    - Auto-adds missing critical functionality (Rule 2)
+    - Auto-fixes blocking issues (Rule 3)
+    - Asks about architectural changes (Rule 4)
+    - Handles authentication gates
+    - Pauses at checkpoints
+  </Accordion>
+  
+  <Accordion title="gsd-verifier">
+    **Role:** Confirms must-haves were delivered after execution
+    
+    **Spawned by:** `/gsd:execute-phase` (after all plans complete)
+    
+    **Input:** REQUIREMENTS.md, PLAN frontmatter (must_haves), codebase
+    
+    **Output:** VERIFICATION.md with pass/fail per must-have
+    
+    **Model (balanced profile):** Sonnet
+  </Accordion>
+  
+  <Accordion title="gsd-debugger">
+    **Role:** Systematic debugging with persistent state
+    
+    **Spawned by:** `/gsd:debug`, `/gsd:verify-work` (when issues found)
+    
+    **Input:** Issue description, relevant code, logs
+    
+    **Output:** Root cause analysis, fix plans
+    
+    **Model (balanced profile):** Sonnet
+  </Accordion>
+</AccordionGroup>
+
+### Analysis Agents
+
+<AccordionGroup>
+  <Accordion title="gsd-codebase-mapper">
+    **Role:** Analyzes existing codebase before new-project
+    
+    **Spawned by:** `/gsd:map-codebase` (4 parallel instances)
+    
+    **Input:** Existing codebase
+    
+    **Output:** STACK.md, ARCHITECTURE.md, CONVENTIONS.md, CONCERNS.md
+    
+    **Model (balanced profile):** Haiku (read-only analysis)
+  </Accordion>
+  
+  <Accordion title="gsd-project-researcher">
+    **Role:** Investigates domain during new-project
+    
+    **Spawned by:** `/gsd:new-project --research`
+    
+    **Input:** Project idea, tech stack preferences
+    
+    **Output:** Research findings for requirements extraction
+    
+    **Model (balanced profile):** Haiku
+  </Accordion>
+  
+  <Accordion title="gsd-research-synthesizer">
+    **Role:** Combines parallel research findings
+    
+    **Spawned by:** Various orchestrators after parallel research
+    
+    **Input:** Multiple research outputs
+    
+    **Output:** Synthesized RESEARCH.md
+    
+    **Model (balanced profile):** Sonnet
+  </Accordion>
+  
+  <Accordion title="gsd-integration-checker">
+    **Role:** Validates integration between completed phases
+    
+    **Spawned by:** `/gsd:audit-milestone`
+    
+    **Input:** All phase SUMMARYs, codebase
+    
+    **Output:** Integration issues, gap analysis
+    
+    **Model (balanced profile):** Sonnet
+  </Accordion>
+  
+  <Accordion title="gsd-nyquist-auditor">
+    **Role:** Retroactively audits and fills test coverage gaps
+    
+    **Spawned by:** `/gsd:validate-phase`
+    
+    **Input:** Implementation code, existing tests, requirements
+    
+    **Output:** Test files, updated VALIDATION.md
+    
+    **Model (balanced profile):** Sonnet
+  </Accordion>
+</AccordionGroup>
+
+## Coordination Mechanisms
+
+### 1. Context Isolation
+
+Each agent gets its own context assembly:
+
+```typescript
+// Planner context
+const plannerContext = [
+  'PROJECT.md',
+  'REQUIREMENTS.md',
+  'ROADMAP.md',
+  'STATE.md',
+  `${phase}-CONTEXT.md`,
+  `${phase}-RESEARCH.md`,
+  ...relevantSummaries,
+];
+
+// Executor context
+const executorContext = [
+  'PROJECT.md',
+  'STATE.md',
+  `${phase}-${plan}-PLAN.md`,
+  ...referencedFiles,
+];
+
+// Different agents, different context, all fresh
+```
+
+### 2. File-Based Communication
+
+Agents communicate through structured markdown files:
+
+```
+Planner writes:     01-01-PLAN.md
+                    ↓
+Executor reads:     01-01-PLAN.md
+Executor writes:    01-01-SUMMARY.md
+                    ↓
+Verifier reads:     01-01-SUMMARY.md
+                    must_haves from PLAN frontmatter
+Verifier writes:    01-VERIFICATION.md
+```
+
+<Note>
+**Benefit:** No context leakage. Each agent has exactly what it needs, nothing more.
+</Note>
+
+### 3. Wave-Based Parallelization
+
+Executors run in waves based on dependencies:
+
+```yaml
+# Plan 01: Creates User model
+depends_on: []
+wave: 1
+
+# Plan 02: Creates Product model
+depends_on: []
+wave: 1
+
+# Plan 03: Creates Orders API (needs User)
+depends_on: [01]
+wave: 2
+
+# Plan 04: Creates Cart API (needs Product)
+depends_on: [02]
+wave: 2
+
+# Plan 05: Creates Checkout UI (needs Orders + Cart)
+depends_on: [03, 04]
+wave: 3
+```
+
+Wave execution algorithm:
+
+```python
+waves = {}
+for plan in plans:
+    if not plan.depends_on:
+        plan.wave = 1
+    else:
+        plan.wave = max(waves[dep] for dep in plan.depends_on) + 1
+    waves[plan.id] = plan.wave
+
+# Execute wave 1 in parallel
+# Wait for all wave 1 to complete
+# Execute wave 2 in parallel
+# ...
+```
+
+## Real Execution Flow
+
+Here's what happens when you run `/gsd:plan-phase 1`:
+
+<Steps>
+  <Step title="Orchestrator loads state">
+    ```bash
+    # Main session reads:
+    - .planning/PROJECT.md
+    - .planning/REQUIREMENTS.md
+    - .planning/ROADMAP.md
+    - .planning/STATE.md
+    - .planning/phases/01-foundation/01-CONTEXT.md
+    
+    # Context usage: ~10%
+    ```
+  </Step>
+  
+  <Step title="Spawn 4 parallel researchers">
+    ```bash
+    # Each researcher gets fresh 200K context
+    gsd-phase-researcher --focus=stack
+    gsd-phase-researcher --focus=features
+    gsd-phase-researcher --focus=architecture
+    gsd-phase-researcher --focus=pitfalls
+    
+    # Orchestrator waits, stays at 10%
+    # Each researcher works at 20-30%
+    ```
+  </Step>
+  
+  <Step title="Synthesize research">
+    ```bash
+    # Synthesis agent combines findings
+    # Fresh 200K context
+    # Writes: 01-RESEARCH.md
+    ```
+  </Step>
+  
+  <Step title="Spawn planner">
+    ```bash
+    # Planner gets fresh 200K context with:
+    - All base files from step 1
+    - 01-RESEARCH.md from step 3
+    - 2-4 relevant prior SUMMARYs
+    
+    # Creates: 01-01-PLAN.md, 01-02-PLAN.md, 01-03-PLAN.md
+    ```
+  </Step>
+  
+  <Step title="Spawn checker (iterative)">
+    ```bash
+    # Checker validates plans
+    # Fresh 200K context
+    
+    # If issues found:
+    #   Planner revises (fresh context again)
+    #   Checker validates again
+    # Loop up to 3x until pass
+    ```
+  </Step>
+  
+  <Step title="Orchestrator returns">
+    ```markdown
+    ## PLANNING COMPLETE
+    
+    **Phase:** 01-foundation
+    **Plans:** 3 plans in 2 waves
+    
+    Next: `/gsd:execute-phase 1`
+    ```
+    
+    Main session still at ~15%
+  </Step>
+</Steps>
+
+## Context Budget Tracking
+
+| Stage | Agents Spawned | Orchestrator Context | Total Agent Context |
+|-------|----------------|----------------------|---------------------|
+| new-project | 4 researchers, 1 synthesizer, 1 roadmapper | 10% | 6 × 200K |
+| plan-phase | 4 researchers, 1 synthesizer, 1 planner, 1-3 checkers | 15% | 7-9 × 200K |
+| execute-phase (3 plans, 2 waves) | 3 executors, 1 verifier | 20% | 4 × 200K |
+| verify-work | 1-5 debuggers | 10% | 1-5 × 200K |
+
+<Tip>
+**The pattern:** Orchestrator stays 10-20%. Heavy work happens in fresh 200K contexts. Your session never degrades.
+</Tip>
+
+## Failure Handling
+
+What happens when an agent fails?
+
+<AccordionGroup>
+  <Accordion title="Planner fails to create valid plans">
+    - Checker catches issues
+    - Orchestrator spawns planner in **revision mode**
+    - Planner gets: original PLAN.md + checker feedback
+    - Makes surgical fixes, not full rewrite
+    - Loop up to 3x
+  </Accordion>
+  
+  <Accordion title="Executor hits blocker mid-plan">
+    - Executor documents blocker in STATE.md
+    - Creates checkpoint with exact state
+    - Returns to orchestrator
+    - User resolves blocker
+    - Orchestrator spawns **continuation agent**
+    - Continuation agent resumes from checkpoint
+  </Accordion>
+  
+  <Accordion title="Verifier finds gaps">
+    - Writes VERIFICATION.md with gaps
+    - Orchestrator offers: `/gsd:plan-phase 1 --gaps`
+    - Planner in **gap closure mode**
+    - Creates targeted fix plans
+    - Execute-phase runs gap plans only
+  </Accordion>
+  
+  <Accordion title="Agent classification bug">
+    GSD includes a workaround for Claude Code's classification bug:
+    
+    - Orchestrator spot-checks actual output
+    - If commits exist but agent reported failure → treat as success
+    - Log warning but proceed
+  </Accordion>
+</AccordionGroup>
+
+## Model Profiles
+
+Different agents use different models based on their role:
+
+### Balanced Profile (Default)
+
+| Agent | Model | Why |
+|-------|-------|-----|
+| gsd-planner | **Opus** | Architectural decisions happen here |
+| gsd-executor | Sonnet | Most code writing, good quality/cost |
+| gsd-verifier | Sonnet | Read-only verification |
+| gsd-phase-researcher | Sonnet | Investigation work |
+| gsd-plan-checker | Sonnet | Validation logic |
+| gsd-codebase-mapper | Haiku | Read-only analysis |
+
+### Quality Profile
+
+- Opus for all decision-making agents
+- Sonnet for read-only verification
+- Use when quota available, work is critical
+
+### Budget Profile
+
+- Sonnet for anything that writes code
+- Haiku for research and verification
+- Use for high-volume work, less critical phases
+
+<Note>
+Switch profiles: `/gsd:set-profile budget` or `/gsd:settings`
+</Note>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Let parallelization happen" icon="arrows-split-up-and-left">
+    GSD automatically runs independent plans in parallel. Prefer "vertical slices" (Plan 01: User feature end-to-end) over "horizontal layers" (Plan 01: All models).
+  </Card>
+  
+  <Card title="Trust the orchestrator" icon="robot">
+    Don't manually spawn agents or chain commands. Use `/gsd:plan-phase` then `/gsd:execute-phase` — orchestration is automatic.
+  </Card>
+  
+  <Card title="Use /clear liberally" icon="broom">
+    Between major commands (`/gsd:plan-phase`, `/gsd:execute-phase`), run `/clear`. Orchestrator will spawn fresh agents anyway.
+  </Card>
+  
+  <Card title="Monitor with /gsd:progress" icon="chart-line">
+    See where you are, what's running, what's complete. The orchestrator tracks everything.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="XML Prompting" icon="code" href="/concepts/xml-prompting">
+    See how GSD structures prompts for Claude
+  </Card>
+  
+  <Card title="Workflow Stages" icon="list-check" href="/concepts/workflow-stages">
+    Understand the 5-stage development cycle
+  </Card>
+</CardGroup>

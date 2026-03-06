@@ -1,0 +1,265 @@
+---
+title: Context Engineering
+description: How GSD manages Claude's context window to maintain consistent quality throughout development
+---
+
+## The Context Degradation Problem
+
+Claude Code is incredibly powerful when working with a fresh context window. But as the context fills up, quality degrades:
+
+| Context Usage | Quality | Claude's State |
+|---------------|---------|----------------|
+| 0-30% | PEAK | Thorough, comprehensive |
+| 30-50% | GOOD | Confident, solid work |
+| 50-70% | DEGRADING | Efficiency mode begins |
+| 70%+ | POOR | Rushed, minimal |
+
+Most AI coding workflows ignore this curve. GSD is built around it.
+
+## The GSD Solution
+
+GSD solves context rot through three mechanisms:
+
+### 1. Structured Context Files
+
+Every GSD project maintains a set of carefully designed context files that give Claude exactly what it needs, when it needs it:
+
+| File | What it does | Size Limit |
+|------|--------------|------------|
+| `PROJECT.md` | Project vision, always loaded | ~500 lines |
+| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability | ~1000 lines |
+| `ROADMAP.md` | Where you're going, what's done | ~800 lines |
+| `STATE.md` | Decisions, blockers, position — memory across sessions | ~300 lines |
+| `research/` | Ecosystem knowledge (stack, features, architecture, pitfalls) | ~2000 lines total |
+| `PLAN.md` | Atomic task with XML structure, verification steps | ~200 lines |
+| `SUMMARY.md` | What happened, what changed, committed to history | ~300 lines |
+| `CONTEXT.md` | Your implementation preferences from discuss-phase | ~400 lines |
+
+<Info>
+Size limits are based on where Claude's quality degrades. Stay under these limits, get consistent excellence.
+</Info>
+
+### 2. Multi-Agent Architecture
+
+The orchestrator never does heavy lifting. It spawns specialized agents, waits, integrates results:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      ORCHESTRATOR                               │
+│                   (stays at 30-40% context)                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Spawns agents → Each gets fresh 200K context                  │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+│  │  Researcher  │  │   Planner    │  │  Executor A  │         │
+│  │  (200K ctx)  │  │  (200K ctx)  │  │  (200K ctx)  │         │
+│  └──────────────┘  └──────────────┘  └──────────────┘         │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐                           │
+│  │  Executor B  │  │  Verifier    │                           │
+│  │  (200K ctx)  │  │  (200K ctx)  │                           │
+│  └──────────────┘  └──────────────┘                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+<Tip>
+**Result:** You can run an entire phase — deep research, multiple plans created and verified, thousands of lines of code written across parallel executors, automated verification against goals — and your main context window stays at 30-40%.
+</Tip>
+
+The work happens in fresh subagent contexts. Your session stays fast and responsive.
+
+### 3. Atomic Task Scoping
+
+Plans are sized to complete within **~50% context** (not 80%). Each plan contains **2-3 tasks maximum**.
+
+| Task Complexity | Tasks/Plan | Context/Task | Total |
+|-----------------|------------|--------------|-------|
+| Simple (CRUD, config) | 3 | ~10-15% | ~30-45% |
+| Complex (auth, payments) | 2 | ~20-30% | ~40-50% |
+| Very complex (migrations) | 1-2 | ~30-40% | ~30-50% |
+
+No context anxiety. Quality maintained start to finish. Room for unexpected complexity.
+
+## The File Structure
+
+When you run `/gsd:new-project`, GSD creates:
+
+```
+.planning/
+  PROJECT.md              # Project vision and context (always loaded)
+  REQUIREMENTS.md         # Scoped v1/v2 requirements with IDs
+  ROADMAP.md              # Phase breakdown with status tracking
+  STATE.md                # Decisions, blockers, session memory
+  config.json             # Workflow configuration
+  research/               # Domain research from /gsd:new-project
+    01-stack.md           # Technology choices
+    02-features.md        # Feature landscape
+    03-architecture.md    # Architectural patterns
+    04-pitfalls.md        # Common gotchas
+  phases/
+    01-foundation/
+      01-CONTEXT.md       # Your implementation preferences
+      01-RESEARCH.md      # Phase-specific research
+      01-01-PLAN.md       # Atomic execution plans
+      01-01-SUMMARY.md    # Execution outcomes
+      01-VERIFICATION.md  # Post-execution verification
+```
+
+## Context Assembly Strategy
+
+Different agents load different combinations:
+
+### Planner Context (15-20%)
+
+```markdown
+Always loaded:
+- PROJECT.md (~500 lines)
+- REQUIREMENTS.md (~1000 lines)
+- ROADMAP.md (~800 lines)
+- STATE.md (~300 lines)
+
+Phase-specific:
+- {phase}-CONTEXT.md (~400 lines) — your decisions
+- {phase}-RESEARCH.md (~500 lines) — ecosystem findings
+
+Selective history:
+- 2-4 relevant prior SUMMARY files (~300 lines each)
+
+Total: ~4,500-5,500 lines (~15-20% context)
+```
+
+### Executor Context (20-30%)
+
+```markdown
+Always loaded:
+- PROJECT.md (~500 lines)
+- STATE.md (~300 lines)
+
+Task-specific:
+- {phase}-{plan}-PLAN.md (~200 lines) — the execution prompt
+- @-referenced source files from PLAN.md
+- Prior SUMMARY.md if PLAN depends on it
+
+Total: Varies by task, targets ~20-30% for execution room
+```
+
+### Verifier Context (10-15%)
+
+```markdown
+Always loaded:
+- PROJECT.md (~500 lines)
+- REQUIREMENTS.md (~1000 lines)
+- ROADMAP.md (~800 lines)
+
+Phase-specific:
+- All SUMMARY.md files for the phase
+- Phase must_haves from PLAN frontmatter
+
+Total: ~3,000-4,000 lines (~10-15% context)
+```
+
+## Selective History Loading
+
+GSD doesn't load every prior phase. It uses a **two-step digest strategy**:
+
+<Steps>
+  <Step title="Generate digest index">
+    Create lightweight summaries of all completed phases:
+    
+    ```bash
+    node gsd-tools.cjs history-digest
+    ```
+    
+    Output: `tech_stack`, `decisions`, `patterns`, `affects` for each phase
+  </Step>
+  
+  <Step title="Score relevance">
+    For the current phase, score each prior phase by:
+    - **affects overlap** — Does it touch same subsystems?
+    - **provides dependency** — Does current phase need what it created?
+    - **patterns** — Are its patterns applicable?
+  </Step>
+  
+  <Step title="Read top 2-4 phases">
+    Load full SUMMARY.md files only for highest-scoring phases
+    
+    Keep digest-level context for everything else
+  </Step>
+</Steps>
+
+<Note>
+**Result:** You get relevant historical context without loading 20+ SUMMARY files into every agent.
+</Note>
+
+## Size Enforcement
+
+GSD includes built-in size checks:
+
+```typescript
+const SIZE_LIMITS = {
+  'PROJECT.md': 500,
+  'REQUIREMENTS.md': 1000,
+  'ROADMAP.md': 800,
+  'STATE.md': 300,
+  '{phase}-CONTEXT.md': 400,
+  '{phase}-RESEARCH.md': 500,
+  '{phase}-{plan}-PLAN.md': 200,
+  '{phase}-{plan}-SUMMARY.md': 300,
+};
+```
+
+When files exceed limits, GSD prompts you to archive or refactor.
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Clear between phases" icon="broom">
+    Run `/clear` in Claude Code between major commands. Each subagent gets a fresh 200K window — your main session should too.
+  </Card>
+  
+  <Card title="Use /gsd:resume-work" icon="play">
+    Starting a new session? Don't manually re-read files. `/gsd:resume-work` loads exactly what you need.
+  </Card>
+  
+  <Card title="Keep PROJECT.md focused" icon="bullseye">
+    It's loaded into EVERY agent. Keep it concise: vision, constraints, core decisions.
+  </Card>
+  
+  <Card title="Archive completed milestones" icon="box-archive">
+    `/gsd:complete-milestone` moves completed work to MILESTONES.md, keeping ROADMAP.md lean.
+  </Card>
+</CardGroup>
+
+## Why It Works
+
+Context engineering is the difference between:
+
+**Without GSD:**
+- Main session at 80-90% context after 2 hours
+- Claude starts abbreviating, skipping steps
+- "I'll be more concise now" (quality death)
+- Manual context management (copy-paste hell)
+
+**With GSD:**
+- Main session stays 30-40% even after full phase
+- Heavy work happens in fresh 200K subagent contexts
+- Consistent quality from first task to last
+- Automatic context assembly and cleanup
+
+<Tip>
+GSD doesn't fight the context degradation curve. It **works around it** through structured files, multi-agent orchestration, and atomic task scoping.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Multi-Agent Orchestration" icon="users" href="/concepts/multi-agent-orchestration">
+    Learn how GSD coordinates specialized agents
+  </Card>
+  
+  <Card title="Workflow Stages" icon="list-check" href="/concepts/workflow-stages">
+    Understand the 5-stage development cycle
+  </Card>
+</CardGroup>

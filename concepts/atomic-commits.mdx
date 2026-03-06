@@ -1,0 +1,570 @@
+---
+title: Atomic Commits
+description: How GSD creates per-task commits for traceability, rollback, and AI observability
+---
+
+## The Strategy
+
+Every task in a GSD plan produces **one commit immediately after completion**.
+
+Not:
+- One commit per plan
+- One commit per phase
+- Bulk commit at the end
+
+But: **One commit per task, right away.**
+
+```bash
+# Phase 08, Plan 02: User Registration
+
+abc123f feat(08-02): create user model with email and password fields
+def456g feat(08-02): add email confirmation flow
+hij789k feat(08-02): implement password hashing with bcrypt
+lmn012o feat(08-02): create registration endpoint
+```
+
+Each commit is:
+- **Atomic** — One logical unit of work
+- **Traceable** — Links to phase, plan, task
+- **Revertable** — Can undo without affecting others
+- **Meaningful** — Describes what changed and why
+
+## Why It Matters
+
+### 1. Git Bisect Works
+
+Find the exact failing task:
+
+```bash
+# Something broke between yesterday and today
+git bisect start
+git bisect bad HEAD
+git bisect good abc123f
+
+# Git bisect finds: hij789k
+# "feat(08-02): implement password hashing with bcrypt"
+
+# Now you know exactly what broke
+```
+
+With bulk commits, you'd have to manually search through 20 file changes.
+
+### 2. Surgical Rollback
+
+Revert exactly what broke:
+
+```bash
+# Task 3 introduced a bug
+git revert hij789k
+
+# Tasks 1, 2, and 4 still work
+# Only password hashing reverted
+```
+
+With bulk commits, reverting means losing all work.
+
+### 3. AI Observability
+
+Claude can understand history:
+
+```bash
+# In future phase planning:
+Claude reads: git log --oneline phases/08-auth/
+
+abc123f feat(08-02): create user model
+def456g feat(08-02): add email confirmation
+hij789k feat(08-02): implement password hashing
+lmn012o feat(08-02): create registration endpoint
+
+# Claude sees: "Auth was built incrementally"
+#              "User model came before registration"
+#              "Email confirmation was added"
+```
+
+With vague commits ("Update auth"), Claude has no context.
+
+### 4. Review Granularity
+
+Each commit is reviewable:
+
+```bash
+git show hij789k
+
+# See exactly what changed for password hashing task:
+- Added bcrypt dependency
+- Created hashPassword() function
+- Updated User.create() to hash before save
+- Added unit test for hashing
+```
+
+With bulk commits, PRs become 1000+ line monsters.
+
+## Commit Format
+
+GSD uses conventional commits with phase/plan prefix:
+
+```
+{type}({phase}-{plan}): {concise description}
+
+- {key change 1}
+- {key change 2}
+```
+
+### Type
+
+| Type | When |
+|------|------|
+| `feat` | New feature, endpoint, component |
+| `fix` | Bug fix, error correction |
+| `test` | Test-only changes (TDD RED) |
+| `refactor` | Code cleanup, no behavior change |
+| `chore` | Config, tooling, dependencies |
+| `docs` | Documentation, planning files |
+
+### Phase-Plan Prefix
+
+```
+feat(08-02): ...
+     ││ └─ Plan number within phase
+     │└─── Phase number
+     └──── Type
+```
+
+**Benefits:**
+- `git log` filtered by phase: `git log --grep="08-"`
+- `git log` filtered by plan: `git log --grep="08-02"`
+- Clear traceability from commit to PLAN.md
+
+### Description
+
+<CardGroup cols={2}>
+  <Card title="Good Examples" icon="check">
+    ```
+    feat(08-02): create user model with email/password
+    feat(08-02): add email confirmation flow
+    feat(03-01): implement card grid layout with hover
+    fix(05-02): handle null values in pricing calc
+    ```
+  </Card>
+  
+  <Card title="Bad Examples" icon="xmark">
+    ```
+    feat(08-02): update code
+    feat(08-02): fix stuff
+    feat(08-02): changes
+    feat(08-02): wip
+    ```
+  </Card>
+</CardGroup>
+
+<Tip>
+**Rule:** Commit message should tell you WHAT changed without reading the diff.
+</Tip>
+
+### Body (Optional)
+
+For complex tasks, add bullet points:
+
+```
+feat(08-02): implement password hashing with bcrypt
+
+- Add bcrypt dependency (v5.1.0)
+- Create hashPassword() utility function
+- Update User.create() to hash before database save
+- Add unit tests for hashing and verification
+- Use cost factor 10 (recommended for production)
+```
+
+But most tasks are concise enough for one-line commits.
+
+## Commit Timing
+
+Executors commit **immediately after each task**:
+
+<Steps>
+  <Step title="Execute Task">
+    ```typescript
+    // Executor reads task from PLAN.md
+    <task type="auto">
+      <name>Task 1: Create user model</name>
+      <files>src/models/user.ts</files>
+      <action>Create User model with email and password fields...</action>
+      <verify>npm test -- user.test.ts</verify>
+      <done>User model exists with email/password fields</done>
+    </task>
+    
+    // Executor creates src/models/user.ts
+    // Executor runs verification
+    // Verification passes
+    ```
+  </Step>
+  
+  <Step title="Stage Files">
+    ```bash
+    # Stage task-related files individually
+    git add src/models/user.ts
+    git add src/types/user.ts
+    
+    # NEVER: git add . or git add -A
+    ```
+  </Step>
+  
+  <Step title="Commit">
+    ```bash
+    git commit -m "feat(08-02): create user model with email/password fields
+    
+    - Define User interface with id, email, password, createdAt
+    - Add Prisma schema for users table
+    - Export User type for API consumption"
+    ```
+  </Step>
+  
+  <Step title="Record Hash">
+    ```bash
+    TASK_1_COMMIT=$(git rev-parse --short HEAD)
+    # Store for SUMMARY.md
+    ```
+  </Step>
+  
+  <Step title="Continue to Next Task">
+    Executor moves to Task 2, repeats process.
+    
+    No waiting. No batching. Commit immediately.
+  </Step>
+</Steps>
+
+## Real Example
+
+Phase 08, Plan 02: User Registration
+
+**PLAN.md:**
+
+```xml
+<task type="auto">
+  <name>Task 1: Create user model</name>
+  <files>src/models/user.ts, prisma/schema.prisma</files>
+  <action>...</action>
+</task>
+
+<task type="auto">
+  <name>Task 2: Add email confirmation flow</name>
+  <files>src/utils/email.ts, src/models/confirmationToken.ts</files>
+  <action>...</action>
+</task>
+
+<task type="auto">
+  <name>Task 3: Implement password hashing</name>
+  <files>src/utils/password.ts, src/models/user.ts</files>
+  <action>...</action>
+</task>
+
+<task type="auto">
+  <name>Task 4: Create registration endpoint</name>
+  <files>src/app/api/auth/register/route.ts</files>
+  <action>...</action>
+</task>
+```
+
+**Git History:**
+
+```bash
+git log --oneline --decorate
+
+lmn012o (HEAD -> main) docs(08-02): complete user registration plan
+kjh901p feat(08-02): create registration endpoint
+hij789k feat(08-02): implement password hashing with bcrypt
+def456g feat(08-02): add email confirmation flow
+abc123f feat(08-02): create user model with email/password fields
+9xy876w docs(08-02): create phase plan
+```
+
+**SUMMARY.md:**
+
+```markdown
+## Tasks Completed
+
+### Task 1: Create user model
+- **Commit:** abc123f
+- **Files:** src/models/user.ts, prisma/schema.prisma
+- **Outcome:** User model created with email, password, createdAt fields
+
+### Task 2: Add email confirmation flow
+- **Commit:** def456g
+- **Files:** src/utils/email.ts, src/models/confirmationToken.ts
+- **Outcome:** Email sending via SendGrid, token generation and validation
+
+### Task 3: Implement password hashing
+- **Commit:** hij789k
+- **Files:** src/utils/password.ts, src/models/user.ts
+- **Outcome:** bcrypt hashing with cost factor 10, verify function added
+
+### Task 4: Create registration endpoint
+- **Commit:** kjh901p
+- **Files:** src/app/api/auth/register/route.ts
+- **Outcome:** POST /api/auth/register accepting email/password, sends confirmation email
+```
+
+**Final Commit (metadata only):**
+
+```bash
+lmn012o docs(08-02): complete user registration plan
+
+# Includes:
+# - .planning/phases/08-auth/08-02-SUMMARY.md
+# - .planning/STATE.md (updated progress)
+# - .planning/ROADMAP.md (updated plan counts)
+```
+
+## TDD Commits
+
+Test-driven tasks produce **2-3 commits**:
+
+### RED Commit
+
+```bash
+test(08-02): add failing test for password hashing
+
+- Create password.test.ts
+- Write test: hashPassword() returns bcrypt hash
+- Write test: verifyPassword() validates correctly
+- Tests fail (no implementation yet)
+```
+
+### GREEN Commit
+
+```bash
+feat(08-02): implement password hashing
+
+- Create hashPassword() using bcrypt with cost 10
+- Create verifyPassword() for validation
+- All tests now passing
+```
+
+### REFACTOR Commit (if needed)
+
+```bash
+refactor(08-02): extract password config to constants
+
+- Move cost factor to PASSWORD_COST constant
+- Add PASSWORD_MIN_LENGTH validation
+- Tests still passing
+```
+
+<Info>
+TDD cycle produces granular history: exactly when tests were added, when implementation shipped, when refactoring happened.
+</Info>
+
+## Deviation Commits
+
+When executor applies Rules 1-3 (auto-fixes), separate commit:
+
+```bash
+# Task 2 execution
+feat(08-02): add email confirmation flow
+
+# Executor discovers: missing null check causes crash
+# Rule 1 (bug) applies -> fix inline
+
+fix(08-02): add null check in email confirmation handler
+
+- Check token existence before validation
+- Return 400 if token missing
+- Add test case for missing token
+
+# Continue Task 2...
+```
+
+**Tracked in SUMMARY.md:**
+
+```markdown
+## Deviations from Plan
+
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] Added null check in email confirmation**
+- **Found during:** Task 2
+- **Issue:** Missing token caused null pointer exception
+- **Fix:** Added token existence check, return 400 if missing
+- **Files modified:** src/app/api/auth/confirm/route.ts
+- **Commit:** xyz789a
+```
+
+## Checkpoint Commits
+
+When executor pauses at checkpoint:
+
+```bash
+# Tasks 1-2 completed before checkpoint
+abc123f feat(08-02): create user model
+def456g feat(08-02): add email confirmation flow
+
+# Executor hits checkpoint:human-verify
+# Returns to orchestrator with state
+# User approves
+
+# Continuation agent spawns
+# Completes remaining tasks
+hij789k feat(08-02): implement password hashing
+lmn012o feat(08-02): create registration endpoint
+
+# Final metadata commit
+opq345r docs(08-02): complete user registration plan
+```
+
+**No "checkpoint reached" commits.** Checkpoints are execution pauses, not code changes.
+
+## File Ownership
+
+Each task's commit includes only files from `<files>` element:
+
+```xml
+<task type="auto">
+  <name>Task 1: Create user model</name>
+  <files>src/models/user.ts, prisma/schema.prisma</files>
+  ...
+</task>
+```
+
+```bash
+git add src/models/user.ts prisma/schema.prisma
+git commit -m "feat(08-02): create user model"
+
+# Does NOT include:
+# - Other files modified by task (tracked as deviation)
+# - Unrelated changes in working directory
+# - Planning files (.planning/* committed separately)
+```
+
+<Warning>
+**Executors NEVER use:**
+- `git add .`
+- `git add -A`
+- `git add -u`
+
+Always stage files individually to maintain atomicity.
+</Warning>
+
+## Benefits Summary
+
+<CardGroup cols={2}>
+  <Card title="Debugging" icon="bug">
+    Git bisect finds exact failing task in O(log n) time. Manual search through bulk commits takes O(n).
+  </Card>
+  
+  <Card title="Rollback" icon="rotate-left">
+    Revert surgical changes without affecting unrelated work. Bulk commits force all-or-nothing.
+  </Card>
+  
+  <Card title="Review" icon="eye">
+    Each commit is reviewable unit. Reviewers understand WHAT changed and WHY.
+  </Card>
+  
+  <Card title="History" icon="clock-rotate-left">
+    Future Claude agents read commit history to understand how features were built, in what order, with what decisions.
+  </Card>
+  
+  <Card title="Traceability" icon="link">
+    Direct link from commit → task → plan → phase → requirement. Full visibility.
+  </Card>
+  
+  <Card title="CI/CD" icon="gears">
+    Each commit triggers build. Know immediately which task broke the build.
+  </Card>
+</CardGroup>
+
+## Planning File Commits
+
+GSD commits planning files separately from code:
+
+```bash
+# Code commits (per-task)
+abc123f feat(08-02): create user model
+def456g feat(08-02): add email confirmation
+...
+
+# Planning metadata commit (after all tasks)
+xyz789a docs(08-02): complete user registration plan
+
+# Includes:
+# - .planning/phases/08-auth/08-02-SUMMARY.md
+# - .planning/STATE.md
+# - .planning/ROADMAP.md
+# - .planning/REQUIREMENTS.md
+```
+
+**Why separate?**
+- Code commits are feature work (feat, fix, test)
+- Planning commits are documentation (docs)
+- Different revert semantics (rarely need to revert docs)
+- Clean `git log --grep="feat"` shows only code changes
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Let executors commit" icon="robot">
+    Don't manually commit during execute-phase. Executors handle atomicity automatically.
+  </Card>
+  
+  <Card title="Use git log filters" icon="filter">
+    ```bash
+    # All phase 8 commits
+    git log --grep="08-"
+    
+    # All plan 8-2 commits
+    git log --grep="08-02"
+    
+    # All features
+    git log --grep="feat"
+    ```
+  </Card>
+  
+  <Card title="Review commit messages" icon="clipboard-check">
+    After execute-phase, run:
+    ```bash
+    git log --oneline -10
+    ```
+    Check commit messages are meaningful.
+  </Card>
+  
+  <Card title="Use git bisect" icon="magnifying-glass">
+    When debugging:
+    ```bash
+    git bisect start
+    git bisect bad HEAD
+    git bisect good [last-known-good]
+    ```
+    Find exact breaking commit.
+  </Card>
+</CardGroup>
+
+## Anti-Patterns
+
+<Warning>
+**DON'T:**
+- Squash GSD commits during PR (loses traceability)
+- Manually commit during execute-phase (breaks atomicity)
+- Use vague commit messages ("update code", "fix stuff")
+- Bulk stage files (`git add .`)
+- Skip commit messages (executor never does this, but humans might)
+</Warning>
+
+<Tip>
+**DO:**
+- Trust the executor's commit strategy
+- Keep atomic commits in git history
+- Use conventional commit format
+- Stage files individually per task
+- Document deviations in SUMMARY.md
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workflow Stages" icon="list-check" href="/concepts/workflow-stages">
+    See how commits fit into the 5-stage workflow
+  </Card>
+  
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Try the full workflow with atomic commits
+  </Card>
+</CardGroup>

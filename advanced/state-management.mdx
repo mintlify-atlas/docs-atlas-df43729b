@@ -1,0 +1,545 @@
+---
+title: "State Management"
+description: "How STATE.md works, decision tracking, and session continuity in the Get Shit Done framework"
+---
+
+## What is STATE.md?
+
+`STATE.md` is the **project's short-term memory** spanning all phases and sessions.
+
+**Purpose**: Enable instant session restoration and track accumulated context.
+
+**Problem it solves**: Information is captured in summaries, issues, and decisions but not systematically consumed. Sessions start without context.
+
+**Solution**: A single, small file that's:
+- Read FIRST in every workflow
+- Updated after every significant action
+- Contains digest of accumulated context
+- Enables `/gsd:resume-work` instant restoration
+
+<Info>
+**Size constraint**: STATE.md stays under 100 lines. It's a DIGEST, not an archive. Detail lives in PROJECT.md, SUMMARY.md, ROADMAP.md.
+</Info>
+
+## File Structure
+
+```markdown
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-03-05)
+
+**Core value:** Ship fast, iterate based on user feedback
+**Current focus:** Phase 3 - User Authentication
+
+## Current Position
+
+Phase: 3 of 8 (User Authentication)
+Plan: 2 of 5 in current phase
+Status: In progress
+Last activity: 2026-03-05 — Completed login endpoint plan
+
+Progress: [███░░░░░░░] 28%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 14
+- Average duration: 6.2 min
+- Total execution time: 1.4 hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 01 | 3 | 18m | 6.0m |
+| 02 | 6 | 42m | 7.0m |
+| 03 | 2 | 11m | 5.5m |
+
+**Recent Trend:**
+- Last 5 plans: [7m, 5m, 6m, 5m, 6m]
+- Trend: Stable
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [Phase 2]: Use Prisma ORM (not Drizzle) for type safety
+- [Phase 3]: JWT in httpOnly cookies (not localStorage)
+
+### Pending Todos
+
+2 pending todos — see /gsd:check-todos
+
+### Blockers/Concerns
+
+None yet.
+
+## Session Continuity
+
+Last session: 2026-03-05 14:32
+Stopped at: Completed 03-02 login endpoint execution
+Resume file: None
+```
+
+## Lifecycle
+
+### Creation
+
+**When**: After ROADMAP.md is created (during `/gsd:new-project`)
+
+**Initial state**:
+- Reference PROJECT.md (read for current context)
+- Initialize empty accumulated context sections
+- Set position to "Phase 1 ready to plan"
+- Progress: 0%
+
+### Reading
+
+**First step of EVERY workflow**:
+
+```markdown
+<step name="load_state" priority="first">
+Read .planning/STATE.md to understand current position.
+</step>
+```
+
+**Workflows that read STATE.md**:
+- `/gsd:progress` — Present status to user
+- `/gsd:plan-phase` — Inform planning decisions
+- `/gsd:execute-phase` — Know current position
+- `/gsd:verify-work` — Understand context for UAT
+- `/gsd:resume-work` — Full context restoration
+- `/gsd:quick` — Position awareness for ad-hoc work
+
+### Writing
+
+**After every significant action**:
+
+| Workflow | Updates |
+|----------|----------|
+| `/gsd:execute-phase` | Position (phase, plan, status), decisions, blockers |
+| `/gsd:plan-phase` | Status ("Ready to execute"), plan count |
+| `/gsd:add-phase` | Pending todos, roadmap reference |
+| `/gsd:complete-milestone` | Progress bar, clear resolved blockers |
+| `/gsd:pause-work` | Session continuity (resume file path) |
+
+**Update mechanism** (via CLI tool):
+
+```bash
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" state update \
+  --position "Phase 3 of 8" \
+  --plan "2 of 5" \
+  --status "In progress" \
+  --last-activity "Completed 03-02 login endpoint"
+```
+
+## Sections Explained
+
+### Project Reference
+
+**Purpose**: Quick context pointer to PROJECT.md
+
+**Contents**:
+- Core value (the ONE thing that matters)
+- Current focus (which phase)
+- Last update date (triggers re-read if stale)
+
+**Why not inline project details?** Keeps STATE.md small. Claude reads PROJECT.md directly for full context.
+
+**Update trigger**: When PROJECT.md is modified (decision logged, constraint added)
+
+### Current Position
+
+**Purpose**: Instant "where am I?" answer
+
+**Contents**:
+- Phase X of Y — which phase in roadmap
+- Plan A of B — which plan within current phase
+- Status — current state (ready to plan, planning, ready to execute, in progress, phase complete)
+- Last activity — what happened most recently
+- Progress bar — visual indicator of overall completion
+
+**Progress calculation**:
+```javascript
+totalCompleted = sum(completed_plans_in_all_phases)
+totalPlans = sum(plan_count_in_all_phases)
+percentage = (totalCompleted / totalPlans) * 100
+bar = render_bar(percentage)
+```
+
+**Example bars**:
+- `[░░░░░░░░░░] 0%` — Just started
+- `[███░░░░░░░] 28%` — Early progress
+- `[██████████] 100%` — Milestone complete
+
+### Performance Metrics
+
+**Purpose**: Track velocity, detect degradation, estimate completion
+
+**Contents**:
+- **Velocity**: Total plans completed, average duration, total time
+- **By Phase**: Per-phase breakdown (enables "Phase 2 was slow, why?")
+- **Recent Trend**: Last 5 plan durations, trend assessment (improving/stable/degrading)
+
+**Update mechanism**: After each SUMMARY.md creation
+
+**Uses**:
+- Estimate remaining work: `(remaining_plans × avg_duration)`
+- Detect problems: "Last 3 plans took 20min each, avg is 6min — investigate"
+- Optimize: "Vertical slices (Phase 2) were faster than horizontal layers (Phase 1)"
+
+<Note>
+Duration measured from plan start timestamp to SUMMARY.md creation. Includes execution + verification.
+</Note>
+
+### Accumulated Context
+
+#### Decisions
+
+**Full log**: PROJECT.md Key Decisions table
+
+**STATE.md subset**: 3-5 most recent decisions affecting current work
+
+**Purpose**: Quick reference without reading full PROJECT.md
+
+**Example**:
+```markdown
+- [Phase 2]: Use Prisma ORM (not Drizzle) for type safety
+- [Phase 3]: JWT in httpOnly cookies (not localStorage)
+- [Phase 3]: Bcrypt for password hashing (cost factor 12)
+```
+
+Decisions include:
+- Library choices
+- Architecture patterns
+- Security approaches
+- User preferences from `/gsd:discuss-phase`
+
+#### Pending Todos
+
+**Full list**: `.planning/todos/pending/*.md`
+
+**STATE.md reference**: Count + link
+
+**Purpose**: Remind what was captured during sessions
+
+**Example**:
+```markdown
+2 pending todos — see /gsd:check-todos
+```
+
+When count high (10+):
+```markdown
+12 pending todos:
+- Add dark mode toggle (from Phase 2)
+- Implement password reset flow (from Phase 3)
+- ... see /gsd:check-todos for full list
+```
+
+#### Blockers/Concerns
+
+**Source**: SUMMARY.md "Next Phase Readiness" sections, manual `/gsd:add-blocker`
+
+**Purpose**: Issues that affect future work
+
+**Format**:
+```markdown
+- [Phase 3]: OAuth provider rate limits (need enterprise plan before Phase 5)
+- [Phase 4]: Image upload needs CDN decision (affects Phase 6 performance)
+```
+
+**Cleared when**: Addressed in later phase or deemed non-issue
+
+### Session Continuity
+
+**Purpose**: Enable instant resumption
+
+**Contents**:
+- Last session timestamp
+- What was last completed
+- Resume file path (if exists)
+
+**Resume file** (`.planning/.continue-here-*.md`):
+- Created by `/gsd:pause-work`
+- Contains: Current plan, task in progress, blocker description, next steps
+- Read by `/gsd:resume-work`
+
+**Example**:
+```markdown
+Last session: 2026-03-05 14:32
+Stopped at: Mid-execution of 03-03, Task 2 (email validation)
+Resume file: .planning/.continue-here-2026-03-05-1432.md
+```
+
+**Workflow**:
+1. User runs `/gsd:pause-work`
+2. Creates resume file with full context
+3. Updates STATE.md session continuity
+4. User closes session
+5. Later: `/gsd:resume-work`
+6. Loads resume file, restores context
+7. Offers: "Continue 03-03 from Task 2" or "See progress"
+
+## Decision Tracking
+
+### Where Decisions Live
+
+| Location | Scope | Detail Level |
+|----------|-------|-------------|
+| **PROJECT.md** | Project-wide | Full table with date, rationale, implications |
+| **STATE.md** | Recent/active | Digest (3-5 items, one-line summaries) |
+| **CONTEXT.md** | Phase-specific | User preferences before planning |
+| **SUMMARY.md** | Plan-specific | Implementation decisions made during execution |
+
+### Decision Flow
+
+```
+/gsd:discuss-phase 3
+  ↓
+CONTEXT.md created
+  "User decided: JWT in httpOnly cookies"
+  ↓
+/gsd:plan-phase 3
+  Planner reads CONTEXT.md
+  Plan includes: Set httpOnly cookie in login task
+  ↓
+/gsd:execute-phase 3
+  Executor implements per plan
+  SUMMARY.md notes: "Used jose library (not jsonwebtoken)"
+  ↓
+Decision logged in PROJECT.md:
+  | Date | Decision | Rationale | Implications |
+  | 2026-03-05 | JWT in httpOnly cookies | XSS protection | Affects logout, token refresh |
+  ↓
+STATE.md updated:
+  Recent decisions: "[Phase 3]: JWT in httpOnly cookies"
+```
+
+### Types of Decisions
+
+**Strategic** (PROJECT.md only):
+- Tech stack choices ("Use Next.js, not Remix")
+- Architecture patterns ("Monorepo with Turborepo")
+- Product direction ("v1 is MVP, v2 adds payments")
+
+**Implementation** (CONTEXT.md → SUMMARY.md → PROJECT.md):
+- Library choices ("Use Zod for validation")
+- Component structure ("Card layout, not table")
+- API design ("REST, not GraphQL for v1")
+
+**Tactical** (SUMMARY.md only):
+- File organization ("Put utilities in lib/utils")
+- Naming conventions ("Use kebab-case for files")
+- Code patterns ("Use React Server Components")
+
+## Session Continuity
+
+### Problem: Context Loss
+
+**Without STATE.md**:
+```
+User: "Continue where we left off"
+Claude: "I don't have context from your previous session.
+         What were you working on?"
+User: *Spends 10 minutes explaining*
+```
+
+**With STATE.md**:
+```
+User: "/gsd:resume-work"
+Claude: *Reads STATE.md*
+        "Phase 3 (User Auth), Plan 2 of 5 complete.
+         Last activity: Login endpoint execution.
+         Next: Plan 03-03 (Registration API).
+         Ready to discuss, plan, or execute?"
+```
+
+### Resume Workflow
+
+**Command**: `/gsd:resume-work`
+
+**Process**:
+1. Read STATE.md
+2. Extract current position, last activity
+3. Check for resume file (`.planning/.continue-here-*.md`)
+4. If resume file exists:
+   - Read full context (plan, task, blocker)
+   - Offer: "Continue [plan] from [task]" or "See status"
+5. If no resume file:
+   - Present position from STATE.md
+   - Suggest next action based on status
+
+**Example output**:
+
+```markdown
+## Session Restored
+
+**Project**: AI-powered task manager
+**Phase**: 3 of 8 (User Authentication)
+**Progress**: 28% complete (14 plans done, 36 remaining)
+
+**Last session**: 2026-03-05 14:32
+**Stopped at**: Completed 03-02 (Login endpoint)
+
+**Current status**: Ready to execute
+**Next plan**: 03-03 (Registration API)
+
+**Recent decisions**:
+- JWT in httpOnly cookies (Phase 3)
+- Bcrypt for password hashing (Phase 3)
+
+**Pending todos**: 2 items
+
+---
+
+## ▶ Next Steps
+
+Ready to execute plan 03-03?
+- Yes → `/gsd:execute-phase 3` (will resume from 03-03)
+- Review first → `cat .planning/phases/03-user-authentication/03-03-PLAN.md`
+- See overall progress → `/gsd:progress`
+```
+
+### Pause Workflow
+
+**Command**: `/gsd:pause-work`
+
+**When to use**: Stopping mid-phase, mid-plan, or mid-task
+
+**Process**:
+1. Detect current state (which plan, which task)
+2. Ask user: "What's blocking? Why stopping?"
+3. Create `.planning/.continue-here-TIMESTAMP.md`:
+   ```markdown
+   # Resume Point
+   
+   Phase: 03
+   Plan: 03-03
+   Task: 2 of 3 (Email validation)
+   
+   ## Context
+   
+   Login endpoint (03-02) complete. Working on registration.
+   Task 1 (database schema) done. Mid-way through Task 2.
+   
+   ## Blocker
+   
+   Need to verify email validation library choice (user prefers Zod).
+   
+   ## Next Steps
+   
+   1. Confirm Zod for email validation
+   2. Complete Task 2 implementation
+   3. Execute Task 3 (tests)
+   ```
+4. Update STATE.md session continuity
+5. Commit (if `commit_docs: true`)
+
+## CLI Tool Integration
+
+**State queries**:
+
+```bash
+# Get current position
+node gsd-tools.cjs state get-position
+# → {"phase": 3, "plan": 2, "status": "in progress", ...}
+
+# Get recent decisions
+node gsd-tools.cjs state get-decisions --count 5
+# → [{"date": "2026-03-05", "decision": "JWT in httpOnly cookies", ...}]
+
+# Get performance metrics
+node gsd-tools.cjs state get-metrics
+# → {"completed": 14, "avg_duration": 6.2, "trend": "stable"}
+```
+
+**State mutations**:
+
+```bash
+# Update position
+node gsd-tools.cjs state update \
+  --phase 3 --plan 3 --status "ready to execute"
+
+# Add decision
+node gsd-tools.cjs state add-decision \
+  --phase 3 --decision "Use jose for JWT" --rationale "Better ESM support"
+
+# Add blocker
+node gsd-tools.cjs state add-blocker \
+  --phase 3 --blocker "OAuth rate limits" --impact "Phase 5 affected"
+
+# Update metrics
+node gsd-tools.cjs state update-metrics \
+  --plan-complete --duration 360
+```
+
+<Info>
+CLI tool ensures STATE.md stays consistent. Manual edits can break workflows.
+</Info>
+
+## Best Practices
+
+### Keep STATE.md Small
+
+**Goal**: Under 100 lines
+
+**If growing too large**:
+- Keep only 3-5 recent decisions (full log in PROJECT.md)
+- Keep only active blockers (remove resolved ones)
+- Link to full details instead of inlining
+
+**Example**:
+```markdown
+### Decisions
+
+See PROJECT.md Key Decisions table for full history.
+Recent decisions affecting current work:
+- [Phase 3]: JWT in httpOnly cookies
+- [Phase 3]: Bcrypt for password hashing
+
+### Blockers
+
+None currently active. See PROJECT.md Risks table for historical blockers.
+```
+
+### Update After Every Action
+
+**Don't**:
+```
+Complete plans 03-01, 03-02, 03-03
+Update STATE.md once at the end
+```
+
+**Do**:
+```
+Complete plan 03-01 → update STATE.md (position, metrics)
+Complete plan 03-02 → update STATE.md (position, metrics)
+Complete plan 03-03 → update STATE.md (position, metrics)
+```
+
+Why? If execution fails at 03-03, STATE.md shows 03-02 complete. Resume from correct position.
+
+### Use Resume Files for Mid-Work Pauses
+
+STATE.md is for **position**. Resume files are for **context**.
+
+**STATE.md**: "Phase 3, Plan 2 complete"
+**Resume file**: "Mid-way through Task 2, blocked on library decision, here's what I tried..."
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/advanced/architecture">
+    How STATE.md fits into overall system design
+  </Card>
+  <Card title="Wave Execution" icon="layer-group" href="/advanced/wave-execution">
+    How STATE.md tracks wave progress
+  </Card>
+</CardGroup>

@@ -1,0 +1,331 @@
+---
+title: "REQUIREMENTS.md"
+description: "Structure and purpose of REQUIREMENTS.md - checkable requirements with phase traceability"
+---
+
+REQUIREMENTS.md defines what "done" means for your project. Each requirement is checkable, atomic, and traced to specific phases in your roadmap.
+
+## Location
+
+```
+.planning/REQUIREMENTS.md
+```
+
+Created during `/gsd:new-project` after research and before roadmap creation.
+
+## Template Structure
+
+```markdown
+# Requirements: [Project Name]
+
+**Defined:** [date]
+**Core Value:** [from PROJECT.md]
+
+## v1 Requirements
+
+Requirements for initial release. Each maps to roadmap phases.
+
+### Authentication
+
+- [ ] **AUTH-01**: User can sign up with email and password
+- [ ] **AUTH-02**: User receives email verification after signup
+- [ ] **AUTH-03**: User can reset password via email link
+- [ ] **AUTH-04**: User session persists across browser refresh
+
+### [Category 2]
+
+- [ ] **[CAT]-01**: [Requirement description]
+- [ ] **[CAT]-02**: [Requirement description]
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### [Category]
+
+- **[CAT]-01**: [Requirement description]
+- **[CAT]-02**: [Requirement description]
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| [Feature] | [Why excluded] |
+| [Feature] | [Why excluded] |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| [REQ-ID] | Phase [N] | Pending |
+
+**Coverage:**
+- v1 requirements: [X] total
+- Mapped to phases: [Y]
+- Unmapped: [Z] ⚠️
+
+---
+*Requirements defined: [date]*
+*Last updated: [date] after [trigger]*
+```
+
+## Requirement Format
+
+### ID Scheme
+
+**Format:** `[CATEGORY]-[NUMBER]`
+
+**Examples:**
+- `AUTH-01`, `AUTH-02` - Authentication features
+- `CONT-01`, `CONT-02` - Content features
+- `SOCL-01`, `SOCL-02` - Social features
+- `NOTF-01`, `NOTF-02` - Notifications
+
+### Description Guidelines
+
+**Requirements should be:**
+
+1. **User-centric** - Focus on what users can do
+2. **Testable** - Clear pass/fail criteria
+3. **Atomic** - One thing per requirement
+4. **Clear** - No ambiguity about what "done" means
+
+**Good examples:**
+```markdown
+- [ ] **AUTH-01**: User can sign up with email and password
+- [ ] **CONT-03**: User can edit own posts within 24 hours
+- [ ] **SOCL-02**: User can unfollow users and stop seeing their posts
+```
+
+**Bad examples (too vague):**
+```markdown
+- [ ] **AUTH-01**: Implement authentication
+- [ ] **CONT-03**: Post editing functionality
+- [ ] **SOCL-02**: Following features
+```
+
+## Categories
+
+### Deriving Categories
+
+**Source:** Research FEATURES.md categories
+
+**Keep consistent with domain conventions:**
+- Social app: Authentication, Profiles, Content, Social, Notifications, Moderation
+- CLI tool: Commands, Configuration, Output, Error Handling
+- API: Endpoints, Authentication, Validation, Error Responses
+
+**Typical categories:**
+- Authentication (AUTH)
+- Authorization (AUTHZ)
+- Content (CONT)
+- Social (SOCL)
+- Notifications (NOTF)
+- Moderation (MODR)
+- Payments (PAYM)
+- Admin (ADMN)
+- Search (SRCH)
+
+## v1 vs v2 vs Out of Scope
+
+### v1 Requirements
+
+**Committed scope** - Will be in roadmap phases.
+
+- Checkbox format: `- [ ] **REQ-ID**: Description`
+- Each requirement maps to exactly one phase
+- Checked off as phases complete
+
+### v2 Requirements
+
+**Acknowledged but deferred** - Not in current roadmap.
+
+- No checkbox format: `- **REQ-ID**: Description`
+- Documented so they're not forgotten
+- Moving v2 → v1 requires roadmap update
+
+### Out of Scope
+
+**Explicit exclusions** with reasoning.
+
+- Prevents "why didn't you include X?" later
+- Anti-features from research belong here with warnings
+
+**Example:**
+```markdown
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Real-time chat | High complexity, not core to community value |
+| Video posts | Storage/bandwidth costs, defer to v2+ |
+| OAuth login | Email/password sufficient for v1 |
+| Mobile app | Web-first, mobile later |
+```
+
+## Traceability
+
+### Purpose
+
+Maps requirements to phases, ensuring nothing is missed.
+
+### Population
+
+- **Initially empty** - Populated during roadmap creation
+- Each requirement maps to exactly one phase
+- Unmapped requirements = roadmap gap
+
+### Status Values
+
+| Status | Meaning |
+|--------|----------|
+| Pending | Not started |
+| In Progress | Phase is active |
+| Complete | Requirement verified |
+| Blocked | Waiting on external factor |
+
+### Coverage Check
+
+The summary at the bottom ensures completeness:
+
+```markdown
+**Coverage:**
+- v1 requirements: 18 total
+- Mapped to phases: 18
+- Unmapped: 0 ✓
+```
+
+⚠️ **Unmapped requirements** indicate phases missing from roadmap.
+
+## Example: Community App
+
+```markdown
+# Requirements: CommunityApp
+
+**Defined:** 2025-01-14
+**Core Value:** Users can share and discuss content with people who share their interests
+
+## v1 Requirements
+
+### Authentication
+
+- [ ] **AUTH-01**: User can sign up with email and password
+- [ ] **AUTH-02**: User receives email verification after signup
+- [ ] **AUTH-03**: User can reset password via email link
+- [ ] **AUTH-04**: User session persists across browser refresh
+
+### Profiles
+
+- [ ] **PROF-01**: User can create profile with display name
+- [ ] **PROF-02**: User can upload avatar image
+- [ ] **PROF-03**: User can write bio (max 500 chars)
+- [ ] **PROF-04**: User can view other users' profiles
+
+### Content
+
+- [ ] **CONT-01**: User can create text post
+- [ ] **CONT-02**: User can upload image with post
+- [ ] **CONT-03**: User can edit own posts
+- [ ] **CONT-04**: User can delete own posts
+- [ ] **CONT-05**: User can view feed of posts
+
+### Social
+
+- [ ] **SOCL-01**: User can follow other users
+- [ ] **SOCL-02**: User can unfollow users
+- [ ] **SOCL-03**: User can like posts
+- [ ] **SOCL-04**: User can comment on posts
+- [ ] **SOCL-05**: User can view activity feed (followed users' posts)
+
+## v2 Requirements
+
+### Notifications
+
+- **NOTF-01**: User receives in-app notifications
+- **NOTF-02**: User receives email for new followers
+- **NOTF-03**: User receives email for comments on own posts
+- **NOTF-04**: User can configure notification preferences
+
+### Moderation
+
+- **MODR-01**: User can report content
+- **MODR-02**: User can block other users
+- **MODR-03**: Admin can view reported content
+- **MODR-04**: Admin can remove content
+- **MODR-05**: Admin can ban users
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Real-time chat | High complexity, not core to community value |
+| Video posts | Storage/bandwidth costs, defer to v2+ |
+| OAuth login | Email/password sufficient for v1 |
+| Mobile app | Web-first, mobile later |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| AUTH-04 | Phase 1 | Pending |
+| PROF-01 | Phase 2 | Pending |
+| PROF-02 | Phase 2 | Pending |
+| PROF-03 | Phase 2 | Pending |
+| PROF-04 | Phase 2 | Pending |
+| CONT-01 | Phase 3 | Pending |
+| CONT-02 | Phase 3 | Pending |
+| CONT-03 | Phase 3 | Pending |
+| CONT-04 | Phase 3 | Pending |
+| CONT-05 | Phase 3 | Pending |
+| SOCL-01 | Phase 4 | Pending |
+| SOCL-02 | Phase 4 | Pending |
+| SOCL-03 | Phase 4 | Pending |
+| SOCL-04 | Phase 4 | Pending |
+| SOCL-05 | Phase 4 | Pending |
+
+**Coverage:**
+- v1 requirements: 18 total
+- Mapped to phases: 18
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2025-01-14*
+*Last updated: 2025-01-14 after initial definition*
+```
+
+## Evolution
+
+### After Each Phase Completes
+
+1. Mark covered requirements as Complete
+2. Update traceability status
+3. Note any requirements that changed scope
+
+### After Roadmap Updates
+
+1. Verify all v1 requirements still mapped
+2. Add new requirements if scope expanded
+3. Move requirements to v2/out of scope if descoped
+
+### Completion Criteria
+
+Requirement is "Complete" when:
+- Feature is implemented
+- Feature is verified (tests pass, manual check done)
+- Feature is committed
+
+## See Also
+
+- [PROJECT.md Structure](/reference/project-md)
+- [ROADMAP.md Structure](/reference/roadmap-md)
+- [.planning Directory](/reference/planning-directory)

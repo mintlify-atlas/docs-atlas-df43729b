@@ -1,0 +1,171 @@
+---
+title: Brownfield Projects
+description: Using map-codebase to analyze existing codebases before starting GSD projects
+icon: map
+---
+
+When working with an existing codebase, GSD needs to understand your current architecture, conventions, and patterns before it can plan new work effectively.
+
+The `/gsd:map-codebase` command spawns parallel analysis agents to document your codebase state, ensuring that new work integrates seamlessly with what already exists.
+
+## When to Use map-codebase
+
+<Info>
+Run `/gsd:map-codebase` **before** `/gsd:new-project` on brownfield codebases to ensure questions focus on what you're **adding**, not what already exists.
+</Info>
+
+### Use map-codebase for:
+
+- **Brownfield projects before initialization** - Understand existing code first
+- **Refreshing codebase map after significant changes** - Keep documentation current
+- **Onboarding to an unfamiliar codebase** - Get up to speed quickly
+- **Before major refactoring** - Understand current state thoroughly
+- **When STATE.md references outdated codebase info** - Update understanding
+
+### Skip map-codebase for:
+
+- **Greenfield projects with no code yet** - Nothing to map
+- **Trivial codebases (less than 5 files)** - Manual review is faster
+
+## How It Works
+
+<Steps>
+  <Step title="Check existing analysis">
+    GSD checks if `.planning/codebase/` already exists and offers to refresh or skip.
+  </Step>
+  
+  <Step title="Spawn parallel mapper agents">
+    Four specialized agents analyze different aspects of your codebase simultaneously:
+    
+    - **Agent 1 (tech focus)** - Writes `STACK.md`, `INTEGRATIONS.md`
+    - **Agent 2 (arch focus)** - Writes `ARCHITECTURE.md`, `STRUCTURE.md`
+    - **Agent 3 (quality focus)** - Writes `CONVENTIONS.md`, `TESTING.md`
+    - **Agent 4 (concerns focus)** - Writes `CONCERNS.md`
+  </Step>
+  
+  <Step title="Agents write directly">
+    Each mapper agent explores its focus area and writes documents directly to `.planning/codebase/`. The orchestrator only receives confirmations, keeping context usage minimal.
+  </Step>
+  
+  <Step title="Verification">
+    GSD verifies all 7 documents exist with line counts and commits the codebase map.
+  </Step>
+</Steps>
+
+## Output Documents
+
+The mapping process produces 7 structured documents:
+
+| Document | Purpose |
+|----------|--------|
+| `STACK.md` | Technology stack, dependencies, frameworks |
+| `INTEGRATIONS.md` | External services, APIs, third-party integrations |
+| `ARCHITECTURE.md` | High-level architecture patterns and decisions |
+| `STRUCTURE.md` | Directory structure, module organization |
+| `CONVENTIONS.md` | Coding conventions, naming patterns, style guides |
+| `TESTING.md` | Test infrastructure, coverage, testing patterns |
+| `CONCERNS.md` | Technical debt, security issues, performance bottlenecks |
+
+## Usage
+
+### Basic usage
+
+```bash
+/gsd:map-codebase
+```
+
+Analyzes the entire codebase and produces all 7 documents.
+
+### Focus on specific area
+
+```bash
+/gsd:map-codebase api
+```
+
+Tells agents to focus on a specific subsystem (e.g., 'api' or 'auth').
+
+## Workflow Integration
+
+<CodeGroup>
+```bash Brownfield Workflow
+# Step 1: Analyze existing codebase
+/gsd:map-codebase
+
+# Step 2: Initialize project (questions focus on what you're ADDING)
+/gsd:new-project
+
+# Step 3: Normal phase workflow
+/gsd:discuss-phase 1
+/gsd:plan-phase 1
+/gsd:execute-phase 1
+```
+
+```bash Greenfield Workflow
+# Skip map-codebase entirely
+/gsd:new-project
+
+# Normal phase workflow
+/gsd:discuss-phase 1
+/gsd:plan-phase 1
+/gsd:execute-phase 1
+```
+</CodeGroup>
+
+## Before and After Comparison
+
+<Tabs>
+  <Tab title="Without map-codebase">
+    When you run `/gsd:new-project` without mapping first:
+    
+    - Questions ask about **tech stack, architecture, patterns**
+    - You describe **existing conventions manually**
+    - Claude makes **assumptions about current code**
+    - Planning may **conflict with existing patterns**
+    
+    This works fine for greenfield projects but wastes time on brownfield ones.
+  </Tab>
+  
+  <Tab title="With map-codebase">
+    When you map first:
+    
+    - Questions focus on **what feature you're adding**
+    - Existing **conventions are automatically loaded**
+    - Planning **respects current architecture**
+    - New code **integrates seamlessly**
+    
+    The codebase map becomes part of every agent's context.
+  </Tab>
+</Tabs>
+
+## Refreshing Analysis
+
+Codebase maps can become stale. Refresh when:
+
+- Major refactoring has changed architecture
+- New frameworks or tools have been added
+- Conventions have evolved significantly
+- Starting a new milestone on an evolving codebase
+
+<Warning>
+If you notice that GSD's plans conflict with your current codebase patterns, your map is likely outdated. Run `/gsd:map-codebase` again to refresh.
+</Warning>
+
+## Context Efficiency
+
+The mapping process is designed for minimal context usage:
+
+1. **Orchestrator stays thin** - Only coordinates agents, doesn't analyze code itself
+2. **Agents write directly** - Documents are written to disk, not returned to orchestrator
+3. **Confirmation only** - Orchestrator receives "done" signals, not full content
+4. **Parallel execution** - All 4 agents run simultaneously
+
+This means you can map large codebases without burning context in your main session.
+
+## Next Steps
+
+After mapping completes, GSD will offer:
+
+- `/gsd:new-project` - Initialize a project on top of existing code
+- `/gsd:plan-phase` - If project already initialized, plan next phase
+
+The codebase map will be automatically loaded into context for all planning and execution agents.

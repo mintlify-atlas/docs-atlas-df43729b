@@ -1,0 +1,141 @@
+---
+title: 'gsd:complete-milestone'
+description: 'Archive completed milestone and prepare for next version'
+---
+
+## Overview
+
+Mark a milestone as complete, archive its artifacts to the milestones directory, and update project planning files. This command creates a historical record of the shipped version, archives the milestone roadmap and requirements, and prepares the project for the next milestone.
+
+## Syntax
+
+```bash
+/gsd:complete-milestone <version>
+```
+
+<ParamField path="version" type="string" required>
+  The milestone version to complete (e.g., "1.0", "1.1", "2.0")
+</ParamField>
+
+## Process
+
+The command follows the complete-milestone workflow:
+
+### 0. Pre-flight Check
+
+- Looks for `.planning/v{version}-MILESTONE-AUDIT.md`
+- If missing: Recommends running `/gsd:audit-milestone` first
+- If audit shows gaps: Recommends `/gsd:plan-milestone-gaps` or accepting as tech debt
+- If audit passed: Proceeds with completion
+
+### 1. Verify Readiness
+
+- Checks all phases in milestone have completed plans (SUMMARY.md exists)
+- Presents milestone scope and statistics
+- Waits for user confirmation
+
+### 2. Gather Stats
+
+- Counts phases, plans, and tasks
+- Calculates git range, file changes, and lines of code
+- Extracts timeline from git log
+- Presents summary for confirmation
+
+### 3. Extract Accomplishments
+
+- Reads all phase SUMMARY.md files in milestone range
+- Extracts 4-6 key accomplishments
+- Presents for user approval
+
+### 4. Archive Milestone
+
+- Creates `.planning/milestones/v{version}-ROADMAP.md`
+- Extracts full phase details from ROADMAP.md
+- Fills milestone archive template
+- Updates ROADMAP.md to one-line summary with link
+
+### 5. Archive Requirements
+
+- Creates `.planning/milestones/v{version}-REQUIREMENTS.md`
+- Marks all requirements as complete (checked checkboxes)
+- Notes requirement outcomes (validated, adjusted, dropped)
+- Deletes `.planning/REQUIREMENTS.md` (fresh one created for next milestone)
+
+### 6. Update PROJECT.md
+
+- Adds "Current State" section with shipped version
+- Adds "Next Milestone Goals" section
+- Archives previous content in `<details>` (if v1.1+)
+
+### 7. Commit and Tag
+
+- Stages: MILESTONES.md, PROJECT.md, ROADMAP.md, STATE.md, archive files
+- Commits: `chore: archive v{version} milestone`
+- Creates git tag: `git tag -a v{version} -m "[milestone summary]"`
+- Asks about pushing tag
+
+### 8. Next Steps
+
+- Offers `/gsd:new-milestone` to start the next milestone cycle
+
+## Input Files
+
+- `.planning/ROADMAP.md`
+- `.planning/REQUIREMENTS.md`
+- `.planning/STATE.md`
+- `.planning/PROJECT.md`
+- `.planning/phases/*/*-SUMMARY.md`
+- `.planning/v{version}-MILESTONE-AUDIT.md` (optional but recommended)
+
+## Output Files
+
+- `.planning/milestones/v{version}-ROADMAP.md` - Archived milestone roadmap
+- `.planning/milestones/v{version}-REQUIREMENTS.md` - Archived requirements
+- Updated `.planning/ROADMAP.md` - Collapsed to one-line entry
+- Updated `.planning/PROJECT.md` - Current state and next goals
+- Git tag `v{version}`
+
+## Examples
+
+### Complete Version 1.0
+
+```bash
+/gsd:complete-milestone 1.0
+```
+
+Archives v1.0 milestone, creates tag, and prepares for v1.1.
+
+### Complete Version 2.0
+
+```bash
+/gsd:complete-milestone 2.0
+```
+
+Archives v2.0 milestone after a major version bump.
+
+## Success Criteria
+
+- Milestone archived to `.planning/milestones/v{version}-ROADMAP.md`
+- Requirements archived to `.planning/milestones/v{version}-REQUIREMENTS.md`
+- `.planning/REQUIREMENTS.md` deleted (fresh for next milestone)
+- ROADMAP.md collapsed to one-line entry
+- PROJECT.md updated with current state
+- Git tag v{version} created
+- Commit successful
+- User knows next steps
+
+## Critical Rules
+
+- **Load workflow first**: Read complete-milestone.md before executing
+- **Verify completion**: All phases must have SUMMARY.md files
+- **User confirmation**: Wait for approval at verification gates
+- **Archive before deleting**: Always create archive files before updating/deleting originals
+- **One-line summary**: Collapsed milestone in ROADMAP.md should be single line with link
+- **Context efficiency**: Archive keeps ROADMAP.md and REQUIREMENTS.md constant size per milestone
+- **Fresh requirements**: Next milestone starts with `/gsd:new-milestone` which includes requirements definition
+
+## Allowed Tools
+
+- Read
+- Write
+- Bash

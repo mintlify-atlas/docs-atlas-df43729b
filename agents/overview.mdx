@@ -1,0 +1,252 @@
+---
+title: Agent System Overview
+description: Understanding the multi-agent orchestration architecture in Get Shit Done
+---
+
+# Agent System Overview
+
+Get Shit Done uses a **multi-agent orchestration** pattern where specialized agents handle specific workflow stages while thin orchestrators coordinate execution and manage state.
+
+## The Orchestrator Pattern
+
+Every GSD workflow follows the same pattern:
+
+<Steps>
+  <Step title="Orchestrator receives command">
+    User runs `/gsd:plan-phase 1` — orchestrator receives the request
+  </Step>
+  <Step title="Orchestrator spawns specialized agents">
+    Orchestrator spawns planner, checker, and researcher agents in parallel or sequence
+  </Step>
+  <Step title="Agents return structured results">
+    Each agent completes its task and returns structured data to orchestrator
+  </Step>
+  <Step title="Orchestrator routes to next step">
+    Based on results, orchestrator either spawns next agent or returns to user
+  </Step>
+</Steps>
+
+**The orchestrator never does heavy lifting.** It spawns agents, waits, integrates results, and manages transitions.
+
+## Why This Architecture?
+
+### Context Window Efficiency
+
+You can run an entire phase — deep research, multiple plans created and verified, thousands of lines of code written across parallel executors, automated verification against goals — and your **main context window stays at 30-40%**.
+
+The work happens in fresh subagent contexts. Your session stays fast and responsive.
+
+### Parallelization
+
+Independent work runs simultaneously:
+
+- 4 researchers investigate stack, features, architecture, and pitfalls **in parallel**
+- 3 plans with no dependencies execute **in parallel**
+- Multiple debuggers diagnose different UAT issues **in parallel**
+
+### Specialization
+
+Each agent has a focused role with domain-specific instructions:
+
+- **Planner** knows how to break phases into tasks and build dependency graphs
+- **Verifier** knows goal-backward methodology and stub detection
+- **Debugger** knows scientific method and hypothesis testing
+
+## Agent Coordination
+
+### Stage-Based Workflow
+
+| Stage | Orchestrator | Agents |
+|-------|-------------|--------|
+| Research | Coordinates, presents findings | 4 parallel researchers investigate stack, features, architecture, pitfalls |
+| Planning | Validates, manages iteration | Planner creates plans, checker verifies, loop until pass |
+| Execution | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context |
+| Verification | Presents results, routes next | Verifier checks codebase against goals, debuggers diagnose failures |
+
+### Orchestrator Responsibilities
+
+<CardGroup cols={2}>
+  <Card title="State Management" icon="database">
+    Reads and writes STATE.md, ROADMAP.md, config.json
+  </Card>
+  <Card title="Agent Spawning" icon="rocket">
+    Creates fresh agent instances with specific context
+  </Card>
+  <Card title="Result Integration" icon="merge">
+    Collects and combines outputs from parallel agents
+  </Card>
+  <Card title="Flow Control" icon="arrows-split-up-and-left">
+    Routes to next step based on agent results
+  </Card>
+</CardGroup>
+
+### Agent Responsibilities
+
+<CardGroup cols={2}>
+  <Card title="Focused Execution" icon="bullseye">
+    Single purpose: research, plan, execute, verify, or debug
+  </Card>
+  <Card title="Structured Returns" icon="file-code">
+    Return formatted results for orchestrator consumption
+  </Card>
+  <Card title="File Creation" icon="file-plus">
+    Write artifacts (PLAN.md, SUMMARY.md, RESEARCH.md)
+  </Card>
+  <Card title="Stateless Operation" icon="circle-nodes">
+    Don't manage global state — orchestrator handles this
+  </Card>
+</CardGroup>
+
+## Wave Execution Pattern
+
+Plans are grouped into waves based on dependencies. Within each wave, plans run **in parallel**. Waves run **sequentially**.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  PHASE EXECUTION                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  WAVE 1 (parallel)          WAVE 2 (parallel)          WAVE 3       │
+│  ┌─────────┐ ┌─────────┐    ┌─────────┐ ┌─────────┐    ┌─────────┐ │
+│  │ Plan 01 │ │ Plan 02 │ →  │ Plan 03 │ │ Plan 04 │ →  │ Plan 05 │ │
+│  │         │ │         │    │         │ │         │    │         │ │
+│  │ User    │ │ Product │    │ Orders  │ │ Cart    │    │ Checkout│ │
+│  │ Model   │ │ Model   │    │ API     │ │ API     │    │ UI      │ │
+│  └─────────┘ └─────────┘    └─────────┘ └─────────┘    └─────────┘ │
+│       │           │              ↑           ↑              ↑       │
+│       └───────────┴──────────────┴───────────┘              │       │
+│              Dependencies: Plan 03 needs Plan 01            │       │
+│                          Plan 04 needs Plan 02              │       │
+│                          Plan 05 needs Plans 03 + 04        │       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Why waves matter:**
+- Independent plans → Same wave → Run in parallel
+- Dependent plans → Later wave → Wait for dependencies
+- File conflicts → Sequential plans or same plan
+
+<Note>
+"Vertical slices" (Plan 01: User feature end-to-end) parallelize better than "horizontal layers" (Plan 01: All models, Plan 02: All APIs).
+</Note>
+
+## Agent Lifecycle
+
+### Spawning
+
+Orchestrator creates agent with specific context:
+
+```markdown
+<files_to_read>
+@.planning/PROJECT.md
+@.planning/ROADMAP.md
+@.planning/phases/01-setup/01-CONTEXT.md
+</files_to_read>
+
+<user_decisions>
+Locked: Use Tailwind for styling
+Discretion: Database choice
+Deferred: Dark mode
+</user_decisions>
+
+Create plans for Phase 1: Project Setup
+```
+
+Agent receives:
+- Files to read (mandatory initial context)
+- User decisions (constraints and freedom)
+- Specific task and expected output
+
+### Execution
+
+Agent operates autonomously:
+
+1. **Reads mandatory files** from `<files_to_read>` block
+2. **Executes workflow** using domain-specific instructions
+3. **Writes artifacts** (PLAN.md, SUMMARY.md, etc.)
+4. **Returns structured result** to orchestrator
+
+### Return
+
+Agent returns one of:
+
+- **Success:** `## PLANNING COMPLETE` with summary
+- **Checkpoint:** `## CHECKPOINT REACHED` with state and awaiting info
+- **Blocked:** `## PLANNING BLOCKED` with issue and options
+
+<Info>
+Orchestrator uses these structured returns to determine next action: proceed, spawn continuation agent, or return control to user.
+</Info>
+
+## Communication Patterns
+
+### Orchestrator → Agent
+
+- **Files to read** — Context for the task
+- **Specific instructions** — What to create/verify
+- **User input** — Decisions, feedback, approvals
+
+### Agent → Orchestrator
+
+- **Structured results** — Success/checkpoint/blocked with data
+- **File paths** — Artifacts created for commit
+- **Next steps** — What should happen next
+
+### Agent → File System
+
+- **Writes artifacts** — PLAN.md, SUMMARY.md, RESEARCH.md
+- **Reads context** — PROJECT.md, ROADMAP.md, existing plans
+- **Never commits** — Orchestrator handles git operations
+
+## Error Handling
+
+### Agent Failures
+
+If agent encounters an error:
+
+1. **Return structured failure** to orchestrator
+2. **Include error context** for debugging
+3. **Suggest recovery options** when possible
+
+Orchestrator decides:
+- Retry with adjusted context
+- Spawn different agent type
+- Return to user for input
+
+### Context Overflow
+
+If agent approaches context limit:
+
+1. **Complete current task** with available context
+2. **Return checkpoint** with state and continuation point
+3. **Orchestrator spawns fresh agent** with checkpoint state
+
+<Note>
+Checkpoint state includes: completed tasks, current task, next action, all previous evidence/decisions.
+</Note>
+
+## Next Steps
+
+Explore the specific agents:
+
+<CardGroup cols={3}>
+  <Card title="Planner" icon="diagram-project" href="/agents/planner">
+    Creates executable phase plans with task breakdown
+  </Card>
+  <Card title="Executor" icon="code" href="/agents/executor">
+    Executes plans with atomic commits
+  </Card>
+  <Card title="Verifier" icon="check" href="/agents/verifier">
+    Verifies phase goal achievement
+  </Card>
+  <Card title="Debugger" icon="bug" href="/agents/debugger">
+    Investigates bugs using scientific method
+  </Card>
+  <Card title="Plan Checker" icon="list-check" href="/agents/plan-checker">
+    Verifies plans will achieve goals before execution
+  </Card>
+  <Card title="Researchers" icon="magnifying-glass" href="/agents/phase-researcher">
+    Research domains before planning and execution
+  </Card>
+</CardGroup>

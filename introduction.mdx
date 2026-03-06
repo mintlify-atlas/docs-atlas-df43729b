@@ -1,0 +1,168 @@
+---
+title: Introduction
+description: A light-weight and powerful meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode, Gemini CLI, and Codex
+---
+
+# Get Shit Done
+
+**Get Shit Done (GSD)** is a light-weight and powerful meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode, Gemini CLI, and Codex.
+
+<Note>
+  GSD solves **context rot** — the quality degradation that happens as Claude fills its context window.
+</Note>
+
+## What is GSD?
+
+Vibecoding has a bad reputation. You describe what you want, AI generates code, and you get inconsistent garbage that falls apart at scale.
+
+**GSD fixes that.** It's the context engineering layer that makes Claude Code reliable. Describe your idea, let the system extract everything it needs to know, and let Claude Code get to work.
+
+The complexity is in the system, not in your workflow. Behind the scenes: context engineering, XML prompt formatting, subagent orchestration, state management. What you see: a few commands that just work.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Context Engineering" icon="brain">
+    Structured `.planning/` files give Claude everything it needs at each stage — project vision, requirements, research, plans, and state.
+  </Card>
+  
+  <Card title="Multi-Agent Orchestration" icon="users">
+    Specialized agents handle research, planning, execution, and verification with fresh 200k token contexts.
+  </Card>
+  
+  <Card title="Wave Execution" icon="wave-pulse">
+    Plans run in parallel waves based on dependencies. Independent work happens simultaneously.
+  </Card>
+  
+  <Card title="Atomic Git Commits" icon="git-alt">
+    Every task gets its own commit immediately after completion. Surgical, traceable, meaningful history.
+  </Card>
+</CardGroup>
+
+## Who This Is For
+
+People who want to describe what they want and have it built correctly — without pretending they're running a 50-person engineering org.
+
+<Info>
+  **Trusted by engineers at Amazon, Google, Shopify, and Webflow.**
+</Info>
+
+## Quick Start
+
+Install GSD with a single command:
+
+```bash
+npx get-shit-done-cc@latest
+```
+
+The installer prompts you to choose:
+1. **Runtime** — Claude Code, OpenCode, Gemini, Codex, or all
+2. **Location** — Global (all projects) or local (current project only)
+
+<Tabs>
+  <Tab title="Claude Code">
+    Verify installation:
+    ```bash
+    /gsd:help
+    ```
+  </Tab>
+  
+  <Tab title="OpenCode">
+    Verify installation:
+    ```bash
+    /gsd-help
+    ```
+  </Tab>
+  
+  <Tab title="Codex">
+    Verify installation:
+    ```bash
+    $gsd-help
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  GSD evolves fast. Update periodically:
+  ```bash
+  npx get-shit-done-cc@latest
+  ```
+</Tip>
+
+## Core Workflow
+
+The GSD workflow follows a simple pattern: **discuss → plan → execute → verify**
+
+<Steps>
+  <Step title="Initialize Project">
+    Run `/gsd:new-project` to answer questions, generate requirements, and create a roadmap.
+  </Step>
+  
+  <Step title="Discuss Phase">
+    Run `/gsd:discuss-phase 1` to capture your implementation preferences before planning begins.
+  </Step>
+  
+  <Step title="Plan Phase">
+    Run `/gsd:plan-phase 1` to research the domain and create verified execution plans.
+  </Step>
+  
+  <Step title="Execute Phase">
+    Run `/gsd:execute-phase 1` to implement plans in parallel waves with atomic commits.
+  </Step>
+  
+  <Step title="Verify Work">
+    Run `/gsd:verify-work 1` to manually test deliverables and auto-diagnose any issues.
+  </Step>
+  
+  <Step title="Repeat">
+    Loop through phases until your milestone is complete, then run `/gsd:complete-milestone`.
+  </Step>
+</Steps>
+
+## What Makes It Different
+
+<CardGroup cols={1}>
+  <Card title="No Enterprise Theater">
+    No sprint ceremonies, story points, stakeholder syncs, or retrospectives. Just an incredibly effective system for building cool stuff consistently.
+  </Card>
+  
+  <Card title="Frictionless Automation">
+    Run with `--dangerously-skip-permissions` to avoid approving every `date` and `git commit` command. GSD is designed for automation.
+  </Card>
+  
+  <Card title="Fresh Context Per Task">
+    Each execution plan gets 200k tokens purely for implementation. Zero accumulated garbage, no quality degradation.
+  </Card>
+  
+  <Card title="Trust the System">
+    The system gives Claude everything it needs to do the work *and* verify it. You can walk away and come back to completed work with clean git history.
+  </Card>
+</CardGroup>
+
+## What Users Say
+
+> "If you know clearly what you want, this WILL build it for you. No bs."
+
+> "I've done SpecKit, OpenSpec and Taskmaster — this has produced the best results for me."
+
+> "By far the most powerful addition to my Claude Code. Nothing over-engineered. Literally just gets shit done."
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Why GSD?" icon="lightbulb" href="/overview/why-gsd">
+    Learn about the philosophy and design principles behind GSD
+  </Card>
+  
+  <Card title="How It Works" icon="gears" href="/overview/how-it-works">
+    Understand the architecture and workflow stages in detail
+  </Card>
+  
+  <Card title="Installation" icon="download" href="/getting-started/installation">
+    Detailed installation instructions for all runtimes
+  </Card>
+  
+  <Card title="Commands" icon="terminal" href="/reference/commands">
+    Complete reference for all GSD commands
+  </Card>
+</CardGroup>

@@ -1,0 +1,554 @@
+---
+title: Configuration
+description: Customize GSD settings, model profiles, and workflow agents
+---
+
+GSD stores project settings in `.planning/config.json`. Configure during `/gsd:new-project` or update anytime with `/gsd:settings`.
+
+## Configuration Commands
+
+<CodeGroup>
+```bash Interactive Settings
+/gsd:settings              # Opens interactive configuration menu
+```
+
+```bash Quick Profile Switch
+/gsd:set-profile quality   # Switch to quality profile
+/gsd:set-profile balanced  # Switch to balanced profile (default)
+/gsd:set-profile budget    # Switch to budget profile
+```
+</CodeGroup>
+
+## Configuration Schema
+
+Complete `config.json` structure:
+
+```json
+{
+  "mode": "interactive",
+  "granularity": "standard",
+  "model_profile": "balanced",
+  "planning": {
+    "commit_docs": true,
+    "search_gitignored": false
+  },
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true
+  },
+  "git": {
+    "branching_strategy": "none",
+    "phase_branch_template": "gsd/phase-{phase}-{slug}",
+    "milestone_branch_template": "gsd/{milestone}-{slug}"
+  }
+}
+```
+
+## Core Settings
+
+### Mode
+
+Controls approval behavior throughout the workflow.
+
+| Option | Behavior | Best For |
+|--------|----------|----------|
+| `interactive` (default) | Confirms at each step | Normal development, learning GSD |
+| `yolo` | Auto-approves all decisions | Rapid prototyping, familiar domains |
+
+<CodeGroup>
+```json Interactive Mode
+{
+  "mode": "interactive"
+}
+```
+
+```json YOLO Mode
+{
+  "mode": "yolo"
+}
+```
+</CodeGroup>
+
+### Granularity
+
+Controls how finely scope is sliced into phases.
+
+| Option | Phases × Plans | Best For |
+|--------|---------------|----------|
+| `coarse` | 3-5 phases | Small projects, rapid prototyping |
+| `standard` (default) | 5-8 phases | Most projects |
+| `fine` | 8-12 phases | Complex projects, critical work |
+
+<Info>
+More phases = smaller scope per phase = more reliable execution, but more overhead.
+</Info>
+
+## Model Profiles
+
+Balance quality vs token spend by controlling which Claude model each agent uses.
+
+### Profile Overview
+
+| Profile | Planning | Execution | Verification | Best For |
+|---------|----------|-----------|--------------|----------|
+| `quality` | Opus | Opus | Sonnet | Critical work, quota available |
+| `balanced` (default) | Opus | Sonnet | Sonnet | Most projects |
+| `budget` | Sonnet | Sonnet | Haiku | High-volume work, prototyping |
+
+### Per-Agent Model Breakdown
+
+| Agent | `quality` | `balanced` | `budget` |
+|-------|-----------|------------|----------|
+| gsd-planner | Opus | Opus | Sonnet |
+| gsd-roadmapper | Opus | Sonnet | Sonnet |
+| gsd-executor | Opus | Sonnet | Sonnet |
+| gsd-phase-researcher | Opus | Sonnet | Haiku |
+| gsd-project-researcher | Opus | Sonnet | Haiku |
+| gsd-research-synthesizer | Sonnet | Sonnet | Haiku |
+| gsd-debugger | Opus | Sonnet | Sonnet |
+| gsd-codebase-mapper | Sonnet | Haiku | Haiku |
+| gsd-verifier | Sonnet | Sonnet | Haiku |
+| gsd-plan-checker | Sonnet | Sonnet | Haiku |
+| gsd-integration-checker | Sonnet | Sonnet | Haiku |
+
+### Profile Philosophy
+
+<CardGroup cols={3}>
+  <Card title="Quality" icon="gem">
+    **Opus** for all decision-making agents, **Sonnet** for read-only verification.
+    
+    Use when quota is available and the work is critical.
+  </Card>
+  
+  <Card title="Balanced" icon="scale-balanced">
+    **Opus** only for planning (where architecture decisions happen), **Sonnet** for everything else.
+    
+    The default for good reason. Best cost/quality tradeoff.
+  </Card>
+  
+  <Card title="Budget" icon="piggy-bank">
+    **Sonnet** for anything that writes code, **Haiku** for research and verification.
+    
+    Use for high-volume work or less critical phases.
+  </Card>
+</CardGroup>
+
+### Switching Profiles
+
+<CodeGroup>
+```bash Quick Switch
+/gsd:set-profile quality
+```
+
+```bash Via Settings
+/gsd:settings
+# Select "Model Profile"
+# Choose profile
+```
+</CodeGroup>
+
+## Planning Settings
+
+### Commit Documentation
+
+Controls whether `.planning/` files are committed to git.
+
+```json
+{
+  "planning": {
+    "commit_docs": true,
+    "search_gitignored": false
+  }
+}
+```
+
+| Setting | Options | Default | What It Controls |
+|---------|---------|---------|------------------|
+| `commit_docs` | `true`, `false` | `true` | Whether `.planning/` files are committed to git |
+| `search_gitignored` | `true`, `false` | `false` | Add `--no-ignore` to broad searches to include `.planning/` |
+
+<Warning>
+If `.planning/` is in `.gitignore`, `commit_docs` is automatically `false` regardless of the config value.
+</Warning>
+
+<Note>
+**Working on sensitive projects?** Set `commit_docs: false` and add `.planning/` to `.gitignore`. Planning artifacts stay local and never touch git.
+</Note>
+
+## Workflow Agents
+
+These spawn additional agents during planning/execution. They improve quality but add tokens and time.
+
+```json
+{
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true
+  }
+}
+```
+
+### Agent Reference
+
+<AccordionGroup>
+  <Accordion title="Research Agent" icon="magnifying-glass">
+    **Default:** `true`
+    
+    **What it does:** Researches domain before planning each phase. Spawns 4 parallel agents:
+    - Stack researcher - Libraries, patterns, tooling
+    - Features researcher - Similar implementations
+    - Architecture researcher - Design patterns
+    - Pitfalls researcher - Common mistakes
+    
+    **Output:** `{phase}-RESEARCH.md`
+    
+    **Disable when:** Domain is familiar, conserving tokens, rapid iteration.
+    
+    **Override per-invocation:**
+    ```bash
+    /gsd:plan-phase --skip-research
+    ```
+  </Accordion>
+
+  <Accordion title="Plan Checker" icon="check-circle">
+    **Default:** `true`
+    
+    **What it does:** Verifies plans achieve phase goals before execution. Checks 8 dimensions:
+    1. Requirements coverage
+    2. Task atomicity
+    3. Dependency ordering
+    4. File organization
+    5. Verification steps
+    6. Technical decisions
+    7. Implementation clarity
+    8. Automated validation (Nyquist)
+    
+    Loops up to 3 times until plans pass.
+    
+    **Disable when:** Plans are simple, conserving tokens, trusted domain.
+    
+    **Override per-invocation:**
+    ```bash
+    /gsd:plan-phase --skip-verify
+    ```
+  </Accordion>
+
+  <Accordion title="Verifier" icon="shield-check">
+    **Default:** `true`
+    
+    **What it does:** Confirms must-haves were delivered after execution. Checks codebase against phase goals.
+    
+    **Output:** `{phase}-VERIFICATION.md`
+    
+    **Disable when:** Manual testing only, rapid iteration.
+  </Accordion>
+
+  <Accordion title="Nyquist Validation" icon="chart-line">
+    **Default:** `true`
+    
+    **What it does:** Maps automated test coverage to each requirement during plan-phase research. Ensures feedback mechanism exists before code is written.
+    
+    - Detects existing test infrastructure
+    - Maps requirements to test commands
+    - Identifies test scaffolding needed (Wave 0 tasks)
+    - Plan checker enforces as 8th verification dimension
+    
+    **Output:** `{phase}-VALIDATION.md` - the feedback contract for the phase
+    
+    **Disable when:** Rapid prototyping phases where test infrastructure isn't the focus.
+    
+    **Learn more:** See [Validation Architecture](/validation-architecture)
+  </Accordion>
+</AccordionGroup>
+
+### Performance vs Quality Presets
+
+Recommended combinations for different scenarios:
+
+| Scenario | Mode | Granularity | Profile | Research | Plan Check | Verifier |
+|----------|------|-------------|---------|----------|------------|----------|
+| **Prototyping** | `yolo` | `coarse` | `budget` | off | off | off |
+| **Normal dev** | `interactive` | `standard` | `balanced` | on | on | on |
+| **Production** | `interactive` | `fine` | `quality` | on | on | on |
+
+## Git Branching
+
+Control how GSD handles branches during execution.
+
+```json
+{
+  "git": {
+    "branching_strategy": "none",
+    "phase_branch_template": "gsd/phase-{phase}-{slug}",
+    "milestone_branch_template": "gsd/{milestone}-{slug}"
+  }
+}
+```
+
+### Branching Strategies
+
+<CardGroup cols={3}>
+  <Card title="None" icon="ban">
+    **Default:** Commits to current branch
+    
+    **Best for:** Solo development, simple projects
+    
+    All commits go directly to your current branch. No branch management overhead.
+  </Card>
+  
+  <Card title="Phase" icon="code-branch">
+    **Creates:** One branch per phase
+    
+    **Best for:** Code review per phase, granular rollback
+    
+    Each phase gets its own branch. Merged at phase completion.
+  </Card>
+  
+  <Card title="Milestone" icon="flag">
+    **Creates:** One branch per milestone
+    
+    **Best for:** Release branches, PR per version
+    
+    All phases share one branch. Merged at milestone completion.
+  </Card>
+</CardGroup>
+
+### Branch Templates
+
+Customize branch naming patterns:
+
+```json
+{
+  "git": {
+    "phase_branch_template": "gsd/phase-{phase}-{slug}",
+    "milestone_branch_template": "gsd/{milestone}-{slug}"
+  }
+}
+```
+
+**Template variables:**
+- `{phase}` - Zero-padded phase number (e.g., "03")
+- `{slug}` - Lowercase hyphenated phase name (e.g., "user-authentication")
+- `{milestone}` - Version identifier (e.g., "v1.0")
+
+**Example branches:**
+- Phase: `gsd/phase-03-user-authentication`
+- Milestone: `gsd/v1.0-mvp-launch`
+
+### Merge Behavior
+
+At milestone completion, GSD offers:
+
+1. **Squash merge** (recommended) - Clean single commit per milestone
+2. **Merge with history** - Preserve all atomic commits
+
+<Warning>
+If you use `phase` branching strategy, you may accumulate many branches. Clean them up periodically:
+
+```bash
+git branch -d gsd/phase-*
+```
+</Warning>
+
+## Security: Protecting Sensitive Files
+
+GSD's codebase mapping and analysis commands read files to understand your project. Protect files containing secrets by adding them to Claude Code's deny list:
+
+<Steps>
+  <Step title="Open Settings">
+    Edit `.claude/settings.json` (project-level) or global settings
+  </Step>
+  
+  <Step title="Add Deny Patterns">
+    ```json
+    {
+      "permissions": {
+        "deny": [
+          "Read(.env)",
+          "Read(.env.*)",
+          "Read(**/secrets/*)",
+          "Read(**/*credential*)",
+          "Read(**/*.pem)",
+          "Read(**/*.key)"
+        ]
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+This prevents Claude from reading these files entirely, regardless of what commands you run.
+
+<Info>
+GSD includes built-in protections against committing secrets, but defense-in-depth is best practice. Deny read access as a first line of defense.
+</Info>
+
+## Configuration Examples
+
+### Prototyping Setup
+
+Fast iteration, minimal overhead:
+
+```json
+{
+  "mode": "yolo",
+  "granularity": "coarse",
+  "model_profile": "budget",
+  "workflow": {
+    "research": false,
+    "plan_check": false,
+    "verifier": false,
+    "nyquist_validation": false
+  },
+  "git": {
+    "branching_strategy": "none"
+  }
+}
+```
+
+### Production Setup
+
+Maximum quality, thorough validation:
+
+```json
+{
+  "mode": "interactive",
+  "granularity": "fine",
+  "model_profile": "quality",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true
+  },
+  "git": {
+    "branching_strategy": "phase",
+    "phase_branch_template": "feature/phase-{phase}-{slug}"
+  }
+}
+```
+
+### Team Collaboration Setup
+
+Branch per milestone, code review workflow:
+
+```json
+{
+  "mode": "interactive",
+  "granularity": "standard",
+  "model_profile": "balanced",
+  "planning": {
+    "commit_docs": true
+  },
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true
+  },
+  "git": {
+    "branching_strategy": "milestone",
+    "milestone_branch_template": "release/{milestone}"
+  }
+}
+```
+
+### Private Project Setup
+
+Local planning docs, no git tracking:
+
+```json
+{
+  "mode": "interactive",
+  "granularity": "standard",
+  "model_profile": "balanced",
+  "planning": {
+    "commit_docs": false,
+    "search_gitignored": true
+  },
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true
+  },
+  "git": {
+    "branching_strategy": "none"
+  }
+}
+```
+
+Add to `.gitignore`:
+```
+.planning/
+```
+
+## Command-Line Overrides
+
+Some settings can be overridden per command:
+
+<CodeGroup>
+```bash Skip Research
+/gsd:plan-phase --skip-research
+```
+
+```bash Skip Plan Checker
+/gsd:plan-phase --skip-verify
+```
+
+```bash Auto Mode (One Command)
+/gsd:plan-phase --auto
+```
+</CodeGroup>
+
+## Troubleshooting Configuration
+
+### Changes Not Taking Effect
+
+1. Verify config file exists: `.planning/config.json`
+2. Validate JSON syntax (no trailing commas)
+3. Restart your AI coding assistant
+4. Check `/gsd:progress` to confirm settings
+
+### Model Costs Too High
+
+Reduce token usage:
+
+```bash
+/gsd:set-profile budget
+/gsd:settings
+# Disable research
+# Disable plan_check
+# Disable verifier
+```
+
+### Config File Missing
+
+Run `/gsd:settings` to regenerate:
+
+```bash
+/gsd:settings
+```
+
+Or create manually using the [schema above](#configuration-schema).
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="book" href="/core-concepts">
+    Understand how GSD works under the hood
+  </Card>
+  <Card title="Workflow Agents" icon="users" href="/workflow-agents">
+    Deep dive into the agent system
+  </Card>
+  <Card title="Commands" icon="terminal" href="/commands">
+    Complete reference for all GSD commands
+  </Card>
+  <Card title="Best Practices" icon="star" href="/best-practices">
+    Tips for optimal GSD configuration
+  </Card>
+</CardGroup>

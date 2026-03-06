@@ -1,0 +1,433 @@
+---
+title: "Agent System"
+description: "How agents are structured, the orchestrator pattern, and agent roles in the Get Shit Done framework"
+---
+
+## Multi-Agent Orchestration
+
+GSD uses a **thin orchestrator, specialized agents** pattern. Every workflow follows the same structure:
+
+1. **Orchestrator** (main Claude session) — Coordinates, routes, waits
+2. **Agents** (fresh subagent contexts) — Execute, research, verify, plan
+
+<Info>
+**Core Principle**: The orchestrator never does heavy lifting. It spawns agents, waits for results (blocking on Task tool), integrates outputs, and routes to the next step.
+</Info>
+
+### Why This Architecture?
+
+**Problem**: Claude's quality degrades as context fills. At 70%+ usage, output becomes rushed and incomplete.
+
+**Solution**: Keep the orchestrator lean. Heavy work happens in **fresh 200K contexts** (subagents), each starting at 0% usage.
+
+**Result**: You can run an entire phase — deep research, multiple plans, thousands of lines of code — and your main session stays at 30-40% context. Fast, responsive, consistent quality.
+
+## Orchestrator Pattern
+
+### Responsibilities
+
+| What Orchestrators Do | What They DON'T Do |
+|-----------------------|--------------------|
+| Load STATE.md | Read codebase files |
+| Parse CLI tool JSON | Write implementation code |
+| Spawn agents with context | Perform analysis |
+| Block on Task (wait for completion) | Make planning decisions |
+| Collect and route results | Execute verification |
+| Update state files | Research ecosystems |
+| Commit tracking artifacts | Debug issues |
+
+### Orchestrator Lifecycle
+
+```
+┌────────────────────────────────────────────┐
+│  ORCHESTRATOR (Main Claude Session)        │
+│  Context: 10-15%                           │
+├────────────────────────────────────────────┤
+│  1. Load STATE.md (current position)       │
+│  2. Call CLI tool (discover, validate)     │
+│  3. Spawn agents (Task tool, parallel)     │
+│     ↓                                      │
+│  4. WAIT (Task blocks until complete)      │
+│     ↓                                      │
+│  5. Collect results (read artifacts)       │
+│  6. Route next (another agent, or done)    │
+└────────────────────────────────────────────┘
+         │
+         ├──→ Agent A (200K context) ──→ RESEARCH.md
+         ├──→ Agent B (200K context) ──→ PLAN.md
+         └──→ Agent C (200K context) ──→ SUMMARY.md
+```
+
+### Example: `plan-phase` Orchestrator
+
+```markdown
+1. Load STATE.md → current phase, decisions
+2. CLI: Discover phase directory, context files
+3. Spawn 4 researchers (parallel):
+   - Stack researcher
+   - Features researcher  
+   - Architecture researcher
+   - Pitfalls researcher
+4. WAIT for all 4 to complete
+5. Spawn research synthesizer → RESEARCH.md
+6. WAIT for synthesis
+7. Spawn planner → PLAN.md files
+8. WAIT for planning
+9. Spawn plan-checker → validation
+10. If fails: loop back to step 7 (max 3x)
+11. Update ROADMAP.md, commit
+12. Report to user
+```
+
+Orchestrator stays at ~15% context. Heavy lifting in fresh agents.
+
+## Agent Roles
+
+Each agent is a markdown file in `agents/` with:
+- **Frontmatter**: Name, description, tools, skills, color
+- **Role definition**: Purpose, spawning context, responsibilities
+- **Workflow instructions**: Step-by-step execution protocol
+- **Output specification**: What artifact to create
+
+### Core Agents
+
+#### gsd-planner
+
+**Purpose**: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification.
+
+**Spawned by**: `/gsd:plan-phase` orchestrator
+
+**Context loaded**:
+- PROJECT.md (vision)
+- REQUIREMENTS.md (scoped requirements)
+- ROADMAP.md (current phase)
+- CONTEXT.md (user decisions from discuss-phase)
+- RESEARCH.md (domain knowledge)
+- Existing codebase patterns (via grep)
+
+**Outputs**: `XX-YY-PLAN.md` files (2-3 tasks each)
+
+**Key responsibilities**:
+- Parse and honor user decisions from CONTEXT.md (NON-NEGOTIABLE)
+- Decompose phases into parallel-optimized plans
+- Build dependency graphs, assign execution waves
+- Derive must-haves using goal-backward methodology
+- Handle both standard planning and gap closure mode
+
+<Warning>
+**Critical**: Planner MUST honor locked decisions from CONTEXT.md. If user said "use library X", plan must use library X, not an alternative.
+</Warning>
+
+**Quality checks**:
+- Every locked decision has a task implementing it
+- No task implements a deferred idea
+- Plans complete within ~50% context (2-3 tasks max)
+- Dependencies clearly marked
+
+---
+
+#### gsd-executor
+
+**Purpose**: Executes plans atomically with per-task commits, deviation handling, and checkpoint protocols.
+
+**Spawned by**: `/gsd:execute-phase` orchestrator (one per plan in a wave)
+
+**Context loaded**:
+- PLAN.md (their assignment)
+- STATE.md (current position, decisions)
+- PROJECT.md (vision, constraints)
+- CONTEXT.md (user preferences)
+- CLAUDE.md (project-specific guidelines, if exists)
+- Project skills (if `.claude/skills/` or `.agents/skills/` exists)
+
+**Outputs**: 
+- Code implementation
+- Per-task git commits
+- `XX-YY-SUMMARY.md`
+
+**Key responsibilities**:
+- Execute each task completely
+- Apply deviation rules automatically (handle blockers without stopping)
+- Commit atomically (one commit per task)
+- Pause at checkpoints (human-verify, decision, human-action)
+- Create SUMMARY.md with key decisions, deviations, next steps
+- Update STATE.md position
+
+**Execution patterns**:
+- **Pattern A**: Fully autonomous (no checkpoints) → execute all, create summary, done
+- **Pattern B**: Has checkpoints → execute until checkpoint, STOP, return structured state
+- **Pattern C**: Continuation → verify previous commits, resume from specified task
+
+<Info>
+**Fresh context per plan**: Each executor gets 200K tokens for implementation. Zero accumulated garbage, peak quality.
+</Info>
+
+---
+
+#### gsd-verifier
+
+**Purpose**: Verifies phase achieved its GOAL (not just completed tasks) via goal-backward analysis.
+
+**Spawned by**: `/gsd:execute-phase` orchestrator (after all plans complete)
+
+**Context loaded**:
+- ROADMAP.md (phase goal)
+- REQUIREMENTS.md (must-haves with IDs)
+- All PLAN.md files (what was supposed to be built)
+- All SUMMARY.md files (what was claimed)
+- Codebase (what actually exists)
+
+**Outputs**: `XX-VERIFICATION.md`
+
+**Key responsibilities**:
+- Verify goal achievement (not task completion)
+- Check must-haves against actual code
+- Cross-reference requirement IDs (traceability)
+- Identify gaps (stubs, missing features, broken wiring)
+- Flag items needing human verification
+
+**Critical mindset**: Do NOT trust SUMMARY.md claims. Verify what ACTUALLY exists in code.
+
+**Verification levels**:
+1. **Truths**: Must be demonstrably true ("User can log in with email")
+2. **Artifacts**: Files/features must exist and be substantive (not stubs)
+3. **Key Links**: Wiring between components must work (API called correctly, props passed)
+
+**Outputs**:
+- `status: passed` → all must-haves verified
+- `status: human_needed` → automated checks passed, manual testing required
+- `status: gaps_found` → missing features, stubs detected
+
+---
+
+#### gsd-plan-checker
+
+**Purpose**: Validates plan quality before execution. Prevents bad plans from wasting execution cycles.
+
+**Spawned by**: `/gsd:plan-phase` orchestrator (after planner completes)
+
+**Context loaded**:
+- All PLAN.md files created by planner
+- ROADMAP.md (phase goal)
+- REQUIREMENTS.md (must-haves)
+- CONTEXT.md (user decisions)
+
+**Outputs**: Pass/fail decision with feedback
+
+**8 verification dimensions**:
+1. **Coverage**: Plans achieve phase goal
+2. **Completeness**: All phase requirements mapped to tasks
+3. **Atomicity**: Each plan 2-3 tasks, completable in single context
+4. **Clarity**: Tasks have clear actions and verification
+5. **Dependency logic**: Wave assignments make sense
+6. **Decision fidelity**: User's locked decisions honored
+7. **Traceability**: Requirements IDs present in plan frontmatter
+8. **Validation**: Automated verify commands for each task (Nyquist validation)
+
+**Loop behavior**: If fails, feedback returned to planner → revise → re-check (max 3 iterations)
+
+---
+
+#### gsd-phase-researcher
+
+**Purpose**: Investigates domain knowledge before planning a phase.
+
+**Spawned by**: `/gsd:plan-phase` orchestrator (4 researchers in parallel)
+
+**Specializations**:
+1. **Stack researcher**: Libraries, frameworks, best practices for the tech involved
+2. **Features researcher**: How similar features are implemented in the wild
+3. **Architecture researcher**: Patterns, structure, organization for this type of work
+4. **Pitfalls researcher**: Common mistakes, gotchas, anti-patterns to avoid
+
+**Outputs**: 4 markdown sections → synthesized into `RESEARCH.md`
+
+**Tools**: WebFetch, Context7 (MCP), grep (existing codebase patterns)
+
+---
+
+#### gsd-debugger
+
+**Purpose**: Systematic debugging with persistent state, spawned for failures during verify-work.
+
+**Spawned by**: `/gsd:verify-work` orchestrator (when UAT fails)
+
+**Context loaded**:
+- UAT failure description
+- Related PLAN.md and SUMMARY.md
+- Codebase files involved
+
+**Outputs**: 
+- `DEBUG-{slug}.md` (debug session)
+- Root cause analysis
+- Verified fix plan (ready for execution)
+
+**Process**:
+1. Reproduce the issue
+2. Trace execution (logs, network, state)
+3. Identify root cause
+4. Propose fix
+5. Verify fix works
+6. Create fix plan for `/gsd:execute-phase --gaps-only`
+
+---
+
+#### gsd-codebase-mapper
+
+**Purpose**: Analyzes existing codebases for brownfield projects.
+
+**Spawned by**: `/gsd:map-codebase` orchestrator (4-7 agents in parallel)
+
+**Outputs**:
+- `codebase/STACK.md` (technologies, versions)
+- `codebase/ARCHITECTURE.md` (structure, patterns)
+- `codebase/CONVENTIONS.md` (code style, naming)
+- `codebase/CONCERNS.md` (debt, smells, risks)
+
+**Used by**: `/gsd:new-project` — questions focus on what you're ADDING, not re-documenting what exists
+
+---
+
+### Supporting Agents
+
+| Agent | Purpose | Spawned By |
+|-------|---------|------------|
+| **gsd-roadmapper** | Creates roadmaps from requirements | `/gsd:new-project` |
+| **gsd-research-synthesizer** | Aggregates parallel research findings | `/gsd:plan-phase` |
+| **gsd-project-researcher** | Project-level domain research | `/gsd:new-project` |
+| **gsd-integration-checker** | Validates cross-boundary wiring | `/gsd:execute-phase` (optional) |
+| **gsd-nyquist-auditor** | Maps test coverage to requirements | `/gsd:validate-phase` |
+
+## Agent Communication
+
+**Agents do NOT communicate with each other.** All communication flows through artifacts:
+
+```
+Orchestrator
+    ↓
+  Agent A → writes RESEARCH.md
+    ↓
+Orchestrator reads RESEARCH.md
+    ↓
+  Agent B → reads RESEARCH.md, writes PLAN.md
+    ↓
+Orchestrator reads PLAN.md
+    ↓
+  Agent C → reads PLAN.md, writes SUMMARY.md
+```
+
+This ensures:
+- **Stateless agents**: Each agent is independent, resumable
+- **Artifact-driven**: State lives in files (git-tracked, versioned)
+- **Debuggable**: You can read exactly what each agent saw and produced
+
+## Agent Spawning
+
+### Task Tool Syntax
+
+```javascript
+Task(
+  subagent_type="gsd-executor",
+  model="claude-opus-4-20250514",  // From model profile
+  prompt="
+    <objective>
+    Execute plan 03-02 of phase 03-user-authentication.
+    </objective>
+
+    <execution_context>
+    @~/.claude/get-shit-done/workflows/execute-plan.md
+    @~/.claude/get-shit-done/templates/summary.md
+    </execution_context>
+
+    <files_to_read>
+    Read these files at execution start:
+    - .planning/phases/03-user-authentication/03-02-PLAN.md
+    - .planning/STATE.md
+    - .planning/PROJECT.md
+    </files_to_read>
+
+    <success_criteria>
+    - [ ] All tasks executed
+    - [ ] Each task committed individually
+    - [ ] SUMMARY.md created
+    </success_criteria>
+  "
+)
+```
+
+**Key elements**:
+- `subagent_type`: Matches agent filename (`gsd-executor.md`)
+- `model`: From config's model profile (quality/balanced/budget)
+- `prompt`: @-references for context, explicit file list, success criteria
+
+### Parallel vs Sequential
+
+**Parallel** (multiple Task calls in one message):
+```javascript
+Task(subagent_type="gsd-phase-researcher", prompt="Research stack...")
+Task(subagent_type="gsd-phase-researcher", prompt="Research features...")
+Task(subagent_type="gsd-phase-researcher", prompt="Research architecture...")
+Task(subagent_type="gsd-phase-researcher", prompt="Research pitfalls...")
+// All 4 run simultaneously
+```
+
+**Sequential** (one Task call, wait, next Task call):
+```javascript
+Task(subagent_type="gsd-planner", ...)
+// Wait for completion
+// Read PLAN.md
+Task(subagent_type="gsd-plan-checker", ...)
+// Wait for validation
+```
+
+<Note>
+**Task tool blocks** — execution pauses until agent completes. No polling, no callbacks. This makes orchestration simple and reliable.
+</Note>
+
+## Model Profiles
+
+Each agent uses a model tier based on the active profile:
+
+| Agent | Quality | Balanced | Budget |
+|-------|---------|----------|--------|
+| gsd-planner | Opus | Opus | Sonnet |
+| gsd-executor | Opus | Sonnet | Sonnet |
+| gsd-verifier | Sonnet | Sonnet | Haiku |
+| gsd-phase-researcher | Opus | Sonnet | Haiku |
+| gsd-debugger | Opus | Sonnet | Sonnet |
+
+**Philosophy**:
+- **Quality**: Opus for decisions, Sonnet for verification
+- **Balanced**: Opus for planning, Sonnet for everything else (default)
+- **Budget**: Sonnet for code, Haiku for research/verification
+
+Switch profiles:
+```
+/gsd:set-profile budget
+```
+
+## Agent Workflow Toggles
+
+Some agents are optional (configurable via `/gsd:settings`):
+
+| Setting | Agent | Default | Purpose |
+|---------|-------|---------|----------|
+| `workflow.research` | gsd-phase-researcher | `true` | Domain research before planning |
+| `workflow.plan_check` | gsd-plan-checker | `true` | Plan validation loop |
+| `workflow.verifier` | gsd-verifier | `true` | Post-execution verification |
+| `workflow.nyquist_validation` | gsd-nyquist-auditor | `true` | Test coverage mapping |
+
+Disable to speed up phases in familiar domains or conserve tokens.
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Wave Execution" icon="layer-group" href="/advanced/wave-execution">
+    How parallel execution with dependencies works
+  </Card>
+  <Card title="State Management" icon="database" href="/advanced/state-management">
+    STATE.md, decision tracking, session continuity
+  </Card>
+</CardGroup>

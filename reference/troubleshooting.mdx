@@ -1,0 +1,528 @@
+---
+title: 'Troubleshooting'
+description: 'Common issues and solutions for Get Shit Done'
+icon: 'wrench'
+---
+
+## Installation Issues
+
+### Commands Not Found After Install
+
+<Warning>
+Restart your runtime (Claude Code, OpenCode, Gemini CLI, or Codex) to reload commands/skills after installation.
+</Warning>
+
+**Check installation:**
+
+- **Claude Code (global):** Verify files exist in `~/.claude/commands/gsd/`
+- **Claude Code (local):** Verify files exist in `./.claude/commands/gsd/`
+- **OpenCode:** Verify files exist in `~/.config/opencode/command/`
+- **Gemini CLI:** Verify files exist in `~/.gemini/commands/gsd/`
+- **Codex:** Verify skills exist in `~/.codex/skills/gsd-*/SKILL.md` (global) or `./.codex/skills/gsd-*/SKILL.md` (local)
+
+**Quick verification:**
+
+```bash
+# Claude Code / Gemini
+/gsd:help
+
+# OpenCode
+/gsd-help
+
+# Codex
+$gsd-help
+```
+
+### Commands Not Working as Expected
+
+1. Run `/gsd:help` to verify installation
+2. Re-run the installer to reinstall:
+
+```bash
+npx get-shit-done-cc@latest
+```
+
+### Docker or Containerized Environments
+
+<Info>
+If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing.
+</Info>
+
+```bash
+CLAUDE_CONFIG_DIR=/home/youruser/.claude npx get-shit-done-cc --global
+```
+
+This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
+
+### Installation Fails on WSL2/Non-TTY Terminals
+
+**Since v1.6.4:** The installer detects non-interactive stdin and automatically falls back to global install.
+
+If you still encounter issues, use explicit flags:
+
+```bash
+npx get-shit-done-cc --claude --global
+```
+
+---
+
+## Project Issues
+
+### "Project Already Initialized"
+
+<Warning>
+You ran `/gsd:new-project` but `.planning/PROJECT.md` already exists. This is a safety check.
+</Warning>
+
+**Solution:**
+
+If you want to start over, delete the `.planning/` directory first:
+
+```bash
+rm -rf .planning/
+/gsd:new-project
+```
+
+### Lost Track of Where You Are
+
+<Info>
+Run `/gsd:progress` to see your current status and next steps.
+</Info>
+
+```bash
+/gsd:progress
+```
+
+It reads all state files and tells you exactly where you are and what to do next.
+
+### Context Degradation During Long Sessions
+
+**Symptoms:**
+- Claude's responses become shorter or less detailed
+- Quality of generated code drops
+- Claude starts making mistakes
+
+**Solution:**
+
+Clear your context window between major commands: `/clear` in Claude Code.
+
+<Note>
+GSD is designed around fresh contexts — every subagent gets a clean 200K window. If quality is dropping in the main session, clear and restore state.
+</Note>
+
+```bash
+/clear
+/gsd:resume-work
+# or
+/gsd:progress
+```
+
+---
+
+## Planning Issues
+
+### Plans Seem Wrong or Misaligned
+
+**Cause:** Claude is making assumptions about implementation details without your input.
+
+**Solution:**
+
+Run `/gsd:discuss-phase [N]` before planning:
+
+```bash
+/gsd:discuss-phase 1
+# Answer questions about your preferences
+/gsd:plan-phase 1
+```
+
+You can also preview Claude's intended approach:
+
+```bash
+/gsd:list-phase-assumptions 1
+```
+
+### Plans Are Too Ambitious
+
+<Warning>
+Plans should have 2-3 tasks maximum. If tasks are too large, they exceed what a single context window can produce reliably.
+</Warning>
+
+**Solution:**
+
+Re-plan with smaller scope:
+
+1. Delete existing plans: `rm -rf .planning/phases/XX-phase-name/`
+2. Adjust granularity: `/gsd:settings` → change to `fine` for more phases
+3. Re-run: `/gsd:plan-phase XX`
+
+### Plans Don't Include Required Features
+
+**Cause:** Plan checker may have missed requirement coverage.
+
+**Solution:**
+
+Check requirements traceability:
+
+1. Open `.planning/REQUIREMENTS.md`
+2. Verify all v1 requirements have phase assignments
+3. Run `/gsd:plan-milestone-gaps` to create phases for missing requirements
+
+---
+
+## Execution Issues
+
+### Execution Fails or Produces Stubs
+
+**Symptoms:**
+- Functions are defined but not implemented
+- Code contains `// TODO` comments
+- Tests are skipped or incomplete
+
+**Solution:**
+
+1. Check the plan scope (see "Plans Are Too Ambitious" above)
+2. Run verification: `/gsd:verify-work [N]`
+3. Let GSD auto-diagnose and create fix plans
+4. Re-execute: `/gsd:execute-phase [N] --gaps-only`
+
+### Need to Change Something After Execution
+
+<Warning>
+Do not re-run `/gsd:execute-phase` — it will duplicate work and create conflicts.
+</Warning>
+
+**For small fixes:**
+
+```bash
+/gsd:quick
+> "Fix the login button styling"
+```
+
+**For systematic issues:**
+
+```bash
+/gsd:verify-work [N]
+# Follow the UAT process
+# GSD will create fix plans automatically
+```
+
+### Subagent Appears to Fail but Work Was Done
+
+<Info>
+**Known Issue:** Claude Code has a classification bug that can cause false failures. GSD includes a workaround.
+</Info>
+
+**Check actual results:**
+
+```bash
+git log
+git status
+```
+
+If commits were made and files changed, the work succeeded despite the failure message.
+
+### Phase Execution Hangs or Takes Too Long
+
+**Possible causes:**
+- External service checkpoints (database setup, API auth)
+- Long-running test suites
+- Network timeouts
+
+**Solution:**
+
+1. Check the current task: Look at recent commits
+2. If checkpoint detected, respond to the prompt
+3. Save state: `/gsd:pause-work`
+4. Resume later: `/gsd:resume-work`
+
+---
+
+## Verification Issues
+
+### Verification Finds Issues I Can't Reproduce
+
+**Cause:** Verification may be checking against stale state or missing setup.
+
+**Solution:**
+
+1. Check USER-SETUP.md: Ensure all external services are configured
+2. Run tests manually to verify: `npm test` or equivalent
+3. Check cold-start smoke test: Restart the server/app from scratch
+4. If false positive: Mark as "pass" in `/gsd:verify-work` and note the issue
+
+### Verification Passes but Feature Doesn't Work
+
+<Warning>
+Verification only checks what the phase promised to deliver. If requirements were incomplete, the phase may be "correct" but insufficient.
+</Warning>
+
+**Solution:**
+
+1. Update requirements: Edit `.planning/REQUIREMENTS.md`
+2. Add phase: `/gsd:add-phase` to implement missing functionality
+3. Or use quick mode: `/gsd:quick` for small additions
+
+---
+
+## Configuration Issues
+
+### Model Costs Too High
+
+**Solution:**
+
+Switch to budget profile:
+
+```bash
+/gsd:set-profile budget
+```
+
+Disable optional agents:
+
+```bash
+/gsd:settings
+# Toggle off:
+# - workflow.research
+# - workflow.plan_check
+# - workflow.verifier
+```
+
+<Note>
+Budget profile uses Sonnet for execution and Haiku for research/verification. Quality is still good for familiar domains.
+</Note>
+
+### Working on a Sensitive/Private Project
+
+**Solution:**
+
+Keep `.planning/` local-only:
+
+1. During initial setup: Answer "no" when asked about git tracking
+2. After setup: `/gsd:settings` → set `commit_docs` to `false`
+3. Add to `.gitignore`:
+
+```bash
+echo ".planning/" >> .gitignore
+```
+
+### Update Overwrote My Local Changes
+
+<Info>
+**Since v1.17:** The installer automatically backs up locally modified files to `gsd-local-patches/`.
+</Info>
+
+**Solution:**
+
+```bash
+/gsd:reapply-patches
+```
+
+This merges your local modifications back into the updated GSD files.
+
+---
+
+## Security Issues
+
+### Codebase Mapping Reads Sensitive Files
+
+<Warning>
+GSD's `/gsd:map-codebase` command reads files to understand your project. Protect files containing secrets.
+</Warning>
+
+**Solution:**
+
+Add sensitive file patterns to Claude Code's deny list:
+
+**File:** `.claude/settings.json` (or global settings)
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets/*)",
+      "Read(**/*credential*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
+    ]
+  }
+}
+```
+
+This prevents Claude from reading these files entirely, regardless of commands run.
+
+### Secrets Accidentally Committed
+
+<Info>
+GSD includes built-in protections against committing secrets, but defense-in-depth is best practice.
+</Info>
+
+**Prevention:**
+
+1. Use the deny list above (first line of defense)
+2. Ensure `.env` and similar files are in `.gitignore`
+3. Review commits before pushing: `git log -p`
+
+**If it happens:**
+
+1. Remove from git history: Use `git filter-branch` or BFG Repo-Cleaner
+2. Rotate the exposed secrets immediately
+3. Force push: `git push --force` (if not yet shared)
+
+---
+
+## Recovery Quick Reference
+
+<AccordionGroup>
+  <Accordion title="Lost context / new session">
+    ```bash
+    /gsd:resume-work
+    # or
+    /gsd:progress
+    ```
+  </Accordion>
+
+  <Accordion title="Phase went wrong">
+    ```bash
+    # Revert the phase commits
+    git log  # Find phase commits
+    git revert <commit-hash>..HEAD
+    
+    # Re-plan
+    rm -rf .planning/phases/XX-phase-name/
+    /gsd:plan-phase XX
+    /gsd:execute-phase XX
+    ```
+  </Accordion>
+
+  <Accordion title="Need to change scope">
+    ```bash
+    # Add phase
+    /gsd:add-phase
+    
+    # Insert urgent work
+    /gsd:insert-phase 3
+    
+    # Remove future phase
+    /gsd:remove-phase 7
+    ```
+  </Accordion>
+
+  <Accordion title="Milestone audit found gaps">
+    ```bash
+    /gsd:plan-milestone-gaps
+    # Execute the generated gap-closure phases
+    ```
+  </Accordion>
+
+  <Accordion title="Something broke">
+    ```bash
+    /gsd:debug "description of the issue"
+    ```
+  </Accordion>
+
+  <Accordion title="Quick targeted fix">
+    ```bash
+    /gsd:quick
+    > "Describe what needs to be fixed"
+    ```
+  </Accordion>
+
+  <Accordion title="Plan doesn't match your vision">
+    ```bash
+    # Lock in your preferences first
+    /gsd:discuss-phase [N]
+    
+    # Then re-plan
+    rm -rf .planning/phases/XX-phase-name/
+    /gsd:plan-phase [N]
+    ```
+  </Accordion>
+
+  <Accordion title="Costs running high">
+    ```bash
+    /gsd:set-profile budget
+    /gsd:settings  # Toggle agents off
+    ```
+  </Accordion>
+
+  <Accordion title="Update broke local changes">
+    ```bash
+    /gsd:reapply-patches
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Health Check and Repair
+
+<Info>
+**Since v1.20.0:** Use `/gsd:health` to validate `.planning/` directory integrity.
+</Info>
+
+### Validate Project Structure
+
+```bash
+/gsd:health
+```
+
+**Checks:**
+- `config.json` schema and required fields
+- `STATE.md` structure and frontmatter
+- Phase directory consistency
+- Roadmap/requirements sync
+
+### Auto-Repair Corruption
+
+```bash
+/gsd:health --repair
+```
+
+**Creates:**
+- Timestamped backup before regenerating files
+- Restored `config.json` with defaults
+- Regenerated `STATE.md` from roadmap
+
+<Warning>
+Repair may lose uncommitted state. Review the backup before proceeding.
+</Warning>
+
+---
+
+## Uninstalling
+
+To remove GSD completely:
+
+```bash
+# Global installs
+npx get-shit-done-cc --claude --global --uninstall
+npx get-shit-done-cc --opencode --global --uninstall
+npx get-shit-done-cc --codex --global --uninstall
+
+# Local installs (current project)
+npx get-shit-done-cc --claude --local --uninstall
+npx get-shit-done-cc --opencode --local --uninstall
+npx get-shit-done-cc --codex --local --uninstall
+```
+
+This removes all GSD commands, agents, hooks, and settings while preserving your other configurations.
+
+---
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/gsd">
+    Join the GSD Discord for help from the community and developers.
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/glittercowboy/get-shit-done/issues">
+    Report bugs or request features on GitHub.
+  </Card>
+</CardGroup>
+
+**In Claude Code:**
+
+```bash
+/gsd:join-discord
+```

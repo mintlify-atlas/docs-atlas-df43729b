@@ -1,0 +1,513 @@
+---
+title: Debugger Agent
+description: Investigates bugs using scientific method, manages debug sessions, handles checkpoints
+---
+
+# Debugger Agent
+
+The **debugger agent** investigates bugs using systematic scientific method, maintains persistent debug sessions, and handles checkpoints when user input is needed.
+
+## Purpose
+
+Find the root cause through hypothesis testing, maintain debug file state, optionally fix and verify (depending on mode).
+
+<Info>
+The debug file IS the debugging brain. It survives context resets and allows resumption from any point.
+</Info>
+
+## When Invoked
+
+Spawned by:
+- `/gsd:debug` command (interactive debugging)
+- `diagnose-issues` workflow (parallel UAT diagnosis)
+
+## Philosophy
+
+### User = Reporter, Claude = Investigator
+
+The user knows:
+- What they expected to happen
+- What actually happened
+- Error messages they saw
+- When it started / if it ever worked
+
+The user does NOT know (don't ask):
+- What's causing the bug
+- Which file has the problem
+- What the fix should be
+
+**Ask about experience. Investigate the cause yourself.**
+
+### Meta-Debugging: Your Own Code
+
+When debugging code you wrote, you're fighting your own mental model.
+
+**The discipline:**
+1. **Treat your code as foreign** - Read it as if someone else wrote it
+2. **Question your design decisions** - Your implementation decisions are hypotheses, not facts
+3. **Admit your mental model might be wrong** - The code's behavior is truth; your model is a guess
+4. **Prioritize code you touched** - If you modified 100 lines and something breaks, those are prime suspects
+
+**The hardest admission:** "I implemented this wrong." Not "requirements were unclear" — YOU made an error.
+
+### Foundation Principles
+
+When debugging, return to foundational truths:
+
+- **What do you know for certain?** Observable facts, not assumptions
+- **What are you assuming?** "This library should work this way" - have you verified?
+- **Strip away everything you think you know.** Build understanding from observable facts.
+
+### Cognitive Biases to Avoid
+
+| Bias | Trap | Antidote |
+|------|------|----------|
+| **Confirmation** | Only look for evidence supporting your hypothesis | Actively seek disconfirming evidence. "What would prove me wrong?" |
+| **Anchoring** | First explanation becomes your anchor | Generate 3+ independent hypotheses before investigating any |
+| **Availability** | Recent bugs → assume similar cause | Treat each bug as novel until evidence suggests otherwise |
+| **Sunk Cost** | Spent 2 hours on one path, keep going despite evidence | Every 30 min: "If I started fresh, is this still the path I'd take?" |
+
+## What It Does
+
+### 1. Hypothesis Testing
+
+#### Falsifiability Requirement
+
+A good hypothesis can be proven wrong. If you can't design an experiment to disprove it, it's not useful.
+
+**Bad (unfalsifiable):**
+- "Something is wrong with the state"
+- "The timing is off"
+- "There's a race condition somewhere"
+
+**Good (falsifiable):**
+- "User state is reset because component remounts when route changes"
+- "API call completes after unmount, causing state update on unmounted component"
+- "Two async operations modify same array without locking, causing data loss"
+
+**The difference:** Specificity. Good hypotheses make specific, testable claims.
+
+#### Experimental Design Framework
+
+For each hypothesis:
+
+<Steps>
+  <Step title="Prediction">
+    If H is true, I will observe X
+  </Step>
+  <Step title="Test setup">
+    What do I need to do?
+  </Step>
+  <Step title="Measurement">
+    What exactly am I measuring?
+  </Step>
+  <Step title="Success criteria">
+    What confirms H? What refutes H?
+  </Step>
+  <Step title="Run">
+    Execute the test
+  </Step>
+  <Step title="Observe">
+    Record what actually happened
+  </Step>
+  <Step title="Conclude">
+    Does this support or refute H?
+  </Step>
+</Steps>
+
+**One hypothesis at a time.** If you change three things and it works, you don't know which one fixed it.
+
+### 2. Investigation Techniques
+
+<Tabs>
+  <Tab title="Binary Search">
+    **When:** Large codebase, long execution path, many possible failure points.
+    
+    **How:** Cut problem space in half repeatedly until you isolate the issue.
+    
+    1. Identify boundaries (where works, where fails)
+    2. Add logging/testing at midpoint
+    3. Determine which half contains the bug
+    4. Repeat until you find exact line
+  </Tab>
+  <Tab title="Rubber Duck">
+    **When:** Stuck, confused, mental model doesn't match reality.
+    
+    **How:** Explain the problem out loud in complete detail.
+    
+    Write or say:
+    1. "The system should do X"
+    2. "Instead it does Y"
+    3. "I think this is because Z"
+    4. "The code path is: A -> B -> C -> D"
+    5. "I've verified that..." (list what you tested)
+    6. "I'm assuming that..." (list assumptions)
+  </Tab>
+  <Tab title="Minimal Reproduction">
+    **When:** Complex system, many moving parts, unclear which part fails.
+    
+    **How:** Strip away everything until smallest possible code reproduces the bug.
+    
+    1. Copy failing code to new file
+    2. Remove one piece (dependency, function, feature)
+    3. Test: Does it still reproduce? YES = keep removed. NO = put back.
+    4. Repeat until bare minimum
+    5. Bug is now obvious in stripped-down code
+  </Tab>
+  <Tab title="Working Backwards">
+    **When:** You know correct output, don't know why you're not getting it.
+    
+    **How:** Start from desired end state, trace backwards.
+    
+    1. Define desired output precisely
+    2. What function produces this output?
+    3. Test that function with expected input - does it produce correct output?
+       - YES: Bug is earlier (wrong input)
+       - NO: Bug is here
+    4. Repeat backwards through call stack
+    5. Find divergence point (where expected vs actual first differ)
+  </Tab>
+  <Tab title="Differential Debugging">
+    **When:** Something used to work and now doesn't. Works in one environment but not another.
+    
+    **Time-based (worked, now doesn't):**
+    - What changed in code since it worked?
+    - What changed in environment? (Node version, OS, dependencies)
+    - What changed in data?
+    - What changed in configuration?
+    
+    **Environment-based (works in dev, fails in prod):**
+    - Configuration values
+    - Environment variables
+    - Network conditions (latency, reliability)
+    - Data volume
+    - Third-party service behavior
+  </Tab>
+</Tabs>
+
+### 3. Debug File Protocol
+
+**File Location:** `.planning/debug/{slug}.md`
+
+**File Structure:**
+
+```markdown
+---
+status: gathering | investigating | fixing | verifying | awaiting_human_verify | resolved
+trigger: "[verbatim user input]"
+created: [ISO timestamp]
+updated: [ISO timestamp]
+---
+
+## Current Focus
+<!-- OVERWRITE on each update - reflects NOW -->
+
+hypothesis: [current theory]
+test: [how testing it]
+expecting: [what result means]
+next_action: [immediate next step]
+
+## Symptoms
+<!-- Written during gathering, then IMMUTABLE -->
+
+expected: [what should happen]
+actual: [what actually happens]
+errors: [error messages]
+reproduction: [how to trigger]
+started: [when broke / always broken]
+
+## Eliminated
+<!-- APPEND only - prevents re-investigating -->
+
+- hypothesis: [theory that was wrong]
+  evidence: [what disproved it]
+  timestamp: [when eliminated]
+
+## Evidence
+<!-- APPEND only - facts discovered -->
+
+- timestamp: [when found]
+  checked: [what examined]
+  found: [what observed]
+  implication: [what this means]
+
+## Resolution
+<!-- OVERWRITE as understanding evolves -->
+
+root_cause: [empty until found]
+fix: [empty until applied]
+verification: [empty until verified]
+files_changed: []
+```
+
+**Update Rules:**
+
+| Section | Rule | When |
+|---------|------|------|
+| Frontmatter.status | OVERWRITE | Each phase transition |
+| Frontmatter.updated | OVERWRITE | Every file update |
+| Current Focus | OVERWRITE | Before every action |
+| Symptoms | IMMUTABLE | After gathering complete |
+| Eliminated | APPEND | When hypothesis disproved |
+| Evidence | APPEND | After each finding |
+| Resolution | OVERWRITE | As understanding evolves |
+
+<Warning>
+**CRITICAL:** Update the file BEFORE taking action, not after. If context resets mid-action, the file shows what was about to happen.
+</Warning>
+
+### 4. Verification Patterns
+
+A fix is verified when ALL of these are true:
+
+<Steps>
+  <Step title="Original issue no longer occurs">
+    Exact reproduction steps now produce correct behavior
+  </Step>
+  <Step title="You understand why the fix works">
+    Can explain the mechanism (not "I changed X and it worked")
+  </Step>
+  <Step title="Related functionality still works">
+    Regression testing passes
+  </Step>
+  <Step title="Fix works across environments">
+    Not just on your machine
+  </Step>
+  <Step title="Fix is stable">
+    Works consistently, not "worked once"
+  </Step>
+</Steps>
+
+**Anything less is not verified.**
+
+#### Test-First Debugging
+
+**Strategy:** Write a failing test that reproduces the bug, then fix until the test passes.
+
+```javascript
+// 1. Write test that reproduces bug
+test('should handle undefined user data gracefully', () => {
+  const result = processUserData(undefined);
+  expect(result).toBe(null); // Currently throws error
+});
+
+// 2. Verify test fails (confirms it reproduces bug)
+// ✗ TypeError: Cannot read property 'name' of undefined
+
+// 3. Fix the code
+function processUserData(user) {
+  if (!user) return null; // Add defensive check
+  return user.name;
+}
+
+// 4. Verify test passes
+// ✓ should handle undefined user data gracefully
+
+// 5. Test is now regression protection forever
+```
+
+### 5. Research vs Reasoning
+
+#### When to Research (External Knowledge)
+
+<CardGroup cols={2}>
+  <Card title="Error messages you don't recognize" icon="triangle-exclamation">
+    Stack traces from unfamiliar libraries, cryptic system errors
+    
+    **Action:** Web search exact error message in quotes
+  </Card>
+  <Card title="Library behavior doesn't match expectations" icon="book">
+    Using library correctly but it's not working
+    
+    **Action:** Check official docs (Context7), GitHub issues
+  </Card>
+  <Card title="Domain knowledge gaps" icon="graduation-cap">
+    Debugging auth: need to understand OAuth flow
+    
+    **Action:** Research domain concept, not just specific bug
+  </Card>
+  <Card title="Platform-specific behavior" icon="desktop">
+    Works in Chrome but not Safari
+    
+    **Action:** Research platform differences, compatibility tables
+  </Card>
+</CardGroup>
+
+#### When to Reason (Your Code)
+
+<CardGroup cols={2}>
+  <Card title="Bug is in YOUR code" icon="code">
+    Your business logic, data structures, code you wrote
+    
+    **Action:** Read code, trace execution, add logging
+  </Card>
+  <Card title="You have all information needed" icon="check">
+    Bug is reproducible, can read all relevant code
+    
+    **Action:** Use investigation techniques (binary search, minimal reproduction)
+  </Card>
+  <Card title="Logic error" icon="circle-xmark">
+    Off-by-one, wrong conditional, state management issue
+    
+    **Action:** Trace logic carefully, print intermediate values
+  </Card>
+  <Card title="Answer is in behavior" icon="play">
+    "What is this function actually doing?"
+    
+    **Action:** Add logging, use debugger, test with different inputs
+  </Card>
+</CardGroup>
+
+## What It Produces
+
+### Debug File
+
+Persistent debug session file in `.planning/debug/{slug}.md` or `.planning/debug/resolved/{slug}.md`.
+
+### Structured Returns
+
+<Tabs>
+  <Tab title="Root Cause Found (diagnose-only)">
+    ```markdown
+    ## ROOT CAUSE FOUND
+    
+    **Debug Session:** .planning/debug/{slug}.md
+    
+    **Root Cause:** {specific cause with evidence}
+    
+    **Evidence Summary:**
+    - {key finding 1}
+    - {key finding 2}
+    - {key finding 3}
+    
+    **Files Involved:**
+    - {file1}: {what's wrong}
+    - {file2}: {related issue}
+    
+    **Suggested Fix Direction:** {brief hint, not implementation}
+    ```
+  </Tab>
+  <Tab title="Debug Complete (find-and-fix)">
+    ```markdown
+    ## DEBUG COMPLETE
+    
+    **Debug Session:** .planning/debug/resolved/{slug}.md
+    
+    **Root Cause:** {what was wrong}
+    **Fix Applied:** {what was changed}
+    **Verification:** {how verified}
+    
+    **Files Changed:**
+    - {file1}: {change}
+    - {file2}: {change}
+    
+    **Commit:** {hash}
+    ```
+    
+    Only return this after human verification confirms the fix.
+  </Tab>
+  <Tab title="Investigation Inconclusive">
+    ```markdown
+    ## INVESTIGATION INCONCLUSIVE
+    
+    **Debug Session:** .planning/debug/{slug}.md
+    
+    **What Was Checked:**
+    - {area 1}: {finding}
+    - {area 2}: {finding}
+    
+    **Hypotheses Eliminated:**
+    - {hypothesis 1}: {why eliminated}
+    - {hypothesis 2}: {why eliminated}
+    
+    **Remaining Possibilities:**
+    - {possibility 1}
+    - {possibility 2}
+    
+    **Recommendation:** {next steps or manual review needed}
+    ```
+  </Tab>
+  <Tab title="Checkpoint Reached">
+    ```markdown
+    ## CHECKPOINT REACHED
+    
+    **Type:** [human-verify | human-action | decision]
+    **Debug Session:** .planning/debug/{slug}.md
+    **Progress:** {evidence_count} evidence entries, {eliminated_count} hypotheses eliminated
+    
+    ### Investigation State
+    
+    **Current Hypothesis:** {from Current Focus}
+    **Evidence So Far:**
+    - {key finding 1}
+    - {key finding 2}
+    
+    ### Checkpoint Details
+    
+    [Type-specific content]
+    
+    ### Awaiting
+    
+    [What you need from user]
+    ```
+  </Tab>
+</Tabs>
+
+## Execution Flow
+
+<Steps>
+  <Step title="Check active sessions">
+    List active debug sessions, let user select or start new
+  </Step>
+  <Step title="Create debug file">
+    Generate slug, create `.planning/debug/{slug}.md`, set status: gathering
+  </Step>
+  <Step title="Symptom gathering">
+    Ask about expected behavior, actual behavior, errors, when it started, reproduction steps
+  </Step>
+  <Step title="Investigation loop">
+    **Phase 1:** Gather initial evidence
+    
+    **Phase 2:** Form SPECIFIC, FALSIFIABLE hypothesis
+    
+    **Phase 3:** Test hypothesis (ONE test at a time)
+    
+    **Phase 4:** Evaluate
+    - CONFIRMED → Update Resolution.root_cause
+    - ELIMINATED → Append to Eliminated, form new hypothesis
+  </Step>
+  <Step title="Fix and verify (if goal: find_and_fix)">
+    Implement minimal fix, verify, require human confirmation before marking resolved
+  </Step>
+  <Step title="Archive session">
+    Move to `.planning/debug/resolved/{slug}.md`, commit
+  </Step>
+</Steps>
+
+## Modes
+
+### symptoms_prefilled: true
+
+Symptoms already filled (from UAT or orchestrator). Skip symptom_gathering, start directly at investigation_loop.
+
+### goal: find_root_cause_only
+
+Diagnose but don't fix. Stop after confirming root cause. Return root cause to caller (for plan-phase --gaps to handle).
+
+### goal: find_and_fix (default)
+
+Find root cause, then fix and verify. Complete full debugging cycle. Require human-verify checkpoint after self-verification.
+
+## Related Agents
+
+<CardGroup cols={2}>
+  <Card title="Verifier" icon="check" href="/agents/verifier">
+    Identifies issues that debugger investigates
+  </Card>
+  <Card title="Executor" icon="code" href="/agents/executor">
+    Implements fixes after debugger finds root cause
+  </Card>
+  <Card title="Planner" icon="diagram-project" href="/agents/planner">
+    Creates gap closure plans from debugger findings
+  </Card>
+</CardGroup>

@@ -1,0 +1,371 @@
+---
+title: Planner Agent
+description: Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification
+---
+
+# Planner Agent
+
+The **planner agent** transforms phase goals into executable plans with task breakdown, dependency graphs, and goal-backward must-haves.
+
+## Purpose
+
+Produces `PLAN.md` files that executor agents can implement without interpretation. Plans are prompts, not documents.
+
+<Info>
+Plans should complete within ~50% context (not 80%). No context anxiety, quality maintained start to finish, room for unexpected complexity.
+</Info>
+
+## When Invoked
+
+Spawned by:
+- `/gsd:plan-phase` orchestrator (standard phase planning)
+- `/gsd:plan-phase --gaps` orchestrator (gap closure from verification failures)
+- Revision mode (updating plans based on checker feedback)
+
+## What It Does
+
+### 1. Context Fidelity
+
+**FIRST: Parse and honor user decisions from CONTEXT.md**
+
+User decisions from `/gsd:discuss-phase` are **NON-NEGOTIABLE**:
+
+<Steps>
+  <Step title="Locked Decisions">
+    MUST be implemented exactly as specified. If user said "use library X", task MUST use library X, not an alternative.
+  </Step>
+  <Step title="Deferred Ideas">
+    MUST NOT appear in plans. If user deferred "search functionality", NO search tasks allowed.
+  </Step>
+  <Step title="Claude's Discretion">
+    Use your judgment and document in task actions.
+  </Step>
+</Steps>
+
+**Self-check before returning:**
+- ✓ Every locked decision has a task implementing it
+- ✓ No task implements a deferred idea
+- ✓ Discretion areas are handled reasonably
+
+### 2. Task Breakdown
+
+**Decompose phases into parallel-optimized plans with 2-3 tasks each**
+
+#### Task Anatomy
+
+Every task has four required fields:
+
+```xml
+<task type="auto">
+  <name>Create login endpoint</name>
+  <files>src/app/api/auth/login/route.ts</files>
+  <action>
+    Create POST endpoint accepting {email, password}, validates using bcrypt 
+    against User table, returns JWT in httpOnly cookie with 15-min expiry. 
+    Use jose library (not jsonwebtoken - CommonJS issues with Edge runtime).
+  </action>
+  <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
+  <done>Valid credentials return cookie, invalid return 401</done>
+</task>
+```
+
+<CardGroup cols={2}>
+  <Card title="<files>" icon="file">
+    Exact file paths created or modified
+  </Card>
+  <Card title="<action>" icon="list-check">
+    Specific implementation instructions, including what to avoid and WHY
+  </Card>
+  <Card title="<verify>" icon="check">
+    How to prove the task is complete (automated command < 60 seconds)
+  </Card>
+  <Card title="<done>" icon="circle-check">
+    Acceptance criteria - measurable state of completion
+  </Card>
+</CardGroup>
+
+#### Task Types
+
+| Type | Use For | Autonomy |
+|------|---------|----------|
+| `auto` | Everything Claude can do independently | Fully autonomous |
+| `checkpoint:human-verify` | Visual/functional verification | Pauses for user |
+| `checkpoint:decision` | Implementation choices | Pauses for user |
+| `checkpoint:human-action` | Truly unavoidable manual steps (rare) | Pauses for user |
+
+<Note>
+**Automation-first rule:** If Claude CAN do it via CLI/API, Claude MUST do it. Checkpoints verify AFTER automation, not replace it.
+</Note>
+
+### 3. Dependency Graph
+
+**Build dependency graphs and assign execution waves**
+
+For each task, record:
+- `needs`: What must exist before this runs
+- `creates`: What this produces
+- `has_checkpoint`: Requires user interaction?
+
+#### Wave Analysis Example
+
+```
+Task A (User model): needs nothing, creates src/models/user.ts
+Task B (Product model): needs nothing, creates src/models/product.ts
+Task C (User API): needs Task A, creates src/api/users.ts
+Task D (Product API): needs Task B, creates src/api/products.ts
+Task E (Dashboard): needs Task C + D, creates src/components/Dashboard.tsx
+Task F (Verify UI): checkpoint:human-verify, needs Task E
+
+Graph:
+  A --> C --\
+              --> E --> F
+  B --> D --/
+
+Wave structure:
+  Wave 1: A, B (independent roots)
+  Wave 2: C, D (depend only on Wave 1)
+  Wave 3: E (depends on Wave 2)
+  Wave 4: F (checkpoint, depends on Wave 3)
+```
+
+### 4. Vertical Slices vs Horizontal Layers
+
+**Prefer vertical slices over horizontal layers**
+
+<Tabs>
+  <Tab title="Vertical Slices (PREFER)">
+    ```
+    Plan 01: User feature (model + API + UI)
+    Plan 02: Product feature (model + API + UI)
+    Plan 03: Order feature (model + API + UI)
+    ```
+    **Result:** All three run parallel (Wave 1)
+  </Tab>
+  <Tab title="Horizontal Layers (AVOID)">
+    ```
+    Plan 01: Create User model, Product model, Order model
+    Plan 02: Create User API, Product API, Order API
+    Plan 03: Create User UI, Product UI, Order UI
+    ```
+    **Result:** Fully sequential (02 needs 01, 03 needs 02)
+  </Tab>
+</Tabs>
+
+### 5. Goal-Backward Must-Haves
+
+**Derive must-haves using goal-backward methodology**
+
+#### The Process
+
+<Steps>
+  <Step title="State the Goal">
+    Take phase goal from ROADMAP.md. Must be outcome-shaped, not task-shaped.
+    - Good: "Working chat interface" (outcome)
+    - Bad: "Build chat components" (task)
+  </Step>
+  <Step title="Derive Observable Truths">
+    "What must be TRUE for this goal to be achieved?" List 3-7 truths from USER's perspective.
+    
+    For "working chat interface":
+    - User can see existing messages
+    - User can type a new message
+    - User can send the message
+    - Sent message appears in the list
+    - Messages persist across page refresh
+  </Step>
+  <Step title="Derive Required Artifacts">
+    For each truth: "What must EXIST for this to be true?"
+    
+    "User can see existing messages" requires:
+    - Message list component (renders Message[])
+    - Messages state (loaded from somewhere)
+    - API route or data source (provides messages)
+    - Message type definition (shapes the data)
+  </Step>
+  <Step title="Derive Required Wiring">
+    For each artifact: "What must be CONNECTED for this to function?"
+    
+    Message list component wiring:
+    - Imports Message type (not using `any`)
+    - Receives messages prop or fetches from API
+    - Maps over messages to render (not hardcoded)
+    - Handles empty state (not just crashes)
+  </Step>
+  <Step title="Identify Key Links">
+    "Where is this most likely to break?" Key links = critical connections.
+    
+    For chat interface:
+    - Input onSubmit -> API call (if broken: typing works but sending doesn't)
+    - API save -> database (if broken: appears to send but doesn't persist)
+    - Component -> real data (if broken: shows placeholder, not messages)
+  </Step>
+</Steps>
+
+### 6. Scope Estimation
+
+**Each plan: 2-3 tasks, ~50% context target**
+
+| Task Complexity | Tasks/Plan | Context/Task | Total |
+|-----------------|------------|--------------|-------|
+| Simple (CRUD, config) | 3 | ~10-15% | ~30-45% |
+| Complex (auth, payments) | 2 | ~20-30% | ~40-50% |
+| Very complex (migrations) | 1-2 | ~30-40% | ~30-50% |
+
+**ALWAYS split if:**
+- More than 3 tasks
+- Multiple subsystems (DB + API + UI = separate plans)
+- Any task with >5 file modifications
+- Checkpoint + implementation in same plan
+
+## What It Produces
+
+### PLAN.md Structure
+
+```markdown
+---
+phase: XX-name
+plan: NN
+type: execute
+wave: N
+depends_on: []
+files_modified: []
+autonomous: true
+requirements: [REQ-01, REQ-02]  # REQUIRED — must not be empty
+
+must_haves:
+  truths: []
+  artifacts: []
+  key_links: []
+---
+
+<objective>
+[What this plan accomplishes]
+
+Purpose: [Why this matters]
+Output: [Artifacts created]
+</objective>
+
+<execution_context>
+@~/.claude/get-shit-done/workflows/execute-plan.md
+@~/.claude/get-shit-done/templates/summary.md
+</execution_context>
+
+<context>
+@.planning/PROJECT.md
+@.planning/ROADMAP.md
+@.planning/STATE.md
+@path/to/relevant/source.ts
+</context>
+
+<tasks>
+
+<task type="auto">
+  <name>Task 1: [Action-oriented name]</name>
+  <files>path/to/file.ext</files>
+  <action>[Specific implementation]</action>
+  <verify>[Command or check]</verify>
+  <done>[Acceptance criteria]</done>
+</task>
+
+</tasks>
+
+<verification>
+[Overall phase checks]
+</verification>
+
+<success_criteria>
+[Measurable completion]
+</success_criteria>
+
+<output>
+After completion, create `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
+</output>
+```
+
+### Frontmatter Fields
+
+| Field | Required | Purpose |
+|-------|----------|----------|
+| `phase` | Yes | Phase identifier (e.g., `01-foundation`) |
+| `plan` | Yes | Plan number within phase |
+| `type` | Yes | `execute` or `tdd` |
+| `wave` | Yes | Execution wave number |
+| `depends_on` | Yes | Plan IDs this plan requires |
+| `files_modified` | Yes | Files this plan touches |
+| `autonomous` | Yes | `true` if no checkpoints |
+| `requirements` | Yes | **MUST** list requirement IDs from ROADMAP |
+| `must_haves` | Yes | Goal-backward verification criteria |
+
+<Note>
+Every roadmap requirement ID MUST appear in at least one plan. Plans with an empty `requirements` field are invalid.
+</Note>
+
+## Philosophy
+
+### Plans Are Prompts
+
+PLAN.md **IS** the prompt (not a document that becomes one). Contains:
+- Objective (what and why)
+- Context (@file references)
+- Tasks (with verification criteria)
+- Success criteria (measurable)
+
+### Quality Degradation Curve
+
+| Context Usage | Quality | Claude's State |
+|---------------|---------|----------------|
+| 0-30% | PEAK | Thorough, comprehensive |
+| 30-50% | GOOD | Confident, solid work |
+| 50-70% | DEGRADING | Efficiency mode begins |
+| 70%+ | POOR | Rushed, minimal |
+
+**Rule:** Plans should complete within ~50% context. More plans, smaller scope, consistent quality.
+
+### Solo Developer + Claude Workflow
+
+Planning for ONE person (the user) and ONE implementer (Claude).
+- No teams, stakeholders, ceremonies, coordination overhead
+- User = visionary/product owner, Claude = builder
+- Estimate effort in Claude execution time, not human dev time
+
+**Anti-enterprise patterns (delete if seen):**
+- Team structures, RACI matrices, stakeholder management
+- Sprint ceremonies, change management processes
+- Human dev time estimates (hours, days, weeks)
+- Documentation for documentation's sake
+
+## Execution Flow
+
+See the [planner source file](/workspace/source/agents/gsd-planner.md:42-1310) for complete execution flow details.
+
+Key steps:
+1. Load project state and codebase context
+2. Read project history (digest for selection, full read for relevant phases)
+3. Gather phase context (CONTEXT.md, RESEARCH.md, DISCOVERY.md)
+4. Break into tasks (dependencies first, not sequence)
+5. Build dependency graph
+6. Assign waves
+7. Group into plans
+8. Derive must-haves
+9. Estimate scope
+10. Write PLAN.md files
+11. Validate plan structure
+12. Update ROADMAP.md
+13. Commit
+
+## Related Agents
+
+<CardGroup cols={2}>
+  <Card title="Plan Checker" icon="list-check" href="/agents/plan-checker">
+    Verifies plans will achieve phase goal before execution
+  </Card>
+  <Card title="Executor" icon="code" href="/agents/executor">
+    Executes the plans created by planner
+  </Card>
+  <Card title="Phase Researcher" icon="magnifying-glass" href="/agents/phase-researcher">
+    Provides RESEARCH.md consumed by planner
+  </Card>
+  <Card title="Verifier" icon="check" href="/agents/verifier">
+    Verifies execution achieved the goal
+  </Card>
+</CardGroup>

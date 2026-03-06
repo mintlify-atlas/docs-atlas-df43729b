@@ -1,0 +1,190 @@
+---
+title: "resume-work"
+description: "Resume work from previous session with full context restoration"
+---
+
+## Overview
+
+The `resume-work` command restores complete project context when starting a new session. It intelligently detects where you left off and routes you to the right next action.
+
+## Syntax
+
+```bash
+/gsd:resume-work
+```
+
+## How It Works
+
+When you run `resume-work`, GSD:
+
+1. **Loads STATE.md** (or reconstructs it if missing)
+2. **Detects checkpoints** - Looks for `.continue-here.md` files from mid-phase pauses
+3. **Finds incomplete work** - Checks for phases with PLAN but no SUMMARY
+4. **Presents status** - Shows you where the project stands
+5. **Routes intelligently** - Suggests the right next command based on context
+
+## What Gets Restored
+
+### Project State
+- Current phase and milestone
+- Completed phases and work
+- Roadmap and remaining phases
+- Quick tasks completed
+- Project goals and constraints
+
+### Work Context
+- `.continue-here.md` checkpoint files (mid-phase pauses)
+- Incomplete phases (planned but not executed)
+- Recent decisions from CONTEXT.md
+- Code changes since last session
+
+### Intelligent Routing
+
+GSD checks CONTEXT.md to offer the right next step:
+- **Has context** → Suggests `/gsd:plan-phase` (ready to plan)
+- **No context** → Suggests `/gsd:discuss` (explore first)
+- **Has checkpoint** → Offers to continue from pause
+- **Has incomplete plan** → Offers to execute existing plan
+
+## Usage Examples
+
+### Resume after closing your editor
+
+```bash
+/gsd:resume-work
+```
+
+**Output:**
+```
+📊 Project: E-commerce Platform
+✅ Completed: 3/12 phases
+🎯 Current: Phase 4 - Product catalog
+
+Checkpoint detected:
+- .planning/phases/004-product-catalog/.continue-here.md
+- Created: 2 hours ago
+- Position: 60% complete - finishing search implementation
+
+Options:
+1. Continue from checkpoint
+2. Check progress
+3. Start new phase
+```
+
+### Resume project with incomplete work
+
+```bash
+/gsd:resume-work
+```
+
+**Output:**
+```
+📊 Project: Task Management API
+✅ Completed: 5/8 phases
+⚠️  Incomplete work detected:
+
+Phase 6 - Notification system
+- PLAN created 3 days ago
+- Not yet executed
+- Next: /gsd:execute 6
+
+Options:
+1. Execute phase 6
+2. Create new phase plan
+3. Check todos
+```
+
+### Resume after long break
+
+```bash
+/gsd:resume-work
+```
+
+**Output:**
+```
+📊 Project: Analytics Dashboard
+✅ Completed: 8/15 phases
+📅 Last session: 2 weeks ago
+
+Recent work:
+- Phase 8: Real-time updates (completed)
+- 3 quick tasks completed
+- No incomplete work
+
+Context available:
+- Architecture decisions in CONTEXT.md
+- 5 pending todos
+
+Suggested next steps:
+1. /gsd:plan-phase - Plan phase 9
+2. /gsd:check-todos - Review pending items
+3. /gsd:progress - Detailed status
+```
+
+## State Reconstruction
+
+If `STATE.md` is missing or corrupted, `resume-work` reconstructs it by:
+
+1. Reading `ROADMAP.md` for phase definitions
+2. Scanning `.planning/phases/` for completed work
+3. Parsing phase SUMMARY files for completion data
+4. Checking `.planning/quick/` for quick tasks
+5. Rebuilding the state file with current status
+
+## Session Continuity
+
+GSD maintains session continuity by:
+
+- Tracking the last active phase
+- Preserving in-progress work state
+- Linking decisions to their phases
+- Maintaining chronological work history
+
+## When to Use
+
+<Card title="Always use when" icon="circle-check">
+  - Starting a new editor session
+  - Resuming after a break
+  - Switching between projects
+  - Beginning your work day
+  - After git pull / branch switch
+</Card>
+
+<Card title="Especially helpful after" icon="lightbulb">
+  - Long breaks (days/weeks)
+  - Context was lost (crash, reboot)
+  - Mid-phase pause (`.continue-here.md` exists)
+  - Forgot where you left off
+</Card>
+
+## Integration with Other Commands
+
+### After pause-work
+```bash
+# Previous session
+/gsd:pause-work
+
+# New session
+/gsd:resume-work  # Detects checkpoint automatically
+```
+
+### With progress
+```bash
+/gsd:resume-work  # High-level restoration
+/gsd:progress     # Detailed status and routing
+```
+
+## Files Read
+
+- `.planning/STATE.md` - Primary state file
+- `.planning/ROADMAP.md` - Phase definitions
+- `.planning/CONTEXT.md` - Decisions and constraints
+- `.planning/phases/**/.continue-here.md` - Checkpoint files
+- `.planning/phases/**/SUMMARY.md` - Completion records
+- `.planning/quick/*.md` - Quick task records
+
+## Related Commands
+
+- [`pause-work`](/commands/pause-work) - Create checkpoint before pausing
+- [`progress`](/commands/progress) - Detailed progress and routing
+- [`health`](/commands/health) - Validate project state integrity

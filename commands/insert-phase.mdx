@@ -1,0 +1,128 @@
+---
+title: 'gsd:insert-phase'
+description: 'Insert urgent work as decimal phase between existing phases'
+---
+
+## Overview
+
+Insert a decimal phase for urgent work discovered mid-milestone that must be completed between existing integer phases. Uses decimal numbering (72.1, 72.2, etc.) to preserve the logical sequence of planned phases while accommodating urgent insertions.
+
+## Syntax
+
+```bash
+/gsd:insert-phase <after> <description>
+```
+
+<ParamField path="after" type="number" required>
+  The phase number after which to insert the new phase (e.g., 72, 73.1)
+</ParamField>
+
+<ParamField path="description" type="string" required>
+  The phase description for the urgent work
+</ParamField>
+
+## Purpose
+
+Handle urgent work discovered during execution without renumbering the entire roadmap. This preserves the original phase numbers while clearly marking inserted work with decimal notation.
+
+## Decimal Numbering
+
+When inserting after phase N:
+- First insertion: N.1
+- Second insertion after N: N.2
+- Third insertion after N: N.3
+
+Examples:
+- Insert after phase 72 → creates 72.1
+- Insert after phase 72 again → creates 72.2
+- Insert after phase 72.1 → creates 72.1.1
+
+## Process
+
+The command executes the insert-phase workflow:
+
+1. **Argument Parsing** - Validates after-phase-number and description
+2. **Phase Verification** - Confirms the after-phase exists in roadmap
+3. **Decimal Calculation** - Calculates next decimal number after specified phase
+4. **Slug Generation** - Creates URL-friendly slug from description
+5. **Directory Creation** - Creates `.planning/phases/{decimal}-{slug}/` directory
+6. **Roadmap Update** - Inserts phase entry after specified phase
+7. **State Update** - Tracks insertion in STATE.md
+
+## Examples
+
+### Insert Urgent Fix After Phase 72
+
+```bash
+/gsd:insert-phase 72 Fix critical authentication bug
+```
+
+Creates phase 72.1 between phases 72 and 73.
+
+### Insert Second Urgent Item After 72
+
+```bash
+/gsd:insert-phase 72 Add rate limiting
+```
+
+Creates phase 72.2 (assuming 72.1 already exists).
+
+### Insert After Decimal Phase
+
+```bash
+/gsd:insert-phase 72.1 Patch security vulnerability
+```
+
+Creates phase 72.1.1 after the existing 72.1 phase.
+
+## When to Use
+
+- Urgent bugs discovered during execution
+- Critical dependencies found after planning
+- Security issues requiring immediate attention
+- Blocking issues preventing next phase execution
+
+## When NOT to Use
+
+- **Non-urgent work**: Add to end of milestone with `/gsd:add-phase` instead
+- **Future milestone work**: Note in PROJECT.md for next milestone planning
+- **Planned work**: Should be in original roadmap, not inserted mid-flight
+
+## Directory Structure
+
+Creates directories with decimal numbers:
+```
+.planning/phases/72.1-fix-critical-authentication-bug/
+.planning/phases/72.2-add-rate-limiting/
+.planning/phases/72.1.1-patch-security-vulnerability/
+```
+
+## Updated Files
+
+- `.planning/ROADMAP.md` - New decimal phase inserted in proper position
+- `.planning/STATE.md` - Insertion tracked in roadmap evolution
+- `.planning/phases/{decimal}-{slug}/` - New phase directory created
+
+## Validation Gates
+
+The workflow validates:
+- After-phase exists in roadmap
+- Description is provided
+- Decimal calculation is correct
+- Insertion point is valid
+
+## Next Steps
+
+After inserting:
+
+```bash
+/gsd:plan-phase {decimal-number}
+```
+
+Plan the inserted phase immediately if it's blocking other work.
+
+## Allowed Tools
+
+- Read
+- Write
+- Bash

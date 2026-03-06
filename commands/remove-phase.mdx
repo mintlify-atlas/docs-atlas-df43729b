@@ -1,0 +1,123 @@
+---
+title: 'gsd:remove-phase'
+description: 'Remove a future phase from roadmap and renumber subsequent phases'
+---
+
+## Overview
+
+Remove an unstarted future phase from the roadmap and renumber all subsequent phases to maintain a clean, linear sequence. This command provides clean removal of work you've decided not to do, without polluting context with cancelled or deferred markers.
+
+## Syntax
+
+```bash
+/gsd:remove-phase <phase-number>
+```
+
+<ParamField path="phase-number" type="number" required>
+  The phase number to remove (must be unstarted/future phase)
+</ParamField>
+
+## Purpose
+
+Provide a clean way to remove planned work that's no longer needed, with automatic renumbering to maintain roadmap continuity. The git commit serves as the historical record of what was removed.
+
+## Process
+
+The command executes the remove-phase workflow:
+
+1. **Argument Validation** - Verifies phase number is provided
+2. **Future Phase Check** - Confirms phase has not started (no PLAN.md or SUMMARY.md)
+3. **Work Check** - Ensures no artifacts exist in phase directory
+4. **Directory Removal** - Deletes `.planning/phases/{number}-{slug}/` directory
+5. **Roadmap Update** - Removes phase entry from ROADMAP.md
+6. **Renumbering** - Renumbers all subsequent phases and their directories
+7. **State Update** - Tracks removal in STATE.md
+8. **Git Commit** - Creates commit as historical record
+
+## Validation
+
+The command will error if:
+- Phase has already started (PLAN.md exists)
+- Phase is complete (SUMMARY.md exists)
+- Phase directory contains work artifacts
+- Phase number doesn't exist in roadmap
+
+## Renumbering Logic
+
+After removing phase N, all subsequent phases are renumbered:
+- Phase N+1 becomes N
+- Phase N+2 becomes N+1
+- Phase N+3 becomes N+2
+- And so on...
+
+Both directory names and roadmap entries are updated to maintain consistency.
+
+## Examples
+
+### Remove Unnecessary Phase
+
+```bash
+/gsd:remove-phase 75
+```
+
+Removes phase 75 (if unstarted) and renumbers phases 76, 77, 78... to 75, 76, 77...
+
+### Remove Deferred Work
+
+```bash
+/gsd:remove-phase 82
+```
+
+Removes phase 82 that was planned but is no longer needed for the current milestone.
+
+## When to Use
+
+- Removing work that's genuinely not needed
+- Cutting scope to ship milestone faster
+- Removing work that's been deferred to future milestone
+- Simplifying roadmap after re-planning
+
+## When NOT to Use
+
+- **Phase already started**: Cannot remove phases with work in progress
+- **Phase completed**: Cannot remove completed phases (they're part of history)
+- **Temporarily blocked**: If work is still needed but blocked, keep the phase
+
+## Updated Files
+
+- `.planning/ROADMAP.md` - Phase entry removed, subsequent phases renumbered
+- `.planning/STATE.md` - Removal tracked in roadmap evolution
+- `.planning/phases/` - Directory deleted, subsequent directories renamed
+- Git commit created with removal details
+
+## Historical Record
+
+The git commit message includes:
+- Which phase was removed
+- Phase description
+- Reason for removal (if provided)
+- Timestamp of removal
+
+This provides a clear audit trail without cluttering the active roadmap.
+
+## Next Steps
+
+After removal:
+- Continue with current work
+- Run `/gsd:plan-phase {next}` to plan the next phase (now renumbered)
+- Update PROJECT.md if removal affects milestone goals
+
+## Critical Rules
+
+- Only removes **future** unstarted phases
+- Automatically renumbers all subsequent phases
+- Creates git commit for historical record
+- Validates no work exists before removal
+- Maintains clean, linear phase sequence
+
+## Allowed Tools
+
+- Read
+- Write
+- Bash
+- Glob

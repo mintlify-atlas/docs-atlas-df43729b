@@ -1,0 +1,278 @@
+---
+title: "add-todo"
+description: "Capture idea or task as todo from current conversation context"
+---
+
+## Overview
+
+The `add-todo` command captures ideas, tasks, or issues that surface during work as structured todos for later action. It extracts context from the conversation, organizes by area, and tracks in STATE.md.
+
+## Syntax
+
+```bash
+/gsd:add-todo [description]
+```
+
+<ParamField path="description" type="string" optional>
+  Brief description of the todo. If omitted, GSD extracts context from the recent conversation.
+</ParamField>
+
+## How It Works
+
+1. **Extracts content** from arguments or recent conversation
+2. **Infers area** from file paths or content (api, auth, frontend, etc.)
+3. **Checks for duplicates** to prevent redundant todos
+4. **Creates todo file** with frontmatter and structured sections
+5. **Updates STATE.md** to track pending todo
+6. **Commits to git** with descriptive message
+
+## Todo File Structure
+
+```markdown
+---
+area: auth
+priority: medium
+related_files:
+  - src/auth/middleware.ts
+  - src/auth/tokens.ts
+added: 2026-03-06
+---
+
+# Add refresh token rotation
+
+## Context
+Current implementation uses long-lived refresh tokens.
+Security best practice is to rotate on each use.
+
+## Proposed Action
+- Implement rotation in token refresh endpoint
+- Update token storage schema
+- Add expiration tracking
+
+## Related Discussions
+- Phase 3: Authentication system
+- CONTEXT.md: Security requirements
+```
+
+## Usage Examples
+
+### Explicit description
+
+```bash
+/gsd:add-todo Add rate limiting to API endpoints
+```
+
+**GSD creates:**
+```
+.planning/todos/api/add-rate-limiting.md
+```
+
+### From conversation context
+
+During a phase execution:
+
+```
+You: I noticed the database queries are slow
+Assistant: Yes, missing indexes on user_events table
+You: We should fix that
+/gsd:add-todo
+```
+
+**GSD extracts:**
+- Description: "Add indexes to user_events table"
+- Area: database
+- Related files: src/db/schema.ts
+- Context: Slow queries, missing indexes
+
+### During code review
+
+```
+You: This error handling could be better
+Assistant: True, it swallows errors silently
+/gsd:add-todo Improve error handling in payment processing
+```
+
+**GSD creates:**
+```
+.planning/todos/payments/improve-error-handling.md
+```
+
+### From debug session
+
+```
+/gsd:debug Users report intermittent logout
+[After investigation]
+Assistant: Root cause is session timeout misconfiguration
+You: Let's fix that properly later
+/gsd:add-todo
+```
+
+**GSD extracts from debug context:**
+- Description: "Fix session timeout configuration"
+- Area: auth
+- Related: .planning/debug/intermittent-logout.md
+- Context: Debug session findings
+
+## Area Inference
+
+GSD infers todo area from:
+
+1. **File paths mentioned** (e.g., `src/auth/*` → auth)
+2. **Content keywords** (e.g., "database query" → database)
+3. **Active phase** (e.g., working in API phase → api)
+4. **User specification** (e.g., "frontend todo: ...")
+
+Common areas:
+- `api` - API endpoints and handlers
+- `auth` - Authentication and authorization
+- `database` - Schema, queries, migrations
+- `frontend` - UI components and pages
+- `backend` - Server-side logic
+- `infra` - Infrastructure and deployment
+- `testing` - Test coverage and quality
+- `docs` - Documentation
+- `general` - Miscellaneous or cross-cutting
+
+## Duplicate Detection
+
+Before creating a todo, GSD checks for similar existing todos:
+
+```bash
+/gsd:add-todo Add API caching
+```
+
+**GSD finds similar:**
+```
+Found similar todo:
+- .planning/todos/api/implement-caching.md
+  "Implement Redis caching for API responses"
+
+This looks related. Options:
+1. Add anyway (different scope)
+2. Skip (duplicate)
+3. Update existing todo
+```
+
+## Directory Structure
+
+```
+.planning/
+└── todos/
+    ├── api/
+    │   ├── add-rate-limiting.md
+    │   └── implement-caching.md
+    ├── auth/
+    │   ├── refresh-token-rotation.md
+    │   └── fix-session-timeout.md
+    ├── database/
+    │   └── add-user-events-indexes.md
+    └── general/
+        └── improve-error-messages.md
+```
+
+## STATE.md Tracking
+
+Todos are counted in STATE.md:
+
+```markdown
+## Pending Todos
+
+**By Area:**
+- api: 2 todos
+- auth: 2 todos
+- database: 1 todo
+- general: 1 todo
+
+**Total:** 6 pending todos
+
+Use `/gsd:check-todos` to review and work on them.
+```
+
+## Priority Levels
+
+Todos can have priority indicators:
+
+```yaml
+---
+area: security
+priority: high  # high, medium, low
+---
+```
+
+**High priority:**
+- Security vulnerabilities
+- Production bugs
+- Blocking issues
+
+**Medium priority:**
+- Performance improvements
+- Feature enhancements
+- Refactoring
+
+**Low priority:**
+- Nice-to-haves
+- Documentation
+- Minor cleanup
+
+## When to Use
+
+<Card title="Perfect for" icon="circle-check">
+  - Ideas during development
+  - Issues found in code review
+  - "TODO" comments in code
+  - Future improvements
+  - Technical debt items
+  - Follow-up from debug sessions
+  - User feedback items
+  - Performance optimizations
+</Card>
+
+<Card title="Not for" icon="circle-xmark">
+  - Urgent issues (use `/gsd:debug` or `/gsd:quick`)
+  - Planned roadmap items (use `/gsd:plan-phase`)
+  - Active work (continue current phase)
+</Card>
+
+## Working on Todos
+
+After capturing todos, work on them:
+
+```bash
+# List all todos
+/gsd:check-todos
+
+# Filter by area
+/gsd:check-todos api
+
+# Select and work on a todo
+# GSD offers: quick fix, add to phase, plan new phase
+```
+
+## Git Commits
+
+Todo creation generates clean commits:
+
+```bash
+chore: add todo for API rate limiting
+
+Area: api
+File: .planning/todos/api/add-rate-limiting.md
+```
+
+## Success Criteria
+
+- ✅ Directory structure created
+- ✅ Existing areas checked
+- ✅ Content extracted (arguments or conversation)
+- ✅ Area inferred correctly
+- ✅ Duplicates checked
+- ✅ File created with slug
+- ✅ STATE.md updated
+- ✅ Git commit created
+
+## Related Commands
+
+- [`check-todos`](/commands/check-todos) - List and work on todos
+- [`plan-phase`](/commands/plan-phase) - Convert todo to phase plan
+- [`quick`](/commands/quick) - Execute todo as quick task
+- [`debug`](/commands/debug) - Investigate before creating todo

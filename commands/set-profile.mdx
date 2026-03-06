@@ -1,0 +1,321 @@
+---
+title: "set-profile"
+description: "Switch model profile for GSD agents (quality/balanced/budget)"
+---
+
+## Overview
+
+The `set-profile` command quickly switches the model profile used by GSD agents, controlling which Claude model each agent uses to balance quality versus token spend.
+
+## Syntax
+
+```bash
+/gsd:set-profile <profile>
+```
+
+<ParamField path="profile" type="string" required>
+  Model profile to use. Must be one of:
+  - `quality` - Claude Opus for all agents (highest quality)
+  - `balanced` - Sonnet for most, Opus for critical (recommended)
+  - `budget` - Claude Sonnet for all agents (most economical)
+</ParamField>
+
+## How It Works
+
+1. **Validates argument** - Ensures profile is quality/balanced/budget
+2. **Creates config if missing** - Ensures `~/.claude/get-shit-done/config.json` exists
+3. **Updates profile** - Changes model setting in config
+4. **Displays confirmation** - Shows model table with new assignments
+
+## Model Profiles
+
+### Quality Profile
+
+**All agents use Claude Opus:**
+
+| Agent | Model |
+|-------|-------|
+| Planner | claude-opus-4 |
+| Executor | claude-opus-4 |
+| Verifier | claude-opus-4 |
+| Plan Checker | claude-opus-4 |
+| Research | claude-opus-4 |
+| Debugger | claude-opus-4 |
+
+**Characteristics:**
+- Highest reasoning capability
+- Best for complex problems
+- Most accurate plans
+- ~3-5x cost vs balanced
+
+### Balanced Profile (Recommended)
+
+**Strategic mix of Opus and Sonnet:**
+
+| Agent | Model |
+|-------|-------|
+| Planner | claude-opus-4 |
+| Executor | claude-sonnet-4 |
+| Verifier | claude-sonnet-4 |
+| Plan Checker | claude-opus-4 |
+| Research | claude-sonnet-4 |
+| Debugger | claude-opus-4 |
+
+**Characteristics:**
+- Opus for critical thinking (planning, plan review, debugging)
+- Sonnet for execution (implementing, researching, verifying)
+- Best quality/cost ratio
+- ~1.5-2x cost vs budget
+
+### Budget Profile
+
+**All agents use Claude Sonnet:**
+
+| Agent | Model |
+|-------|-------|
+| Planner | claude-sonnet-4 |
+| Executor | claude-sonnet-4 |
+| Verifier | claude-sonnet-4 |
+| Plan Checker | claude-sonnet-4 |
+| Research | claude-sonnet-4 |
+| Debugger | claude-sonnet-4 |
+
+**Characteristics:**
+- Most economical
+- Still high quality (Sonnet is excellent)
+- Good for most tasks
+- Baseline cost
+
+## Usage Examples
+
+### Switch to quality mode
+
+```bash
+/gsd:set-profile quality
+```
+
+**Output:**
+```
+✓ Model profile updated to: quality
+
+All agents now use Claude Opus for maximum quality:
+
+┌──────────────┬─────────────────┐
+│ Agent        │ Model           │
+├──────────────┼─────────────────┤
+│ Planner      │ claude-opus-4   │
+│ Executor     │ claude-opus-4   │
+│ Verifier     │ claude-opus-4   │
+│ Plan Checker │ claude-opus-4   │
+│ Research     │ claude-opus-4   │
+│ Debugger     │ claude-opus-4   │
+└──────────────┴─────────────────┘
+
+Best for:
+- Production systems
+- Complex business logic
+- Security-critical code
+
+Note: ~3-5x cost increase vs balanced profile
+```
+
+### Switch to balanced mode
+
+```bash
+/gsd:set-profile balanced
+```
+
+**Output:**
+```
+✓ Model profile updated to: balanced
+
+Optimal mix of Opus (critical thinking) and Sonnet (execution):
+
+┌──────────────┬───────────────────┐
+│ Agent        │ Model             │
+├──────────────┼───────────────────┤
+│ Planner      │ claude-opus-4     │
+│ Executor     │ claude-sonnet-4   │
+│ Verifier     │ claude-sonnet-4   │
+│ Plan Checker │ claude-opus-4     │
+│ Research     │ claude-sonnet-4   │
+│ Debugger     │ claude-opus-4     │
+└──────────────┴───────────────────┘
+
+Recommended default:
+- High quality where it matters
+- Efficient execution
+- Best quality/cost ratio
+```
+
+### Switch to budget mode
+
+```bash
+/gsd:set-profile budget
+```
+
+**Output:**
+```
+✓ Model profile updated to: budget
+
+All agents now use Claude Sonnet for maximum efficiency:
+
+┌──────────────┬───────────────────┐
+│ Agent        │ Model             │
+├──────────────┼───────────────────┤
+│ Planner      │ claude-sonnet-4   │
+│ Executor     │ claude-sonnet-4   │
+│ Verifier     │ claude-sonnet-4   │
+│ Plan Checker │ claude-sonnet-4   │
+│ Research     │ claude-sonnet-4   │
+│ Debugger     │ claude-sonnet-4   │
+└──────────────┴───────────────────┘
+
+Best for:
+- Learning projects
+- Prototyping
+- Personal projects
+- Token budget constraints
+
+Note: Sonnet still provides excellent quality for most tasks
+```
+
+### Invalid profile
+
+```bash
+/gsd:set-profile premium
+```
+
+**Output:**
+```
+❌ Invalid profile: premium
+
+Valid profiles:
+- quality  (Opus for all agents)
+- balanced (Opus + Sonnet mix)
+- budget   (Sonnet for all agents)
+
+Usage: /gsd:set-profile <quality|balanced|budget>
+```
+
+## When to Use Each Profile
+
+<Card title="Quality Profile" icon="gem">
+  **Use for:**
+  - Production systems with complex logic
+  - Financial or healthcare applications
+  - Security-critical code
+  - Regulatory compliance work
+  - Difficult debugging sessions
+  
+  **Cost:** 3-5x balanced
+  **Quality:** Maximum
+</Card>
+
+<Card title="Balanced Profile" icon="scale-balanced">
+  **Use for:**
+  - Most professional projects (recommended)
+  - Full-stack applications
+  - Team development
+  - General-purpose development
+  
+  **Cost:** 1.5-2x budget
+  **Quality:** High where it matters
+</Card>
+
+<Card title="Budget Profile" icon="piggy-bank">
+  **Use for:**
+  - Learning and experimentation
+  - Prototyping and MVPs
+  - Simple CRUD applications
+  - Personal side projects
+  - Token budget constraints
+  
+  **Cost:** Baseline
+  **Quality:** Still excellent for most tasks
+</Card>
+
+## Profile Switching Strategy
+
+### Start balanced, adjust as needed
+
+```bash
+# Initialize project with balanced
+/gsd:set-profile balanced
+/gsd:new-project
+
+# Switch to quality for complex phase
+/gsd:set-profile quality
+/gsd:plan-phase
+/gsd:execute 3
+
+# Return to balanced for routine work
+/gsd:set-profile balanced
+```
+
+### Budget during prototyping, quality for production
+
+```bash
+# Rapid prototyping phase
+/gsd:set-profile budget
+[Build MVP quickly]
+
+# Moving to production
+/gsd:set-profile quality
+[Refine with higher quality]
+```
+
+## Config File Location
+
+```bash
+~/.claude/get-shit-done/config.json
+```
+
+**After running `/gsd:set-profile balanced`:**
+```json
+{
+  "model": "balanced",
+  "research": "enabled",
+  "plan_check": "enabled",
+  "verifier": "enabled",
+  "branching": "disabled"
+}
+```
+
+## Comparison with Settings Command
+
+### set-profile (quick)
+```bash
+# Change model profile only
+/gsd:set-profile budget
+```
+
+### settings (comprehensive)
+```bash
+# Configure all options interactively
+/gsd:settings
+# - Model profile
+# - Research agent
+# - Plan checker
+# - Verifier
+# - Git branching
+```
+
+`set-profile` is faster when you only want to change the model profile.
+
+## Default Profile
+
+If no profile is configured, GSD uses `balanced`:
+
+```json
+{
+  "model": "balanced"
+}
+```
+
+## Related Commands
+
+- [`settings`](/commands/settings) - Configure all GSD options
+- [`plan-phase`](/commands/plan-phase) - Uses configured model profile
+- [`execute`](/commands/execute) - Uses configured model profile
+- [`debug`](/commands/debug) - Debugger uses configured model

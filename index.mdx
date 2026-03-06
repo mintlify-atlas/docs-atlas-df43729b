@@ -1,97 +1,197 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Get Shit Done"
+description: "A meta-prompting, context engineering and spec-driven development framework for AI code assistants"
 ---
 
-## Setting up
+<div className="hero-section" style={{ padding: '3rem 0' }}>
+  <h1 style={{ 
+    fontSize: '3rem', 
+    fontWeight: 700, 
+    marginBottom: '1.5rem',
+    background: 'linear-gradient(135deg, #848c8e 0%, #cfd0d2 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent'
+  }}>
+    Get Shit Done
+  </h1>
+  <p style={{ fontSize: '1.25rem', marginBottom: '2rem', color: '#cfd0d2' }}>
+    A light-weight and powerful meta-prompting, context engineering and spec-driven development framework for Claude Code, OpenCode, Gemini CLI, and Codex.
+  </p>
+  
+  <div style={{ display: 'flex', gap: '1rem', marginBottom: '3rem' }}>
+    <a 
+      href="/quickstart" 
+      style={{ 
+        backgroundColor: '#238636', 
+        color: '#ffffff', 
+        padding: '0.75rem 1.5rem', 
+        borderRadius: '6px',
+        textDecoration: 'none',
+        fontWeight: 600
+      }}
+    >
+      Get Started
+    </a>
+    <a 
+      href="https://github.com/gsd-build/get-shit-done" 
+      style={{ 
+        backgroundColor: 'transparent', 
+        color: '#ffffff', 
+        padding: '0.75rem 1.5rem', 
+        borderRadius: '6px',
+        border: '1px solid #848c8e',
+        textDecoration: 'none',
+        fontWeight: 600
+      }}
+    >
+      View on GitHub
+    </a>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+## What is GSD?
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Get Shit Done (GSD) is a context engineering layer that makes Claude Code reliable. It solves **context rot** — the quality degradation that happens as AI assistants fill their context window.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Meta-Prompting" icon="wand-magic-sparkles">
+    XML-structured prompts optimized for AI comprehension and precise execution
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Context Engineering" icon="brain">
+    Intelligent context management prevents quality degradation across long sessions
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Multi-Agent Orchestration" icon="network-wired">
+    Parallel specialized agents handle research, planning, execution, and verification
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Spec-Driven Development" icon="file-code">
+    Requirements-first approach with phase-based execution and atomic commits
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Key Features
 
-Everything you need to create world-class documentation.
+<CardGroup cols={3}>
+  <Card title="Wave Execution" icon="water">
+    Parallel task execution with intelligent dependency management
+  </Card>
+  <Card title="Atomic Commits" icon="code-commit">
+    Surgical version control with one commit per task
+  </Card>
+  <Card title="Manual Verification" icon="circle-check">
+    User acceptance testing with automated debugging
+  </Card>
+  <Card title="Brownfield Support" icon="map">
+    Analyze existing codebases before starting work
+  </Card>
+  <Card title="Model Profiles" icon="sliders">
+    Balance quality vs cost with configurable agent models
+  </Card>
+  <Card title="Multi-Runtime" icon="layer-group">
+    Works with Claude Code, OpenCode, Gemini CLI, and Codex
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Why GSD?
 
-## Need inspiration?
+<Note>
+"If you know clearly what you want, this WILL build it for you. No bs."
+</Note>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+GSD was built by a solo developer who doesn't write code — Claude Code does. Other spec-driven tools add complexity (sprint ceremonies, story points, Jira workflows). GSD puts complexity in the system, not your workflow.
+
+**What you see:** A few commands that just work  
+**What happens:** Context engineering, XML formatting, subagent orchestration, state management
+
+Trusted by engineers at Amazon, Google, Shopify, and Webflow.
+
+## Quick Start
+
+<CodeGroup>
+
+```bash npm
+npx get-shit-done-cc@latest
+```
+
+```bash Install Command
+npx get-shit-done-cc@latest
+```
+
+</CodeGroup>
+
+The installer prompts you to choose:
+1. **Runtime** — Claude Code, OpenCode, Gemini, Codex, or all
+2. **Location** — Global (all projects) or local (current project only)
+
+<Steps>
+  <Step title="Install GSD">
+    Run the installer and select your preferred runtime and location
+  </Step>
+  <Step title="Verify Installation">
+    - Claude Code / Gemini: `/gsd:help`
+    - OpenCode: `/gsd-help`
+    - Codex: `$gsd-help`
+  </Step>
+  <Step title="Initialize Your Project">
+    Run `/gsd:new-project` to start with questions, research, requirements, and roadmap
+  </Step>
+</Steps>
+
+## Core Workflow
+
+<CardGroup cols={2}>
+  <Card title="Initialize Project" icon="rocket" href="/workflow/new-project">
+    Questions → Research → Requirements → Roadmap
+  </Card>
+  <Card title="Discuss Phase" icon="comments" href="/workflow/discuss-phase">
+    Capture implementation decisions before planning
+  </Card>
+  <Card title="Plan Phase" icon="list-check" href="/workflow/plan-phase">
+    Research + Plan + Verify for each phase
+  </Card>
+  <Card title="Execute Phase" icon="play" href="/workflow/execute-phase">
+    Parallel wave execution with fresh context per task
+  </Card>
+  <Card title="Verify Work" icon="clipboard-check" href="/workflow/verify-work">
+    Manual UAT with automated debugging
+  </Card>
+  <Card title="Complete Milestone" icon="flag-checkered" href="/workflow/milestones">
+    Archive milestone and start the next version
+  </Card>
+</CardGroup>
+
+## How It Works
+
+GSD handles context engineering for you through structured files:
+
+| File | Purpose |
+|------|---------|
+| `PROJECT.md` | Project vision, always loaded |
+| `research/` | Ecosystem knowledge (stack, features, architecture, pitfalls) |
+| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability |
+| `ROADMAP.md` | Where you're going, what's done |
+| `STATE.md` | Decisions, blockers, position — memory across sessions |
+| `PLAN.md` | Atomic task with XML structure, verification steps |
+| `SUMMARY.md` | What happened, what changed, committed to history |
+
+Every stage uses **multi-agent orchestration**: a thin orchestrator spawns specialized agents, collects results, and routes to the next step.
+
+<Info>
+**The result:** You can run an entire phase — deep research, multiple plans created and verified, thousands of lines of code written across parallel executors, automated verification — and your main context window stays at 30-40%. The work happens in fresh subagent contexts.
+</Info>
+
+## Learn More
+
+<CardGroup cols={2}>
+  <Card title="Why GSD?" icon="lightbulb" href="/why-gsd">
+    Understand the philosophy and design principles
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Detailed installation guide for all runtimes
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/concepts/context-engineering">
+    Learn about context engineering, multi-agent orchestration, and XML prompting
+  </Card>
+  <Card title="Commands" icon="terminal" href="/commands/new-project">
+    Complete command reference for all workflows
+  </Card>
+</CardGroup>

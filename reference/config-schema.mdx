@@ -1,0 +1,308 @@
+---
+title: 'Configuration Schema'
+description: 'Complete reference for .planning/config.json with all fields, types, and defaults'
+---
+
+GSD stores project settings in `.planning/config.json`. This file controls workflow behavior, model selection, git branching, and execution parameters.
+
+## Configuration File Location
+
+```
+.planning/config.json
+```
+
+Configure during `/gsd:new-project` or update later with `/gsd:settings`.
+
+## Full Schema
+
+```json
+{
+  "mode": "interactive",
+  "granularity": "standard",
+  "model_profile": "balanced",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "auto_advance": false,
+    "nyquist_validation": true
+  },
+  "planning": {
+    "commit_docs": true,
+    "search_gitignored": false
+  },
+  "parallelization": {
+    "enabled": true,
+    "plan_level": true,
+    "task_level": false,
+    "skip_checkpoints": true,
+    "max_concurrent_agents": 3,
+    "min_plans_for_parallel": 2
+  },
+  "git": {
+    "branching_strategy": "none",
+    "phase_branch_template": "gsd/phase-{phase}-{slug}",
+    "milestone_branch_template": "gsd/{milestone}-{slug}"
+  },
+  "gates": {
+    "confirm_project": true,
+    "confirm_phases": true,
+    "confirm_roadmap": true,
+    "confirm_breakdown": true,
+    "confirm_plan": true,
+    "execute_next_plan": true,
+    "issues_review": true,
+    "confirm_transition": true
+  },
+  "safety": {
+    "always_confirm_destructive": true,
+    "always_confirm_external_services": true
+  }
+}
+```
+
+## Core Settings
+
+<ParamField path="mode" type="string" default="interactive">
+  Execution mode:
+  - `interactive` — Confirm at each decision point
+  - `yolo` — Auto-approve all decisions
+</ParamField>
+
+<ParamField path="granularity" type="string" default="standard">
+  Phase breakdown granularity:
+  - `coarse` — 3-5 phases (larger scope per phase)
+  - `standard` — 5-8 phases (balanced)
+  - `fine` — 8-12 phases (smallest atomic units)
+</ParamField>
+
+<ParamField path="model_profile" type="string" default="balanced">
+  Model tier for agents. See [Model Profiles](/reference/model-profiles) for per-agent breakdown:
+  - `quality` — Opus for planning/execution, Sonnet for verification
+  - `balanced` — Opus for planning, Sonnet for execution/verification
+  - `budget` — Sonnet for code, Haiku for research/verification
+</ParamField>
+
+## Workflow Settings
+
+<ParamField path="workflow.research" type="boolean" default="true">
+  Spawn researcher during `plan-phase` to investigate domain, stack, and implementation patterns.
+  
+  **Disable when:** Domain is familiar, or conserving tokens.
+</ParamField>
+
+<ParamField path="workflow.plan_check" type="boolean" default="true">
+  Spawn plan checker to verify plans achieve phase goals. Loops up to 3 times until plans pass verification.
+  
+  **Disable when:** Speed is critical, or plans are simple.
+</ParamField>
+
+<ParamField path="workflow.verifier" type="boolean" default="true">
+  Spawn verifier after `execute-phase` to confirm must-haves were delivered.
+  
+  **Disable when:** Manual verification is sufficient.
+</ParamField>
+
+<ParamField path="workflow.auto_advance" type="boolean" default="false">
+  Auto-chain discuss → plan → execute without stopping.
+  
+  **Enable when:** Running known phases in batch mode.
+  
+  **Warning:** Less control between stages.
+</ParamField>
+
+<ParamField path="workflow.nyquist_validation" type="boolean" default="true">
+  Research automated test coverage during planning. Maps requirements to test commands.
+  
+  **Disable when:** Rapid prototyping or phases without tests.
+  
+  Outputs `{phase}-VALIDATION.md` with feedback contract.
+</ParamField>
+
+## Planning Settings
+
+<ParamField path="planning.commit_docs" type="boolean" default="true">
+  Track `.planning/` files in git.
+  
+  **Set to false when:**
+  - Working on sensitive/private projects
+  - Don't want planning artifacts in version control
+  
+  Automatically `false` if `.planning/` is in `.gitignore`.
+</ParamField>
+
+<ParamField path="planning.search_gitignored" type="boolean" default="false">
+  Add `--no-ignore` to broad searches to include `.planning/` directory.
+  
+  **Enable when:** Need to search planning docs for context.
+</ParamField>
+
+## Parallelization Settings
+
+<ParamField path="parallelization.enabled" type="boolean" default="true">
+  Run independent plans simultaneously during `execute-phase`.
+</ParamField>
+
+<ParamField path="parallelization.plan_level" type="boolean" default="true">
+  Parallelize at the plan level (multiple plans in same wave).
+</ParamField>
+
+<ParamField path="parallelization.task_level" type="boolean" default="false">
+  Parallelize individual tasks within a plan.
+  
+  **Warning:** Experimental. May cause race conditions.
+</ParamField>
+
+<ParamField path="parallelization.skip_checkpoints" type="boolean" default="true">
+  Skip intermediate checkpoints during parallel execution.
+</ParamField>
+
+<ParamField path="parallelization.max_concurrent_agents" type="number" default="3">
+  Maximum number of executor agents running simultaneously.
+  
+  **Adjust based on:**
+  - API rate limits
+  - Cost tolerance
+  - System resources
+</ParamField>
+
+<ParamField path="parallelization.min_plans_for_parallel" type="number" default="2">
+  Minimum plans required to trigger parallel execution.
+  
+  Single-plan phases always run sequentially.
+</ParamField>
+
+## Git Settings
+
+<ParamField path="git.branching_strategy" type="string" default="none">
+  Branch creation strategy. See [Git Settings](/reference/git-settings) for details:
+  - `none` — Commit to current branch (default)
+  - `phase` — Create branch per phase
+  - `milestone` — Create branch for entire milestone
+</ParamField>
+
+<ParamField path="git.phase_branch_template" type="string" default="gsd/phase-{phase}-{slug}">
+  Template for phase branch names.
+  
+  **Variables:**
+  - `{phase}` — Zero-padded phase number (e.g., "03")
+  - `{slug}` — Lowercase hyphenated phase name
+  
+  **Example:** `gsd/phase-03-user-authentication`
+</ParamField>
+
+<ParamField path="git.milestone_branch_template" type="string" default="gsd/{milestone}-{slug}">
+  Template for milestone branch names.
+  
+  **Variables:**
+  - `{milestone}` — Version identifier (e.g., "v1.0")
+  - `{slug}` — Lowercase hyphenated milestone name
+  
+  **Example:** `gsd/v1.0-mvp`
+</ParamField>
+
+## Confirmation Gates
+
+All gates default to `true` in interactive mode.
+
+<ParamField path="gates.confirm_project" type="boolean" default="true">
+  Confirm project initialization details.
+</ParamField>
+
+<ParamField path="gates.confirm_phases" type="boolean" default="true">
+  Confirm phase breakdown.
+</ParamField>
+
+<ParamField path="gates.confirm_roadmap" type="boolean" default="true">
+  Confirm full roadmap before proceeding.
+</ParamField>
+
+<ParamField path="gates.confirm_breakdown" type="boolean" default="true">
+  Confirm task breakdown within plans.
+</ParamField>
+
+<ParamField path="gates.confirm_plan" type="boolean" default="true">
+  Confirm each plan before execution.
+</ParamField>
+
+<ParamField path="gates.execute_next_plan" type="boolean" default="true">
+  Confirm before executing next plan in sequence.
+</ParamField>
+
+<ParamField path="gates.issues_review" type="boolean" default="true">
+  Review issues found during verification.
+</ParamField>
+
+<ParamField path="gates.confirm_transition" type="boolean" default="true">
+  Confirm transitions between major stages.
+</ParamField>
+
+<Note>
+  In `yolo` mode, all gates are automatically set to `false`.
+</Note>
+
+## Safety Settings
+
+<ParamField path="safety.always_confirm_destructive" type="boolean" default="true">
+  Always confirm destructive operations (deletes, force pushes) regardless of mode.
+</ParamField>
+
+<ParamField path="safety.always_confirm_external_services" type="boolean" default="true">
+  Always confirm operations involving external services (API calls, deployments).
+</ParamField>
+
+## Updating Configuration
+
+### Interactive Update
+
+```bash
+/gsd:settings
+```
+
+Guided prompts for all major settings.
+
+### Quick Profile Switch
+
+```bash
+/gsd:set-profile quality
+/gsd:set-profile balanced
+/gsd:set-profile budget
+```
+
+### Manual Edit
+
+Edit `.planning/config.json` directly:
+
+```bash
+vim .planning/config.json
+```
+
+<Warning>
+  GSD reads config at command invocation. Changes take effect immediately.
+</Warning>
+
+## Global Defaults
+
+Save settings as defaults for all new projects:
+
+1. Configure current project: `/gsd:settings`
+2. When prompted, choose "Save as defaults"
+3. Settings written to `~/.gsd/defaults.json`
+
+New projects created with `/gsd:new-project` inherit these defaults.
+
+## Command Overrides
+
+Override config per-invocation:
+
+```bash
+/gsd:plan-phase --skip-research
+/gsd:plan-phase --skip-verify
+/gsd:plan-phase --research  # Force research even if disabled
+```
+
+## Related References
+
+- [Model Profiles](/reference/model-profiles) — Per-agent model breakdown
+- [Workflow Agents](/reference/workflow-agents) — Research, plan_check, verifier details
+- [Git Settings](/reference/git-settings) — Branching strategies and templates

@@ -1,0 +1,486 @@
+---
+title: 'Contributing'
+description: 'How to contribute to Get Shit Done development'
+icon: 'code-pull-request'
+---
+
+Thank you for your interest in contributing to Get Shit Done! This guide covers development setup, testing, and contribution guidelines.
+
+---
+
+## Quick Links
+
+<CardGroup cols={2}>
+  <Card title="GitHub Repository" icon="github" href="https://github.com/glittercowboy/get-shit-done">
+    Main repository with source code
+  </Card>
+  <Card title="Report Issues" icon="bug" href="https://github.com/glittercowboy/get-shit-done/issues">
+    Submit bug reports and feature requests
+  </Card>
+  <Card title="Discussions" icon="comments" href="https://github.com/glittercowboy/get-shit-done/discussions">
+    Ask questions and share ideas
+  </Card>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/gsd">
+    Join the community for real-time help
+  </Card>
+</CardGroup>
+
+---
+
+## Development Setup
+
+### Prerequisites
+
+- **Node.js** 16+ (LTS recommended)
+- **Git**
+- **Claude Code**, OpenCode, Gemini CLI, or Codex installed
+- Basic familiarity with shell scripting and JavaScript
+
+### Clone and Install
+
+```bash
+# Clone the repository
+git clone https://github.com/glittercowboy/get-shit-done.git
+cd get-shit-done
+
+# Install dependencies (if any)
+npm install
+```
+
+### Local Testing
+
+Install GSD from your local repository:
+
+```bash
+# Test Claude Code local install
+node bin/install.js --claude --local
+
+# Test OpenCode global install
+node bin/install.js --opencode --global
+
+# Test all runtimes
+node bin/install.js --all --local
+```
+
+This installs from your working directory instead of the npm package, allowing you to test modifications immediately.
+
+### Verify Installation
+
+```bash
+# Claude Code
+cd /path/to/test/project
+claude
+/gsd:help
+
+# OpenCode
+opencode
+/gsd-help
+
+# Codex
+codex
+$gsd-help
+```
+
+---
+
+## Project Structure
+
+```
+get-shit-done/
+├── bin/
+│   └── install.js              # Main installer script
+├── commands/
+│   └── gsd/                    # Command implementations
+│       ├── new-project.md
+│       ├── plan-phase.md
+│       ├── execute-phase.md
+│       └── ...
+├── agents/
+│   ├── gsd-executor/          # Execution agent
+│   ├── gsd-planner/           # Planning agent
+│   ├── gsd-verifier/          # Verification agent
+│   └── ...
+├── workflows/
+│   ├── new-project.md         # Workflow orchestration
+│   ├── plan-phase.md
+│   └── ...
+├── templates/
+│   ├── PROJECT.md             # Document templates
+│   ├── PLAN.md
+│   └── ...
+├── references/
+│   ├── debugging.md           # Reference documentation
+│   ├── checkpoints.md
+│   └── ...
+├── hooks/
+│   ├── gsd-statusline.js      # Runtime hooks
+│   ├── gsd-context-monitor.js
+│   └── ...
+├── lib/
+│   └── gsd-tools.cjs          # Utility CLI
+├── test/
+│   └── *.test.cjs             # Test suite
+├── CHANGELOG.md               # Release history
+├── README.md                  # Main documentation
+└── package.json
+```
+
+### Key Components
+
+| Directory | Purpose |
+|-----------|----------|
+| `commands/` | User-facing slash commands (e.g., `/gsd:new-project`) |
+| `agents/` | Dedicated agents with specialized expertise |
+| `workflows/` | Orchestration logic loaded by commands |
+| `templates/` | Document templates for planning artifacts |
+| `references/` | Best practices, patterns, and guidelines |
+| `hooks/` | Runtime hooks (statusline, context monitor, etc.) |
+| `lib/` | Shared utilities and CLI tools |
+| `test/` | Test suite (428+ tests across 13 files) |
+
+---
+
+## Testing
+
+### Run Test Suite
+
+```bash
+# Run all tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+
+# Run specific test file
+node test/phase.test.cjs
+```
+
+### Test Coverage
+
+GSD enforces **70% line coverage** via CI. The test suite includes:
+
+- Core utilities (config, state, roadmap parsing)
+- Command dispatch and routing
+- Frontmatter parsing and validation
+- Phase/milestone management
+- Windows/Unix path handling
+
+**Coverage report:**
+
+```bash
+npm run test:coverage
+# Opens coverage/index.html
+```
+
+### Manual Testing
+
+1. **Create a test project:**
+   ```bash
+   mkdir test-project
+   cd test-project
+   git init
+   ```
+
+2. **Install your local GSD:**
+   ```bash
+   node /path/to/get-shit-done/bin/install.js --claude --local
+   ```
+
+3. **Run a full workflow:**
+   ```bash
+   claude --dangerously-skip-permissions
+   /gsd:new-project
+   # Answer questions
+   /gsd:plan-phase 1
+   /gsd:execute-phase 1
+   ```
+
+4. **Verify outputs:**
+   - Check `.planning/` files
+   - Review git commits
+   - Test generated code
+
+---
+
+## Contribution Guidelines
+
+### Reporting Issues
+
+**Before submitting:**
+- Search [existing issues](https://github.com/glittercowboy/get-shit-done/issues) to avoid duplicates
+- Verify you're on the latest version: `npx get-shit-done-cc@latest`
+
+**Include in your report:**
+- GSD version (check `VERSION` file in `.claude/commands/gsd/` or similar)
+- Runtime (Claude Code, OpenCode, Gemini CLI, Codex)
+- Operating system (Mac, Linux, Windows, WSL)
+- Command that failed (e.g., `/gsd:execute-phase 1`)
+- Error messages or unexpected behavior
+- Steps to reproduce
+
+**Use issue templates:**
+- [Bug Report](https://github.com/glittercowboy/get-shit-done/issues/new?template=bug_report.md)
+- [Feature Request](https://github.com/glittercowboy/get-shit-done/issues/new?template=feature_request.md)
+
+### Submitting Pull Requests
+
+<Note>
+All contributions must include tests and maintain 70% coverage.
+</Note>
+
+**Process:**
+
+1. **Fork and clone:**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/get-shit-done.git
+   cd get-shit-done
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Make your changes:**
+   - Follow existing code style
+   - Add tests for new functionality
+   - Update documentation if needed
+
+3. **Test thoroughly:**
+   ```bash
+   npm test
+   npm run test:coverage
+   ```
+
+4. **Commit with clear messages:**
+   ```bash
+   git add .
+   git commit -m "feat: add new feature X"
+   ```
+
+   **Commit message format:**
+   - `feat:` New feature
+   - `fix:` Bug fix
+   - `docs:` Documentation changes
+   - `test:` Test additions/changes
+   - `refactor:` Code refactoring
+   - `chore:` Maintenance tasks
+
+5. **Push and create PR:**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+   Open a pull request on GitHub with:
+   - Clear description of changes
+   - Link to related issues
+   - Screenshots/examples if applicable
+
+### Code Style
+
+- **Markdown commands/workflows:** Use consistent heading levels, clear step numbering
+- **JavaScript/Node.js:** Follow existing patterns in `lib/gsd-tools.cjs` and hooks
+- **XML prompts:** Follow existing agent patterns with clear tags and structure
+- **Comments:** Explain *why*, not *what*
+
+### Testing New Agents
+
+When adding a new agent:
+
+1. **Create agent directory:**
+   ```bash
+   mkdir -p agents/gsd-newagent
+   ```
+
+2. **Add agent file:**
+   - Include frontmatter (name, role, allowed-tools, skills)
+   - Follow thin orchestrator pattern
+   - Add comprehensive methodology section
+
+3. **Add tests:**
+   ```bash
+   # Test frontmatter parsing
+   node test/frontmatter.test.cjs
+   ```
+
+4. **Test spawn:**
+   - Create a workflow that spawns your agent
+   - Verify context loading and output format
+
+---
+
+## Architecture Guidelines
+
+### Thin Orchestrator Pattern
+
+GSD follows a consistent pattern:
+
+**Commands** are thin orchestrators that:
+- Parse arguments
+- Load necessary context
+- Spawn specialized agents
+- Collect results
+- Update state files
+- Route to next step
+
+**Agents** are self-contained with:
+- Complete methodology
+- Domain expertise
+- No external dependencies
+- Fresh context per spawn
+
+**Example structure:**
+
+```markdown
+<!-- commands/gsd/example.md -->
+# /gsd:example
+
+**Parse args and load context:**
+1. Extract phase number
+2. Load PROJECT.md, STATE.md
+
+**Spawn agent:**
+```json
+{
+  "type": "task",
+  "agent": "gsd-example-agent",
+  "context": {
+    "phase": "03",
+    "project": "..."
+  }
+}
+```
+
+**Process results:**
+1. Validate output
+2. Update STATE.md
+3. Commit if needed
+
+**Route next step:**
+- If X, suggest `/gsd:next-command`
+```
+
+### Context Engineering
+
+When designing features:
+
+- **Size limits:** Keep files under limits where Claude's quality degrades
+- **Frontmatter:** Use YAML frontmatter for machine-readable metadata
+- **XML prompts:** Structure plans/tasks with clear XML tags
+- **Dependency graphs:** Track what depends on what (frontmatter)
+- **Fresh contexts:** Each agent gets clean 200K window
+
+### State Management
+
+Always update state through deterministic tools:
+
+```bash
+# Good: Use gsd-tools CLI
+node ~/.claude/commands/gsd/lib/gsd-tools.cjs state update-progress 3 2
+
+# Bad: Let agent edit STATE.md manually
+# (Prone to parsing errors, corruption)
+```
+
+---
+
+## Documentation
+
+When adding features:
+
+- **README.md:** Update if it affects core workflow
+- **CHANGELOG.md:** Add entry following [Keep a Changelog](https://keepachangelog.com/) format
+- **USER-GUIDE.md:** Add to command reference and examples
+- **Inline docs:** Update command help text
+
+**Documentation location:**
+- Core docs: `README.md`, `docs/USER-GUIDE.md`
+- Reference: `references/` (debugging, checkpoints, etc.)
+- Templates: `templates/` (document templates)
+
+---
+
+## Release Process
+
+<Warning>
+Releases are managed by the maintainer team. Contributors should focus on PRs.
+</Warning>
+
+**For maintainers:**
+
+1. **Update CHANGELOG.md:**
+   - Add version and date
+   - List changes by category (Added, Changed, Fixed, Removed)
+
+2. **Bump version in package.json:**
+   ```bash
+   npm version patch|minor|major
+   ```
+
+3. **Tag release:**
+   ```bash
+   git tag v1.X.Y
+   git push origin v1.X.Y
+   ```
+
+4. **Publish to npm:**
+   ```bash
+   npm publish
+   ```
+
+5. **Create GitHub release:**
+   - Copy changelog section
+   - Attach any relevant files
+
+---
+
+## Community Ports
+
+Interested in porting GSD to a new runtime?
+
+**Requirements:**
+- Runtime must support slash commands or equivalent
+- Ability to spawn subagents with fresh context
+- File system access (Read, Write, Edit)
+- Git integration
+- Bash/shell command execution
+
+**Examples:**
+- [gsd-opencode](https://github.com/rokicool/gsd-opencode) (now officially supported)
+- gsd-gemini (archived, now officially supported)
+
+**Contact:**
+- Open a [GitHub Discussion](https://github.com/glittercowboy/get-shit-done/discussions)
+- Join [Discord](https://discord.gg/gsd)
+
+---
+
+## License
+
+GSD is released under the **MIT License**. See [LICENSE](https://github.com/glittercowboy/get-shit-done/blob/main/LICENSE) for details.
+
+By contributing, you agree that your contributions will be licensed under the same MIT License.
+
+---
+
+## Recognition
+
+Contributors are recognized in:
+- [GitHub Contributors](https://github.com/glittercowboy/get-shit-done/graphs/contributors)
+- Release notes for significant contributions
+- CHANGELOG.md for bug fixes and features
+
+---
+
+## Questions?
+
+<CardGroup cols={2}>
+  <Card title="Discord" icon="discord" href="https://discord.gg/gsd">
+    Real-time help from the community
+  </Card>
+  <Card title="GitHub Discussions" icon="github" href="https://github.com/glittercowboy/get-shit-done/discussions">
+    Ask questions and discuss ideas
+  </Card>
+  <Card title="X (Twitter)" icon="twitter" href="https://x.com/gsd_foundation">
+    Follow for updates and announcements
+  </Card>
+  <Card title="Email" icon="envelope" href="mailto:hello@getshitdone.ai">
+    Contact the maintainer team
+  </Card>
+</CardGroup>

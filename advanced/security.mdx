@@ -1,0 +1,429 @@
+---
+title: "Security"
+description: "Protecting sensitive files, deny list setup, and security best practices for the Get Shit Done framework"
+---
+
+## Security Overview
+
+GSD's workflows read files to understand your project during:
+- **Codebase mapping** (`/gsd:map-codebase`) — Analyzes existing code
+- **Planning** (`/gsd:plan-phase`) — Discovers patterns and conventions
+- **Execution** (`/gsd:execute-phase`) — Reads source files for context
+- **Verification** (`/gsd:verify-work`) — Checks implementation against goals
+
+<Warning>
+**Critical**: If your project contains secrets (API keys, credentials, private keys), GSD agents may read them unless you configure protection.
+</Warning>
+
+**Defense-in-depth approach**:
+1. **Deny list** (first line of defense) — Prevent Claude from reading sensitive files
+2. **Built-in protections** (second line) — GSD prevents committing common secret patterns
+3. **Manual review** (third line) — Check commits before pushing
+
+## Protecting Sensitive Files
+
+### Claude Code Deny List
+
+The deny list prevents Claude from reading specified files, **regardless of what commands you run**.
+
+**Configuration location**:
+- **Global**: `~/.claude/settings.json` (affects all projects)
+- **Project**: `.claude/settings.json` (affects current project only)
+
+**Recommended configuration**:
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/*)",
+      "Read(**/credentials/*)",
+      "Read(**/*credential*)",
+      "Read(**/*secret*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/id_rsa)",
+      "Read(**/id_dsa)",
+      "Read(**/id_ecdsa)",
+      "Read(**/id_ed25519)",
+      "Read(**/*.ppk)",
+      "Read(**/master.key)",
+      "Read(**/credentials.yml.enc)",
+      "Read(**/database.yml)",
+      "Read(**/config/database.yml)",
+      "Read(**/serviceAccountKey.json)",
+      "Read(**/firebase-adminsdk-*.json)",
+      "Read(**/*-credentials.json)",
+      "Read(**/*.jks)",
+      "Read(**/*.keystore)"
+    ]
+  }
+}
+```
+
+<Note>
+**Pattern syntax**: `Read(pattern)` where pattern uses glob syntax:
+- `*` matches any characters except `/`
+- `**` matches any characters including `/`
+- Examples: `**/.env` matches `.env` in any directory
+</Note>
+
+### Common Secret File Patterns
+
+| Pattern | Description |
+|---------|-------------|
+| `.env`, `.env.*` | Environment variables (API keys, database URLs) |
+| `secrets/`, `credentials/` | Dedicated secret directories |
+| `*.pem`, `*.key` | Private keys (SSL, SSH, API) |
+| `*.p12`, `*.pfx` | Certificate files |
+| `id_rsa`, `id_dsa`, etc. | SSH private keys |
+| `master.key` | Rails master key |
+| `serviceAccountKey.json` | Firebase/GCP service accounts |
+| `database.yml` | Database credentials |
+| `*.jks`, `*.keystore` | Java keystores |
+
+### Project-Specific Secrets
+
+Add patterns for your project's secret storage:
+
+**Example: AWS credentials**
+```json
+"deny": [
+  "Read(~/.aws/credentials)",
+  "Read(~/.aws/config)"
+]
+```
+
+**Example: Docker secrets**
+```json
+"deny": [
+  "Read(**/docker-compose.override.yml)",
+  "Read(**/secrets/*)"
+]
+```
+
+**Example: Kubernetes secrets**
+```json
+"deny": [
+  "Read(**/k8s/secrets/*)",
+  "Read(**/*-secret.yaml)"
+]
+```
+
+**Example: API keys in config**
+```json
+"deny": [
+  "Read(config/keys.js)",
+  "Read(config/api-keys.json)"
+]
+```
+
+## Built-In Protections
+
+GSD includes safeguards to prevent committing secrets:
+
+### Commit-Time Checks
+
+Before creating git commits, executors check for:
+
+**Common secret patterns**:
+- API keys (`AKIA...`, `sk_live_...`, `ghp_...`)
+- Tokens (`token=...`, `Bearer ...`)
+- Passwords (`password=...`, `passwd=...`)
+- Private keys (`-----BEGIN PRIVATE KEY-----`)
+- Connection strings (database URLs with credentials)
+
+**If detected**:
+```
+⚠️  WARNING: Potential secret detected in staged files
+
+File: src/config.js
+Pattern: API key (AKIA...)
+
+Options:
+1. Remove secret and continue
+2. Cancel commit
+3. Commit anyway (not recommended)
+```
+
+### Gitignore Respect
+
+GSD honors `.gitignore` patterns:
+
+**Example `.gitignore`**:
+```
+# Secrets
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+vendor/
+```
+
+Files matching `.gitignore` patterns are:
+- **Not staged** by executors
+- **Not committed** in atomic commits
+- **Not included** in codebase analysis (unless `planning.search_gitignored: true`)
+
+<Info>
+Set `planning.search_gitignored: false` (default) to exclude `.gitignore` files from broad searches during planning.
+</Info>
+
+### File Extension Filtering
+
+Certain file types are automatically excluded from commits:
+
+**Binary files**:
+- `.key`, `.pem`, `.p12`, `.pfx`, `.jks`
+- `.exe`, `.dll`, `.so`, `.dylib`
+- Images (unless explicitly part of task)
+
+**Sensitive configs**:
+- Files in `secrets/` or `credentials/` directories
+- Files matching `*credential*`, `*secret*` patterns
+
+## Security Best Practices
+
+### 1. Configure Deny List Before First Run
+
+```bash
+# Before running GSD commands
+cat > .claude/settings.json << 'EOF'
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets/*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
+    ]
+  }
+}
+EOF
+
+# Then run GSD
+/gsd:map-codebase
+```
+
+### 2. Use `.env.example` for Templates
+
+**Don't**:
+```bash
+# .env (contains real secrets)
+DATABASE_URL=postgresql://user:password@localhost/db
+API_KEY=sk_live_abc123...
+```
+
+**Do**:
+```bash
+# .env.example (safe to commit)
+DATABASE_URL=postgresql://user:password@localhost/db
+API_KEY=your_api_key_here
+
+# .env (gitignored, denied)
+DATABASE_URL=postgresql://realuser:realpass@prod.db.com/prod
+API_KEY=sk_live_REAL_SECRET_KEY
+```
+
+GSD can read `.env.example` to understand config structure without exposing secrets.
+
+### 3. Separate Secrets from Code
+
+**Recommended structure**:
+```
+project/
+├── src/
+│   └── config.js       # Reads from env vars, no hardcoded secrets
+├── .env                # Gitignored, denied
+├── .env.example        # Safe template
+├── secrets/            # Gitignored directory, denied
+│   ├── api-key.txt
+│   └── private.pem
+└── .gitignore
+```
+
+**config.js** (safe):
+```javascript
+export const config = {
+  apiKey: process.env.API_KEY,
+  dbUrl: process.env.DATABASE_URL
+};
+```
+
+### 4. Review Commits Before Pushing
+
+**After phase execution**:
+```bash
+# Check what was committed
+git log --oneline -10
+
+# Review file changes
+git diff HEAD~5..HEAD
+
+# Check for secrets (regex search)
+git diff HEAD~5..HEAD | grep -E "(AKIA|sk_live|ghp_|password=)"
+
+# If secrets found
+git reset --soft HEAD~5  # Undo commits
+# Remove secrets, re-commit manually
+```
+
+### 5. Audit Codebase Mapping Output
+
+After `/gsd:map-codebase`, check generated files:
+
+```bash
+cat .planning/codebase/STACK.md
+cat .planning/codebase/ARCHITECTURE.md
+cat .planning/codebase/CONVENTIONS.md
+```
+
+**Red flags**:
+- API keys listed in STACK.md
+- Database credentials in ARCHITECTURE.md
+- Secret paths in file references
+
+If found, add deny patterns and re-run:
+```bash
+# Add to .claude/settings.json deny list
+/gsd:map-codebase  # Re-run with protections
+```
+
+### 6. Use GSD in Trusted Environments
+
+GSD spawns agents that:
+- Read your codebase
+- Execute bash commands (install deps, run tests, git commit)
+- Modify files
+
+<Warning>
+**Only run GSD in environments where you trust the AI's actions.** Use deny lists and manual review for production/sensitive projects.
+</Warning>
+
+## Reporting Security Issues
+
+**Do NOT report security vulnerabilities through public GitHub issues.**
+
+**Instead, report via email**: security@gsd.build
+
+**Include**:
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (optional)
+
+**Response timeline**:
+- **Acknowledgment**: Within 48 hours
+- **Initial assessment**: Within 1 week
+- **Fix timeline**:
+  - Critical: 24-48 hours
+  - High: 1 week
+  - Medium/Low: Next release
+
+## Security Scope
+
+Security issues in the GSD codebase that could:
+- Execute arbitrary code on user machines
+- Expose sensitive data (API keys, credentials)
+- Compromise the integrity of generated plans/code
+- Bypass deny list protections
+
+**Out of scope**:
+- Claude AI model behavior (report to Anthropic)
+- Third-party dependencies (report to maintainers)
+- User misconfiguration (see troubleshooting docs)
+
+## Recognition
+
+We appreciate responsible disclosure and will credit reporters in release notes (unless you prefer to remain anonymous).
+
+---
+
+## Quick Reference
+
+### Minimal Deny List
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets/*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
+    ]
+  }
+}
+```
+
+### Comprehensive Deny List
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/*)",
+      "Read(**/credentials/*)",
+      "Read(**/*credential*)",
+      "Read(**/*secret*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/id_rsa)",
+      "Read(**/master.key)",
+      "Read(**/serviceAccountKey.json)",
+      "Read(**/*-credentials.json)"
+    ]
+  }
+}
+```
+
+### Check for Secrets in Commits
+
+```bash
+# Search recent commits
+git log -p -5 | grep -E "(AKIA|sk_live|ghp_|password=|-----BEGIN)"
+
+# Search staged changes
+git diff --cached | grep -E "(AKIA|sk_live|ghp_|password=)"
+
+# Search working directory
+grep -r "AKIA" src/
+grep -r "sk_live" src/
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/advanced/architecture">
+    How security fits into overall system design
+  </Card>
+  <Card title="State Management" icon="database" href="/advanced/state-management">
+    Protecting STATE.md and planning artifacts
+  </Card>
+</CardGroup>

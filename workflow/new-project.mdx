@@ -1,0 +1,307 @@
+---
+title: Initialize a New Project
+description: Set up your project with deep context gathering and structured planning
+icon: rocket
+---
+
+## Overview
+
+The `/gsd:new-project` command initializes a new GSD project through a unified flow that captures your vision, researches the domain, and creates a structured roadmap. This is your entry point to the Get Shit Done workflow.
+
+## What It Does
+
+The command guides you through four stages:
+
+1. **Questioning** - Deep conversation until the system understands your idea completely
+2. **Research** (optional) - Parallel agents investigate the domain
+3. **Requirements** - Extracts what's v1, v2, and out of scope
+4. **Roadmap** - Creates phases mapped to requirements
+
+## Files Created
+
+After running `new-project`, you'll have:
+
+<CardGroup cols={2}>
+  <Card title="PROJECT.md" icon="file-lines">
+    Core project vision and context - always loaded by agents
+  </Card>
+  <Card title="config.json" icon="gear">
+    Workflow preferences and model settings
+  </Card>
+  <Card title="REQUIREMENTS.md" icon="list-check">
+    Scoped v1/v2 requirements with phase traceability
+  </Card>
+  <Card title="ROADMAP.md" icon="map">
+    Phase structure showing what gets built when
+  </Card>
+  <Card title="STATE.md" icon="database">
+    Project memory tracking decisions and position
+  </Card>
+  <Card title="research/" icon="folder">
+    Domain research from parallel investigation agents
+  </Card>
+</CardGroup>
+
+## Command Usage
+
+<Tabs>
+  <Tab title="Interactive Mode">
+    ```bash
+    /gsd:new-project
+    ```
+    
+    The system will:
+    - Ask about your project goals and constraints
+    - Clarify technical preferences and edge cases
+    - Offer optional domain research (recommended)
+    - Present requirements for approval
+    - Generate roadmap for final approval
+  </Tab>
+  
+  <Tab title="Automatic Mode">
+    ```bash
+    /gsd:new-project --auto
+    ```
+    
+    <Note>
+      Automatic mode expects you to provide an idea document via `@` reference. After config questions, it runs research → requirements → roadmap without further interaction.
+    </Note>
+    
+    Example:
+    ```bash
+    /gsd:new-project --auto @project-brief.md
+    ```
+  </Tab>
+</Tabs>
+
+## The Questioning Phase
+
+GSD's questioning system is designed to extract complete context before any code is written. The conversation continues until the system understands:
+
+- **Goals** - What you're trying to build and why
+- **Constraints** - Technical requirements, limitations, preferences
+- **Tech Stack** - Frameworks, libraries, deployment targets
+- **Edge Cases** - Error scenarios, unusual inputs, boundary conditions
+- **User Experience** - Key workflows and interactions
+
+<Info>
+  The questioning is adaptive - it asks deeper questions about areas that need clarity and skips obvious details.
+</Info>
+
+## Research Phase (Optional but Recommended)
+
+When you enable research, GSD spawns four parallel agents to investigate:
+
+<Steps>
+  <Step title="Stack Investigator">
+    Researches your chosen frameworks, libraries, and tools. Finds best practices, common patterns, and known issues.
+  </Step>
+  
+  <Step title="Feature Researcher">
+    Investigates similar products and features. Identifies standard approaches and UI patterns.
+  </Step>
+  
+  <Step title="Architecture Analyst">
+    Examines architectural patterns for your use case. Recommends structure, data flow, and integration points.
+  </Step>
+  
+  <Step title="Pitfall Detector">
+    Identifies common mistakes, gotchas, and anti-patterns to avoid.
+  </Step>
+</Steps>
+
+Research findings are saved to `.planning/research/` and loaded during planning phases.
+
+## Requirements Extraction
+
+The system analyzes your conversation and generates structured requirements:
+
+- **v1 Requirements** - Must-haves for initial release
+- **v2 Requirements** - Nice-to-haves for future iterations
+- **Out of Scope** - Explicitly deferred features
+
+Each requirement is:
+- Testable (clear success criteria)
+- Traceable (linked to roadmap phases)
+- Prioritized (v1 vs v2)
+
+<Warning>
+  Review requirements carefully before approval. These drive all planning and verification.
+</Warning>
+
+## Roadmap Creation
+
+The roadmap breaks your project into phases:
+
+```markdown
+### Phase 1: Database Schema and Auth
+**Goal:** User accounts with secure authentication
+**Requirements:** REQ-001, REQ-002, REQ-003
+
+### Phase 2: Core API Endpoints
+**Goal:** CRUD operations for main entities
+**Requirements:** REQ-004, REQ-005, REQ-006
+
+### Phase 3: Frontend Dashboard
+**Goal:** User interface for managing data
+**Requirements:** REQ-007, REQ-008, REQ-009
+```
+
+Each phase:
+- Has a clear goal
+- Maps to specific requirements
+- Is small enough to complete in 2-3 hours
+- Builds on previous phases
+
+## Configuration
+
+During initialization, you'll configure:
+
+### Execution Mode
+
+<Tabs>
+  <Tab title="Interactive (Default)">
+    Pauses for confirmation at each stage:
+    - Approve requirements before roadmap
+    - Approve roadmap before planning
+    - Confirm each phase execution
+  </Tab>
+  
+  <Tab title="YOLO">
+    Runs autonomously after approval gates:
+    - Questions → auto-research → auto-requirements → approval → auto-roadmap
+    - Planning and execution still need phase-by-phase approval
+  </Tab>
+</Tabs>
+
+### Granularity
+
+Controls how work is broken down:
+
+- **Coarse** - Fewer, larger phases. Faster but more context per phase.
+- **Standard** (default) - Balanced approach, 5-10 phases per milestone.
+- **Fine** - More, smaller phases. Slower but keeps context ultra-fresh.
+
+### Model Profile
+
+Balance quality vs token spend:
+
+| Profile | Planning | Execution | Best For |
+|---------|----------|-----------|----------|
+| `quality` | Opus | Opus | Complex projects, critical code |
+| `balanced` | Opus | Sonnet | Most projects (default) |
+| `budget` | Sonnet | Sonnet | Prototypes, simple projects |
+
+## Brownfield Projects
+
+<Info>
+  **Already have code?** Run `/gsd:map-codebase` first before `new-project`.
+</Info>
+
+The codebase mapper spawns parallel agents to analyze:
+- Stack and frameworks
+- Architecture and patterns
+- Conventions and style
+- Current concerns and tech debt
+
+Then when you run `new-project`, the questioning focuses on what you're **adding** rather than re-discovering what exists.
+
+## Example Flow
+
+<Steps>
+  <Step title="Start the command">
+    ```bash
+    /gsd:new-project
+    ```
+  </Step>
+  
+  <Step title="Answer questions">
+    Describe what you're building. The system asks follow-ups until it has complete context.
+    
+    Example questions:
+    - "What problem does this solve?"
+    - "Who are the users?"
+    - "Any specific tech stack requirements?"
+    - "What happens if a user tries X?"
+  </Step>
+  
+  <Step title="Enable research (optional)">
+    ```
+    Would you like domain research? (yes/no)
+    ```
+    
+    Recommended for unfamiliar domains or complex features.
+  </Step>
+  
+  <Step title="Review requirements">
+    The system presents extracted requirements:
+    
+    ```markdown
+    ## v1 Requirements
+    - [ ] REQ-001: Users can create accounts with email
+    - [ ] REQ-002: Users can log in with password
+    - [ ] REQ-003: Sessions persist across page reloads
+    
+    ## v2 Requirements
+    - [ ] REQ-004: OAuth login with Google
+    - [ ] REQ-005: Password reset via email
+    ```
+    
+    Approve, request changes, or add missing requirements.
+  </Step>
+  
+  <Step title="Approve roadmap">
+    The system presents the phase breakdown:
+    
+    ```markdown
+    ### Phase 1: Database and Auth Core
+    Goal: User accounts with secure authentication
+    Requirements: REQ-001, REQ-002, REQ-003
+    
+    ### Phase 2: Session Management
+    Goal: Persistent sessions and security
+    Requirements: REQ-003, REQ-006
+    ```
+    
+    Approve to finalize initialization.
+  </Step>
+  
+  <Step title="Start building">
+    ```bash
+    /gsd:discuss-phase 1
+    ```
+    
+    Begin the build workflow with phase 1.
+  </Step>
+</Steps>
+
+## Next Steps
+
+After `new-project` completes:
+
+<CardGroup cols={2}>
+  <Card title="Discuss Phase" icon="comments" href="/workflow/discuss-phase">
+    Capture implementation preferences before planning
+  </Card>
+  <Card title="Plan Phase" icon="diagram-project" href="/workflow/plan-phase">
+    Research and create detailed execution plans
+  </Card>
+</CardGroup>
+
+## Tips
+
+<Tip>
+  **Be specific in questioning.** "E-commerce site" is vague. "Shopify-style store with product variants, cart, and Stripe checkout" is clear.
+</Tip>
+
+<Tip>
+  **Use research for new domains.** If you're building something unfamiliar, let the parallel investigators find best practices.
+</Tip>
+
+<Tip>
+  **Keep v1 scope tight.** You can always add phases or start v2 after shipping. Smaller scope = faster first release.
+</Tip>
+
+<Warning>
+  Don't skip requirements approval. Once the roadmap is created, changing scope requires manual edits or starting over.
+</Warning>

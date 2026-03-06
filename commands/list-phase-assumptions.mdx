@@ -1,0 +1,139 @@
+---
+title: "gsd:list-phase-assumptions"
+description: "Surface Claude's assumptions about a phase approach before planning"
+---
+
+## Overview
+
+Analyze a phase and present Claude's assumptions about technical approach, implementation order, scope boundaries, risk areas, and dependencies. This command helps you see what Claude thinks BEFORE planning begins, enabling early course correction when assumptions are wrong.
+
+## Syntax
+
+```bash
+/gsd:list-phase-assumptions [phase]
+```
+
+<ParamField path="phase" type="number" required>
+  The phase number to analyze (e.g., 72, 73, 74)
+</ParamField>
+
+## Purpose
+
+Prevent wasted planning effort by surfacing Claude's assumptions early. If the AI has misunderstood the technical approach, scope, or dependencies, you can correct it before planning creates a detailed but incorrect plan.
+
+## Process
+
+1. **Validate Argument** - Checks phase number is provided and valid
+2. **Check Phase Exists** - Verifies phase is in the roadmap
+3. **Analyze Context** - Reviews roadmap description, project state, and related phases
+4. **Surface Assumptions** - Presents assumptions across five areas:
+   - Technical approach
+   - Implementation order
+   - Scope boundaries
+   - Risk areas
+   - Dependencies
+5. **Prompt Feedback** - Asks "What do you think?"
+6. **Gather Response** - Collects user feedback on assumptions
+7. **Offer Next Steps** - Suggests actions based on feedback
+
+## Output Format
+
+The command provides conversational output only (no files created) with:
+
+### 1. Technical Approach Assumptions
+How Claude thinks the phase should be implemented technically.
+
+### 2. Implementation Order Assumptions
+Which pieces should be built first and why.
+
+### 3. Scope Boundary Assumptions
+What's included vs excluded from this phase.
+
+### 4. Risk Area Assumptions
+Potential problems or challenges Claude has identified.
+
+### 5. Dependency Assumptions
+What this phase depends on and what depends on it.
+
+## Examples
+
+### Check Assumptions Before Planning
+
+```bash
+/gsd:list-phase-assumptions 72
+```
+
+Surfaces Claude's assumptions about phase 72 before creating the plan.
+
+### Validate Understanding of Complex Phase
+
+```bash
+/gsd:list-phase-assumptions 85
+```
+
+Checks assumptions about a particularly complex phase to ensure correct understanding.
+
+### Review After Context Change
+
+```bash
+/gsd:list-phase-assumptions 76
+```
+
+Re-checks assumptions after providing additional context or making changes to previous phases.
+
+## When to Use
+
+- **Before planning complex phases** - Validate understanding of technical approach
+- **After context discussions** - Confirm Claude understood your clarifications
+- **For ambiguous roadmap entries** - Surface what Claude inferred from brief descriptions
+- **When previous plans missed the mark** - Check if assumptions are the root cause
+
+## Response Flow
+
+After viewing assumptions, you can:
+
+1. **Confirm and proceed**: If assumptions are correct, run `/gsd:plan-phase {N}`
+2. **Provide context**: Explain what's wrong and provide correct understanding
+3. **Update roadmap**: Modify phase description if it's unclear
+4. **Discuss further**: Ask questions to refine Claude's understanding
+
+## Success Criteria
+
+- Phase validated against roadmap
+- Assumptions surfaced across all five areas
+- User prompted for feedback
+- User knows next steps (discuss context, plan phase, or correct assumptions)
+
+## Benefits
+
+- **Catch misunderstandings early** - Before detailed planning effort
+- **Improve plan quality** - Plans based on correct assumptions are more useful
+- **Reduce rework** - Fix understanding before creating artifacts
+- **Build alignment** - Ensure human and AI are on the same page
+
+## No Files Created
+
+This command is intentionally output-only. It creates no files because:
+- Assumptions may be wrong and need correction
+- It's a checkpoint before planning, not a planning artifact
+- Conversational format encourages feedback and discussion
+
+## Next Steps Options
+
+### If Assumptions Are Correct
+```bash
+/gsd:plan-phase {phase-number}
+```
+
+### If Assumptions Need Correction
+Provide clarifying context in natural language, then re-run the command to verify understanding.
+
+### If Phase Description Is Unclear
+Update the roadmap entry to be more specific, then re-check assumptions.
+
+## Allowed Tools
+
+- Read
+- Bash
+- Grep
+- Glob

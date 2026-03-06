@@ -1,0 +1,187 @@
+---
+title: ".planning/ Directory Structure"
+description: "Overview of the .planning directory structure and what files live where"
+---
+
+The `.planning/` directory is the central workspace for all GSD project management files. It contains everything Claude needs to understand your project, track progress, and maintain context across sessions.
+
+## Directory Structure
+
+```
+.planning/
+├── PROJECT.md              # Project vision and requirements
+├── REQUIREMENTS.md         # Checkable requirements with traceability
+├── ROADMAP.md             # Phases and execution plan
+├── STATE.md               # Living memory across sessions
+├── config.json            # Project configuration
+├── research/              # Domain research findings
+│   ├── ARCHITECTURE.md
+│   ├── FEATURES.md
+│   ├── PITFALLS.md
+│   ├── STACK.md
+│   └── SUMMARY.md
+├── codebase/              # Existing codebase analysis (brownfield)
+│   ├── architecture.md
+│   ├── concerns.md
+│   ├── conventions.md
+│   ├── integrations.md
+│   ├── stack.md
+│   ├── structure.md
+│   └── testing.md
+├── phases/                # Phase-specific plans and summaries
+│   ├── 01-foundation/
+│   │   ├── 01-01-PLAN.md
+│   │   ├── 01-01-SUMMARY.md
+│   │   ├── 01-02-PLAN.md
+│   │   ├── 01-02-SUMMARY.md
+│   │   └── 01-RESEARCH.md
+│   ├── 02-features/
+│   │   └── ...
+│   └── ...
+├── quick/                 # Quick mode tasks
+│   ├── 001-fix-login-bug/
+│   │   ├── PLAN.md
+│   │   └── SUMMARY.md
+│   └── ...
+├── todos/                 # Captured ideas
+│   ├── pending/
+│   └── completed/
+└── milestones/            # Archived milestone work
+    └── v1.0-mvp/
+        └── (archived phase directories)
+```
+
+## Root Files
+
+### Core Documents
+
+- **PROJECT.md** - Living project context (vision, requirements, constraints, decisions)
+- **REQUIREMENTS.md** - v1/v2 requirements with phase traceability
+- **ROADMAP.md** - Phases with goals, dependencies, and success criteria
+- **STATE.md** - Current position, metrics, decisions, blockers
+- **config.json** - Project configuration (mode, granularity, model profile, workflow settings)
+
+## Research Directories
+
+### `research/` - Domain Research (Greenfield)
+
+Created during `/gsd:new-project`, contains parallel research findings:
+
+- **ARCHITECTURE.md** - System design patterns and structure
+- **FEATURES.md** - Existing feature analysis in the domain
+- **PITFALLS.md** - Common mistakes and anti-patterns
+- **STACK.md** - Technology choices and rationale
+- **SUMMARY.md** - Synthesized insights for quick reference
+
+### `codebase/` - Codebase Analysis (Brownfield)
+
+Created during `/gsd:map-codebase` for existing projects:
+
+- **architecture.md** - Current system architecture
+- **concerns.md** - Known issues and technical debt
+- **conventions.md** - Code standards and patterns
+- **integrations.md** - External services and APIs
+- **stack.md** - Current tech stack analysis
+- **structure.md** - File organization and modules
+- **testing.md** - Testing setup and coverage
+
+## Phase Work
+
+### `phases/XX-name/` - Phase Execution
+
+Each phase gets its own directory:
+
+- **XX-CONTEXT.md** - Implementation decisions from `/gsd:discuss-phase`
+- **XX-RESEARCH.md** - Phase-specific research findings
+- **XX-YY-PLAN.md** - Executable task plan (Phase XX, Plan YY)
+- **XX-YY-SUMMARY.md** - Completion summary with decisions and changes
+- **XX-VERIFICATION.md** - Goal verification report
+- **XX-UAT.md** - User acceptance testing results (from `/gsd:verify-work`)
+
+### Plan Naming Convention
+
+- Format: `{phase}-{plan}-PLAN.md`
+- Examples:
+  - `01-01-PLAN.md` - Phase 1, Plan 1
+  - `01-02-PLAN.md` - Phase 1, Plan 2
+  - `02.1-01-PLAN.md` - Inserted phase 2.1, Plan 1
+
+## Quick Mode
+
+### `quick/NNN-description/`
+
+Ad-hoc tasks tracked separately from phases:
+
+- **PLAN.md** - Quick task plan
+- **SUMMARY.md** - Completion summary
+
+Numbered sequentially (001, 002, 003...) with descriptive slugs.
+
+## Todos
+
+### `todos/pending/` and `todos/completed/`
+
+Ideas captured via `/gsd:add-todo`:
+
+- Each todo is a markdown file
+- Moved from `pending/` to `completed/` when done
+- Referenced in STATE.md
+
+## Milestones
+
+### `milestones/vX.Y-name/`
+
+Completed milestone work archived via `/gsd:complete-milestone`:
+
+- Phase directories moved here after milestone ships
+- Keeps `.planning/phases/` focused on current work
+- Preserves history for reference
+
+## File Size Constraints
+
+GSD enforces size limits to keep Claude's quality high:
+
+| File | Max Size | Reason |
+|------|----------|--------|
+| PROJECT.md | Small | Read first in every workflow |
+| STATE.md | ~100 lines | Quick context restoration |
+| PLAN.md | ~50% context | Room for implementation |
+| SUMMARY.md | Varies | Complex plans get detailed summaries |
+
+## Workflow File Access
+
+**Every workflow starts by reading:**
+
+1. STATE.md (current position)
+2. PROJECT.md (core context)
+3. ROADMAP.md (phases and progress)
+
+**Planning reads:**
+
+- REQUIREMENTS.md (what to deliver)
+- Research files (how to build it)
+- Prior SUMMARY.md files (what's already done)
+
+**Execution reads:**
+
+- PLAN.md files (what to implement)
+- CONTEXT.md (implementation decisions)
+- RESEARCH.md (domain knowledge)
+
+## Git Tracking
+
+By default (`planning.commit_docs: true`):
+
+- All `.planning/` files are committed
+- Each task gets atomic commits
+- History is preserved for future sessions
+
+Disable via `/gsd:settings` if you prefer to keep planning docs local.
+
+## See Also
+
+- [PROJECT.md Structure](/reference/project-md)
+- [REQUIREMENTS.md Structure](/reference/requirements-md)
+- [ROADMAP.md Structure](/reference/roadmap-md)
+- [STATE.md Structure](/reference/state-md)
+- [PLAN.xml Structure](/reference/plan-xml)

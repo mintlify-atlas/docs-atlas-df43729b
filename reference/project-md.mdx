@@ -1,0 +1,289 @@
+---
+title: "PROJECT.md"
+description: "Structure and purpose of the PROJECT.md living context document"
+---
+
+PROJECT.md is your project's living context document. It captures what you're building, why it matters, and the key decisions that shape implementation.
+
+## Location
+
+```
+.planning/PROJECT.md
+```
+
+Created by `/gsd:new-project` and updated throughout the project lifecycle.
+
+## Template Structure
+
+```markdown
+# [Project Name]
+
+## What This Is
+
+[Current accurate description — 2-3 sentences. What does this product do and who is it for?
+Use the user's language and framing. Update whenever reality drifts from this description.]
+
+## Core Value
+
+[The ONE thing that matters most. If everything else fails, this must work.
+One sentence that drives prioritization when tradeoffs arise.]
+
+## Requirements
+
+### Validated
+
+<!-- Shipped and confirmed valuable. -->
+
+(None yet — ship to validate)
+
+### Active
+
+<!-- Current scope. Building toward these. -->
+
+- [ ] [Requirement 1]
+- [ ] [Requirement 2]
+- [ ] [Requirement 3]
+
+### Out of Scope
+
+<!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
+
+- [Exclusion 1] — [why]
+- [Exclusion 2] — [why]
+
+## Context
+
+[Background information that informs implementation:
+- Technical environment or ecosystem
+- Relevant prior work or experience
+- User research or feedback themes
+- Known issues to address]
+
+## Constraints
+
+- **[Type]**: [What] — [Why]
+- **[Type]**: [What] — [Why]
+
+Common types: Tech stack, Timeline, Budget, Dependencies, Compatibility, Performance, Security
+
+## Key Decisions
+
+<!-- Decisions that constrain future work. Add throughout project lifecycle. -->
+
+| Decision | Rationale | Outcome |
+|----------|-----------|------|
+| [Choice] | [Why] | [✓ Good / ⚠️ Revisit / — Pending] |
+
+---
+*Last updated: [date] after [trigger]*
+```
+
+## Section Details
+
+### What This Is
+
+**Purpose:** Current accurate description of the product.
+
+**Guidelines:**
+- 2-3 sentences capturing what it does and who it's for
+- Use the user's words and framing
+- Update when the product evolves beyond this description
+- Should answer: "What is this?" for someone new
+
+**Example:**
+```markdown
+## What This Is
+
+A lightweight task manager for developers who want to track work without leaving the terminal. 
+It integrates with git to automatically link tasks to commits, and uses plain markdown files so 
+your task history lives with your code.
+```
+
+### Core Value
+
+**Purpose:** The single most important thing that drives all decisions.
+
+**Guidelines:**
+- The ONE thing that cannot fail
+- Everything else can be compromised; this cannot
+- Drives prioritization when tradeoffs arise
+- Rarely changes; if it does, it's a significant pivot
+
+**Example:**
+```markdown
+## Core Value
+
+Developers can capture and find tasks instantly without context switching from their workflow.
+```
+
+### Requirements
+
+#### Validated
+
+**Purpose:** Requirements that shipped and proved valuable.
+
+**Format:**
+```markdown
+- ✓ [Requirement] — [version/phase]
+```
+
+**Guidelines:**
+- These are locked — changing them requires explicit discussion
+- Only move here after feature ships AND proves valuable
+- Creates clear record of what's been validated
+
+#### Active
+
+**Purpose:** Current scope being built toward.
+
+**Guidelines:**
+- These are hypotheses until shipped and validated
+- Move to Validated when shipped
+- Move to Out of Scope if invalidated
+- Keep focused on current milestone work
+
+#### Out of Scope
+
+**Purpose:** Explicit boundaries on what we're NOT building.
+
+**Guidelines:**
+- Always include reasoning (prevents re-adding later)
+- Includes: considered and rejected, deferred to future, explicitly excluded
+- Helps manage stakeholder expectations
+
+**Example:**
+```markdown
+### Out of Scope
+
+- Real-time collaboration — Adds significant complexity, defer to v2+
+- Mobile app — Web-first approach, evaluate later based on usage
+- Email notifications — Would require external service, keep offline-first
+```
+
+### Context
+
+**Purpose:** Background that informs implementation decisions.
+
+**Include:**
+- Technical environment or ecosystem
+- Relevant prior work or experience
+- User research or feedback themes
+- Known issues to address
+
+**Update:** As new context emerges through development.
+
+### Constraints
+
+**Purpose:** Hard limits on implementation choices.
+
+**Format:**
+```markdown
+- **[Type]**: [What] — [Why]
+```
+
+**Common types:**
+- Tech stack
+- Timeline
+- Budget
+- Dependencies
+- Compatibility
+- Performance
+- Security
+
+**Example:**
+```markdown
+## Constraints
+
+- **Tech Stack**: Next.js + Prisma — Existing team expertise
+- **Performance**: <200ms API response time — User research shows this threshold
+- **Compatibility**: Node 18+ only — LTS version, modern features needed
+```
+
+### Key Decisions
+
+**Purpose:** Track significant choices that affect future work.
+
+**Guidelines:**
+- Add decisions as they're made throughout the project
+- Track outcome when known:
+  - ✓ Good — decision proved correct
+  - ⚠️ Revisit — decision may need reconsideration
+  - — Pending — too early to evaluate
+
+**Example:**
+```markdown
+| Decision | Rationale | Outcome |
+|----------|-----------|--------|
+| Use PostgreSQL over MongoDB | Need relational data and transactions | ✓ Good |
+| Skip automated testing initially | Speed to market | ⚠️ Revisit — accruing tech debt |
+| Serverless deployment | Easy scaling, pay-per-use | — Pending |
+```
+
+## Evolution
+
+PROJECT.md evolves throughout the project lifecycle.
+
+### After Each Phase
+
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+### After Each Milestone
+
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state (users, feedback, metrics)
+
+## Brownfield Projects
+
+For existing codebases:
+
+1. **Map codebase first** via `/gsd:map-codebase`
+2. **Infer Validated requirements** from existing code:
+   - What does the codebase actually do?
+   - What patterns are established?
+   - What's clearly working and relied upon?
+3. **Gather Active requirements** from user:
+   - Present inferred current state
+   - Ask what they want to build next
+4. **Initialize:**
+   - Validated = inferred from existing code
+   - Active = user's goals for this work
+   - Out of Scope = boundaries user specifies
+   - Context = includes current codebase state
+
+## STATE.md Reference
+
+STATE.md references PROJECT.md for quick access:
+
+```markdown
+## Project Reference
+
+See: .planning/PROJECT.md (updated [date])
+
+**Core value:** [One-liner from Core Value section]
+**Current focus:** [Current phase name]
+```
+
+This ensures Claude reads current PROJECT.md context in every workflow.
+
+## Size Constraint
+
+Keep PROJECT.md focused and scannable. It's read at the start of every workflow.
+
+**If it grows too large:**
+- Move detailed historical context to milestone archives
+- Keep only recent/relevant Key Decisions (full history in git)
+- Summarize long Context sections
+
+The goal: "Read once, understand the project."
+
+## See Also
+
+- [REQUIREMENTS.md Structure](/reference/requirements-md)
+- [STATE.md Structure](/reference/state-md)
+- [.planning Directory](/reference/planning-directory)

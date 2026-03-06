@@ -1,0 +1,98 @@
+---
+title: 'gsd:new-milestone'
+description: 'Start a new milestone cycle — update PROJECT.md and route to requirements'
+---
+
+## Overview
+
+Start a new milestone for an existing project. This is the brownfield equivalent of `new-project`, designed for projects that already have a PROJECT.md with history. The command guides you through questioning, optional research, requirements definition, and roadmap creation.
+
+## Syntax
+
+```bash
+/gsd:new-milestone [milestone name]
+```
+
+<ParamField path="milestone name" type="string" optional>
+  The name for the new milestone (e.g., "v1.1 Notifications", "v2.0 API Redesign"). If not provided, you'll be prompted to enter it.
+</ParamField>
+
+## Process
+
+The command executes the new-milestone workflow which follows this cycle:
+
+1. **Questioning** - Gather information about what's next for the project
+2. **Research** (optional) - Domain research for NEW features only
+3. **Requirements** - Define scoped requirements for this milestone
+4. **Roadmap** - Create phase structure (continues numbering from previous milestone)
+5. **State Reset** - Reset STATE.md for new milestone
+
+The workflow includes validation gates and requires user approval at key decision points.
+
+## Created/Updated Files
+
+- `.planning/PROJECT.md` - Updated with new milestone goals
+- `.planning/research/` - Domain research files (optional, NEW features only)
+- `.planning/REQUIREMENTS.md` - Scoped requirements for this milestone
+- `.planning/ROADMAP.md` - Phase structure with continued numbering
+- `.planning/STATE.md` - Reset for new milestone
+
+## Context Files Referenced
+
+The workflow loads these references as needed:
+- `questioning.md` - Questioning framework
+- `ui-brand.md` - UI and brand guidelines
+- `project.md` template - Project structure template
+- `requirements.md` template - Requirements template
+
+## Examples
+
+### Start Milestone with Name
+
+```bash
+/gsd:new-milestone v1.1 Notifications
+```
+
+Starts a new milestone called "v1.1 Notifications" and begins the questioning phase.
+
+### Start Milestone with Prompt
+
+```bash
+/gsd:new-milestone
+```
+
+Starts a new milestone and prompts you to enter the milestone name.
+
+### Start Major Version
+
+```bash
+/gsd:new-milestone v2.0 Platform Redesign
+```
+
+Starts a major version milestone with significant changes.
+
+## After Completion
+
+Once the milestone is defined:
+
+```bash
+/gsd:plan-phase [N]
+```
+
+Begin planning the first phase of the new milestone.
+
+## Key Features
+
+- **Continues Context**: Builds on existing PROJECT.md history
+- **Phase Numbering**: Automatically continues phase numbers from previous milestone
+- **Scoped Requirements**: Creates fresh REQUIREMENTS.md for this milestone only
+- **Optional Research**: Only conducts research for genuinely new feature areas
+- **Approval Gates**: Requires confirmation at questioning, requirements, and roadmap stages
+
+## Allowed Tools
+
+- Read
+- Write
+- Bash
+- Task
+- AskUserQuestion

@@ -1,0 +1,217 @@
+---
+title: 'gsd:verify-work'
+description: 'Validate built features through conversational UAT'
+---
+
+## Overview
+
+The `gsd:verify-work` command validates built features through conversational testing with persistent state. It confirms that what Claude built actually works from your perspective—one test at a time, with plain text responses, no interrogation.
+
+## Usage
+
+```bash
+/gsd:verify-work [phase]
+```
+
+```bash
+/gsd:verify-work 3
+```
+
+## Parameters
+
+<ParamField path="phase" type="number">
+  The phase number to verify (e.g., 1, 2, 3).
+  
+  - If provided: Tests the specific phase
+  - If not provided: Checks for active sessions or prompts for phase selection
+</ParamField>
+
+## How It Works
+
+The command follows a conversational testing workflow:
+
+1. **Session Management** - Creates or resumes testing session
+2. **Test Presentation** - Shows one test case at a time
+3. **Your Response** - You describe what happened (pass/fail/issue)
+4. **Diagnosis** (if needed) - Automatically investigates issues
+5. **Fix Planning** - Creates verified fix plans ready for execution
+6. **State Tracking** - Records all results in UAT.md
+
+<Info>
+  The testing is conversational—not a checklist. You describe what you see in plain language.
+</Info>
+
+## Conversational Testing
+
+Unlike traditional UAT, this is a dialogue:
+
+**System**: "Try logging in with an invalid password. What happens?"
+
+**You**: "I see a generic error message, but it doesn't say whether the email or password was wrong"
+
+**System**: *Investigates code, diagnoses issue, creates fix plan*
+
+<Note>
+  One test at a time. Plain text responses. No form filling or rigid pass/fail checkboxes.
+</Note>
+
+## Automatic Issue Handling
+
+When you report an issue:
+
+1. **Diagnosis** - The system investigates the codebase
+2. **Root Cause** - Identifies what's wrong
+3. **Fix Plan** - Creates a gap closure plan
+4. **Verification** - Validates the fix plan is executable
+5. **Ready for Execution** - Marked for `--gaps-only` mode
+
+### Issue to Fix Flow
+
+```
+You: "The error message is too generic"
+  ↓
+System diagnoses: Error handling in auth.ts:45 needs improvement
+  ↓
+Creates: 3-gap-improve-error-messages.md
+  ↓
+Ready for: /gsd:execute-phase 3 --gaps-only
+```
+
+## Persistent State
+
+Testing sessions persist across conversations:
+
+- Resume testing where you left off
+- Review previous test results
+- Track fixes across multiple cycles
+
+## Files Created/Modified
+
+<ParamField path=".planning/{phase_num}-UAT.md" type="file">
+  Tracks all test results, issues found, and fix status for the phase
+</ParamField>
+
+<ParamField path=".planning/{phase_num}-gap-*.md" type="file">
+  Gap closure plans created when issues are found (marked with `gap_closure: true` in frontmatter)
+</ParamField>
+
+## Examples
+
+### Verify Specific Phase
+
+```bash
+/gsd:verify-work 3
+```
+
+Starts or resumes verification testing for phase 3.
+
+### Resume Active Session
+
+```bash
+/gsd:verify-work
+```
+
+If you have an active testing session, it resumes automatically. Otherwise, prompts you to select a phase.
+
+### Complete Verification Cycle
+
+```bash
+# 1. Execute the phase
+/gsd:execute-phase 3
+
+# 2. Verify the work
+/gsd:verify-work 3
+# (You test features conversationally, issues are found)
+
+# 3. Execute gap fixes
+/gsd:execute-phase 3 --gaps-only
+
+# 4. Verify again
+/gsd:verify-work 3
+# (Confirm fixes work)
+```
+
+## Testing Best Practices
+
+### Be Specific About Issues
+
+**Good**: "The error message says 'Invalid credentials' but doesn't indicate whether it's the email or password that's wrong"
+
+**Less Helpful**: "It doesn't work"
+
+### Test Real Scenarios
+
+**Good**: "I tried uploading a 10MB file and got a timeout after 30 seconds"
+
+**Less Helpful**: "File upload seems slow"
+
+### Report Unexpected Behavior
+
+**Good**: "After deleting an item, the list count still shows the old number until I refresh"
+
+**Less Helpful**: "Deleting is buggy"
+
+<Info>
+  The more specific you are, the better the system can diagnose and fix issues.
+</Info>
+
+## What Gets Tested
+
+The system generates test cases based on:
+
+- **Phase goals** from ROADMAP.md
+- **Implementation details** from PLAN.md
+- **User scenarios** from REQUIREMENTS.md
+- **Edge cases** identified during planning
+
+## Success Criteria
+
+Verification succeeds when:
+
+- All test cases have been executed
+- Issues have been documented and diagnosed
+- Fix plans created for all identified gaps
+- You're satisfied with the quality
+
+<Note>
+  You don't need to find zero issues. The goal is to identify what needs fixing, create plans, and iterate.
+</Note>
+
+## Workflow Gates
+
+All workflow gates are preserved:
+
+- **Session Management** - Resume capability and state tracking
+- **Test Presentation** - One test at a time, conversational format
+- **Diagnosis** - Automatic investigation of reported issues
+- **Fix Planning** - Verified gap closure plans
+- **Routing** - Next-step suggestions
+
+## Next Steps
+
+After verification:
+
+**If gaps found**:
+```bash
+/gsd:execute-phase <phase> --gaps-only
+```
+
+Execute the fix plans, then verify again.
+
+**If no gaps** (or all fixed):
+```bash
+/gsd:plan-phase <next-phase>
+```
+
+Move on to the next phase of your roadmap.
+
+## Allowed Tools
+
+This command has access to:
+- **Read** - Read plans, code, and test files
+- **Bash** - Execute tests and commands
+- **Glob** - Find relevant files
+- **Grep** - Search codebase for issues
+- **Edit** - Modify UAT.md with results
+- **Write** - Create gap closure plans
+- **Task** - Delegate diagnosis to specialized agents

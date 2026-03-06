@@ -1,0 +1,244 @@
+---
+title: Why GSD?
+description: The philosophy, design principles, and problems GSD solves
+---
+
+# Why GSD?
+
+## The Problem
+
+Vibecoding has a bad reputation. You describe what you want, AI generates code, and you get inconsistent garbage that falls apart at scale.
+
+Claude Code is incredibly powerful *if* you give it the context it needs. **Most people don't.**
+
+As the context window fills, quality degrades. Claude starts being vague, skipping implementations, adding TODOs, or contradicting earlier work. This is **context rot**.
+
+## The Solution
+
+GSD is the context engineering layer that makes Claude Code reliable. It solves context rot through:
+
+<CardGroup cols={2}>
+  <Card title="Structured Context" icon="sitemap">
+    Every file in `.planning/` has a purpose: project vision, requirements, research, plans, state, and summaries.
+  </Card>
+  
+  <Card title="Fresh Subagents" icon="sparkles">
+    Each task gets a specialized agent with a clean 200k token context window. No accumulated garbage.
+  </Card>
+  
+  <Card title="XML Prompts" icon="code">
+    Precise instructions in structured XML format. No guessing, verification built in.
+  </Card>
+  
+  <Card title="Atomic Commits" icon="git-alt">
+    Every task commits immediately after completion. Clear history, easy rollback, better observability.
+  </Card>
+</CardGroup>
+
+## Why It Was Built
+
+<Note>
+  From the creator:
+</Note>
+
+> I'm a solo developer. I don't write code — Claude Code does.
+>
+> Other spec-driven development tools exist; BMAD, Speckit... But they all seem to make things way more complicated than they need to be (sprint ceremonies, story points, stakeholder syncs, retrospectives, Jira workflows) or lack real big picture understanding of what you're building. I'm not a 50-person software company. I don't want to play enterprise theater. I'm just a creative person trying to build great things that work.
+>
+> So I built GSD. The complexity is in the system, not in your workflow. Behind the scenes: context engineering, XML prompt formatting, subagent orchestration, state management. What you see: a few commands that just work.
+>
+> The system gives Claude everything it needs to do the work *and* verify it. I trust the workflow. It just does a good job.
+>
+> That's what this is. No enterprise roleplay bullshit. Just an incredibly effective system for building cool stuff consistently using Claude Code.
+>
+> — **TÂCHES**
+
+## Design Principles
+
+### 1. Simplicity Over Ceremony
+
+No sprint ceremonies, story points, or retrospectives. Just commands that work:
+
+```bash
+/gsd:new-project      # Initialize
+/gsd:discuss-phase 1  # Shape the implementation
+/gsd:plan-phase 1     # Research and plan
+/gsd:execute-phase 1  # Build it
+/gsd:verify-work 1    # Test it
+```
+
+### 2. Context Engineering First
+
+Every stage has exactly what it needs. Nothing more, nothing less.
+
+| File | Purpose |
+|------|--------|
+| `PROJECT.md` | Project vision, always loaded |
+| `research/` | Ecosystem knowledge (stack, features, architecture, pitfalls) |
+| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability |
+| `ROADMAP.md` | Where you're going, what's done |
+| `STATE.md` | Decisions, blockers, position — memory across sessions |
+| `PLAN.md` | Atomic task with XML structure, verification steps |
+| `SUMMARY.md` | What happened, what changed, committed to history |
+
+<Info>
+  Files have size limits based on where Claude's quality degrades. Stay under, get consistent excellence.
+</Info>
+
+### 3. Multi-Agent Orchestration
+
+Thin orchestrators spawn specialized agents:
+
+| Stage | Orchestrator Does | Agents Do |
+|-------|------------------|----------|
+| **Research** | Coordinates, presents findings | 4 parallel researchers investigate stack, features, architecture, pitfalls |
+| **Planning** | Validates, manages iteration | Planner creates plans, checker verifies, loop until pass |
+| **Execution** | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context |
+| **Verification** | Presents results, routes next | Verifier checks codebase against goals, debuggers diagnose failures |
+
+<Tip>
+  The orchestrator never does heavy lifting. It spawns agents, waits, integrates results. This keeps your main context window at 30-40% even during complex phases.
+</Tip>
+
+### 4. XML Prompt Formatting
+
+Every plan is structured XML optimized for Claude:
+
+```xml
+<task type="auto">
+  <name>Create login endpoint</name>
+  <files>src/app/api/auth/login/route.ts</files>
+  <action>
+    Use jose for JWT (not jsonwebtoken - CommonJS issues).
+    Validate credentials against users table.
+    Return httpOnly cookie on success.
+  </action>
+  <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
+  <done>Valid credentials return cookie, invalid return 401</done>
+</task>
+```
+
+Precise instructions. No guessing. Verification built in.
+
+### 5. Wave-Based Execution
+
+Plans execute in waves based on dependencies:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  PHASE EXECUTION                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  WAVE 1 (parallel)          WAVE 2 (parallel)          WAVE 3       │
+│  ┌─────────┐ ┌─────────┐    ┌─────────┐ ┌─────────┐    ┌─────────┐ │
+│  │ Plan 01 │ │ Plan 02 │ →  │ Plan 03 │ │ Plan 04 │ →  │ Plan 05 │ │
+│  │         │ │         │    │         │ │         │    │         │ │
+│  │ User    │ │ Product │    │ Orders  │ │ Cart    │    │ Checkout│ │
+│  │ Model   │ │ Model   │    │ API     │ │ API     │    │ UI      │ │
+│  └─────────┘ └─────────┘    └─────────┘ └─────────┘    └─────────┘ │
+│       │           │              ↑           ↑              ↑       │
+│       └───────────┴──────────────┴───────────┘              │       │
+│              Dependencies: Plan 03 needs Plan 01            │       │
+│                          Plan 04 needs Plan 02              │       │
+│                          Plan 05 needs Plans 03 + 04        │       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Why waves matter:**
+- Independent plans → Same wave → Run in parallel
+- Dependent plans → Later wave → Wait for dependencies
+- File conflicts → Sequential plans or same plan
+
+<Warning>
+  "Vertical slices" (Plan 01: User feature end-to-end) parallelize better than "horizontal layers" (Plan 01: All models, Plan 02: All APIs).
+</Warning>
+
+### 6. Atomic Git History
+
+Each task gets its own commit immediately after completion:
+
+```bash
+abc123f docs(08-02): complete user registration plan
+def456g feat(08-02): add email confirmation flow
+hij789k feat(08-02): implement password hashing
+lmn012o feat(08-02): create registration endpoint
+```
+
+**Benefits:**
+- Git bisect finds exact failing task
+- Each task independently revertable
+- Clear history for Claude in future sessions
+- Better observability in AI-automated workflow
+
+### 7. Modular by Design
+
+You're never locked in. The system adapts:
+
+- Add phases to current milestone
+- Insert urgent work between phases
+- Complete milestones and start fresh
+- Adjust plans without rebuilding everything
+
+## Who Should Use GSD?
+
+<CardGroup cols={2}>
+  <Card title="Solo Developers" icon="user">
+    You want to build things quickly without enterprise overhead.
+  </Card>
+  
+  <Card title="Creative Technologists" icon="palette">
+    You have ideas and want them built correctly, the first time.
+  </Card>
+  
+  <Card title="Product Engineers" icon="rocket">
+    You want to ship fast while maintaining code quality.
+  </Card>
+  
+  <Card title="Technical Founders" icon="building">
+    You're prototyping rapidly or building your MVP.
+  </Card>
+</CardGroup>
+
+## What GSD Is Not
+
+<Warning>
+  GSD is **not** for enterprise teams wanting Jira workflows, sprint ceremonies, and stakeholder syncs. It's for people who want to describe what they want and have it built correctly.
+</Warning>
+
+## Configuration Philosophy
+
+GSD offers configuration for flexibility, but comes with smart defaults:
+
+### Model Profiles
+
+| Profile | Planning | Execution | Verification |
+|---------|----------|-----------|-------------|
+| `quality` | Opus | Opus | Sonnet |
+| `balanced` (default) | Opus | Sonnet | Sonnet |
+| `budget` | Sonnet | Sonnet | Haiku |
+
+Switch profiles:
+```bash
+/gsd:set-profile budget
+```
+
+### Workflow Agents
+
+Optional agents improve quality but add tokens:
+
+| Setting | Default | What it Does |
+|---------|---------|-------------|
+| `workflow.research` | `true` | Researches domain before planning each phase |
+| `workflow.plan_check` | `true` | Verifies plans achieve phase goals before execution |
+| `workflow.verifier` | `true` | Confirms must-haves were delivered after execution |
+| `workflow.nyquist_validation` | `true` | Maps automated test coverage during planning |
+
+<Tip>
+  Toggle these via `/gsd:settings` or override per-invocation with flags like `--skip-research`.
+</Tip>
+
+## The Bottom Line
+
+**Claude Code is powerful. GSD makes it reliable.**
+
+No ceremony. No theater. Just an incredibly effective system for building cool stuff consistently.

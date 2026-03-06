@@ -1,0 +1,561 @@
+---
+title: XML Prompting
+description: How GSD uses structured XML to give Claude precise, unambiguous instructions
+---
+
+## Why XML?
+
+Claude performs best with structured, hierarchical prompts. GSD uses XML because:
+
+1. **Unambiguous structure** — No confusion about what's what
+2. **Hierarchical nesting** — Tasks contain files, actions, verification
+3. **Parser-friendly** — Easy to extract, validate, transform
+4. **Claude-optimized** — Claude's training includes extensive XML
+
+Every PLAN.md file is an XML-structured prompt optimized for Claude executors.
+
+## Real Example
+
+Here's an actual GSD plan structure:
+
+```xml
+<objective>
+Create JWT authentication with refresh token rotation using jose library.
+
+Purpose: Secure user sessions with automatic token refresh
+Output: Login endpoint, refresh endpoint, auth middleware
+</objective>
+
+<execution_context>
+@~/.claude/get-shit-done/workflows/execute-plan.md
+@~/.claude/get-shit-done/templates/summary.md
+</execution_context>
+
+<context>
+@.planning/PROJECT.md
+@.planning/ROADMAP.md
+@.planning/STATE.md
+@.planning/phases/02-auth/02-CONTEXT.md
+@src/types/user.ts
+</context>
+
+<tasks>
+
+<task type="auto">
+  <name>Task 1: Create login endpoint</name>
+  <files>src/app/api/auth/login/route.ts</files>
+  <action>
+    Create POST endpoint accepting {email, password}.
+    
+    Validate credentials against User table using bcrypt.
+    Return JWT access token (15min expiry) and refresh token (7day expiry).
+    Set httpOnly cookies for both tokens.
+    
+    Use jose library (not jsonwebtoken - CommonJS issues with Edge runtime).
+    Include user ID and email in JWT payload.
+  </action>
+  <verify>
+    <automated>curl -X POST http://localhost:3000/api/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{"email":"test@example.com","password":"test123"}' \
+      | grep -q "Set-Cookie"</automated>
+  </verify>
+  <done>
+    Valid credentials return 200 + access_token + refresh_token in httpOnly cookies.
+    Invalid credentials return 401.
+  </done>
+</task>
+
+<task type="auto">
+  <name>Task 2: Create refresh endpoint</name>
+  <files>src/app/api/auth/refresh/route.ts</files>
+  <action>
+    Create POST endpoint that reads refresh token from cookie.
+    
+    Verify refresh token using jose.
+    If valid: generate new access token (15min), rotate refresh token (7day).
+    If invalid: return 401, clear cookies.
+    
+    Implement refresh token rotation: each refresh generates NEW refresh token,
+    invalidating the old one (prevents token reuse attacks).
+  </action>
+  <verify>
+    <automated>npm test -- --filter=auth/refresh</automated>
+  </verify>
+  <done>
+    Valid refresh token returns new tokens.
+    Expired refresh token returns 401 and clears cookies.
+    Refresh token rotation working (old token invalidated).
+  </done>
+</task>
+
+<task type="auto">
+  <name>Task 3: Create auth middleware</name>
+  <files>src/middleware/auth.ts</files>
+  <action>
+    Create middleware function that extracts access token from cookie,
+    verifies using jose, attaches user payload to request.
+    
+    Export as: requireAuth() - blocks unauthenticated
+               optionalAuth() - allows both authenticated and anonymous
+    
+    Handle token expiry: return 401 with {error: "token_expired"}
+    so client knows to call /api/auth/refresh.
+  </action>
+  <verify>
+    <automated>npm test -- --filter=middleware/auth</automated>
+  </verify>
+  <done>
+    Protected routes with requireAuth() return 401 when no token.
+    Valid token populates req.user with {id, email}.
+    Expired token returns 401 with token_expired error.
+  </done>
+</task>
+
+</tasks>
+
+<verification>
+End-to-end flow:
+1. Login with valid credentials → receives tokens
+2. Access protected route with token → succeeds
+3. Wait 15+ minutes, access route → 401 token_expired
+4. Call refresh endpoint → receives new tokens
+5. Access protected route with new token → succeeds
+</verification>
+
+<success_criteria>
+- Login endpoint working (valid/invalid credentials)
+- Refresh token rotation implemented and tested
+- Auth middleware protecting routes correctly
+- All automated tests passing
+</success_criteria>
+
+<output>
+After completion, create `.planning/phases/02-auth/02-01-SUMMARY.md`
+following the template at @~/.claude/get-shit-done/templates/summary.md
+</output>
+```
+
+## Structure Breakdown
+
+<AccordionGroup>
+  <Accordion title="<objective> — What and Why">
+    ```xml
+    <objective>
+    [What this plan accomplishes]
+    
+    Purpose: [Why this matters]
+    Output: [Artifacts created]
+    </objective>
+    ```
+    
+    Sets the context for execution. Executor understands the big picture, not just individual tasks.
+  </Accordion>
+  
+  <Accordion title="<execution_context> — How to Execute">
+    ```xml
+    <execution_context>
+    @~/.claude/get-shit-done/workflows/execute-plan.md
+    @~/.claude/get-shit-done/templates/summary.md
+    </execution_context>
+    ```
+    
+    References GSD's execution workflows and templates. Tells Claude:
+    - How to handle deviations (Rules 1-4)
+    - When to commit (after each task)
+    - How to create SUMMARY.md
+  </Accordion>
+  
+  <Accordion title="<context> — @-References">
+    ```xml
+    <context>
+    @.planning/PROJECT.md
+    @.planning/ROADMAP.md
+    @src/types/user.ts
+    </context>
+    ```
+    
+    Tells Claude which files to read before starting. Each `@path` is loaded into context.
+    
+    Only includes what's needed for THIS plan. No reflexive chaining.
+  </Accordion>
+  
+  <Accordion title="<tasks> — The Work">
+    ```xml
+    <tasks>
+      <task type="auto">
+        <name>...</name>
+        <files>...</files>
+        <action>...</action>
+        <verify>...</verify>
+        <done>...</done>
+      </task>
+    </tasks>
+    ```
+    
+    Each task is a discrete unit of work with verification built in.
+  </Accordion>
+  
+  <Accordion title="<verification> — Overall Checks">
+    ```xml
+    <verification>
+    End-to-end flow:
+    1. Login → receives tokens
+    2. Access protected route → succeeds
+    3. ...
+    </verification>
+    ```
+    
+    How to verify the whole plan works together.
+  </Accordion>
+  
+  <Accordion title="<success_criteria> — Measurable Completion">
+    ```xml
+    <success_criteria>
+    - Login endpoint working
+    - Refresh token rotation implemented
+    - Auth middleware protecting routes
+    </success_criteria>
+    ```
+    
+    Observable outcomes. Executor checks these before marking plan complete.
+  </Accordion>
+</AccordionGroup>
+
+## Task Anatomy
+
+Every task has five required elements:
+
+### 1. Type
+
+```xml
+<task type="auto">
+```
+
+| Type | Use For | Autonomy |
+|------|---------|----------|
+| `auto` | Everything Claude can do independently | Fully autonomous |
+| `checkpoint:human-verify` | Visual/functional verification | Pauses for user |
+| `checkpoint:decision` | Implementation choices | Pauses for user |
+| `checkpoint:human-action` | Truly unavoidable manual steps (rare) | Pauses for user |
+
+<Note>
+90% of tasks are `type="auto"`. GSD prefers automation over checkpoints.
+</Note>
+
+### 2. Name
+
+```xml
+<name>Task 1: Create login endpoint</name>
+```
+
+Action-oriented, specific. Appears in commit messages and SUMMARY.md.
+
+### 3. Files
+
+```xml
+<files>src/app/api/auth/login/route.ts</files>
+```
+
+Exact file paths created or modified. Can be multiple files separated by commas.
+
+**Good:**
+```xml
+<files>src/models/user.ts, src/types/user.ts, prisma/schema.prisma</files>
+```
+
+**Bad:**
+```xml
+<files>the auth files, relevant components</files>
+```
+
+### 4. Action
+
+```xml
+<action>
+Create POST endpoint accepting {email, password}.
+
+Validate credentials against User table using bcrypt.
+Return JWT access token (15min expiry) and refresh token (7day expiry).
+Set httpOnly cookies for both tokens.
+
+Use jose library (not jsonwebtoken - CommonJS issues with Edge runtime).
+Include user ID and email in JWT payload.
+</action>
+```
+
+Specific implementation instructions, including:
+- **What to do** — exact behavior
+- **What to avoid** — and WHY
+- **Library choices** — with rationale
+- **Edge cases** — how to handle them
+
+<Tip>
+**The test:** Could a different Claude instance execute without asking clarifying questions? If not, add specificity.
+</Tip>
+
+### 5. Verify
+
+```xml
+<verify>
+  <automated>npm test -- --filter=auth/refresh</automated>
+</verify>
+```
+
+How to prove the task is complete. Must include an `<automated>` command.
+
+**Simple format also accepted:**
+```xml
+<verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
+```
+
+<Warning>
+**Nyquist Rule:** Every `<verify>` must include an automated command. If no test exists yet, the plan must create it first (Wave 0 task).
+</Warning>
+
+### 6. Done
+
+```xml
+<done>
+Valid credentials return 200 + access_token + refresh_token in httpOnly cookies.
+Invalid credentials return 401.
+</done>
+```
+
+Acceptance criteria — measurable state of completion.
+
+**Good:**
+- "User can log in with email and password"
+- "Protected routes return 401 without token"
+- "Dashboard shows user's projects in grid layout"
+
+**Bad:**
+- "Authentication is complete"
+- "It works"
+- "Looks good"
+
+## Special Task Features
+
+### TDD Tasks
+
+```xml
+<task type="auto" tdd="true">
+  <name>Task: Calculate shipping cost</name>
+  <files>src/shipping.ts, src/shipping.test.ts</files>
+  <behavior>
+    - Test 1: Domestic order under $50 → $5.99 shipping
+    - Test 2: Domestic order over $50 → free shipping
+    - Test 3: International order → $15.99 flat rate
+  </behavior>
+  <action>
+    Implement shippingCost(order) function.
+    Read weight, destination from order object.
+    Apply rules from behavior section.
+  </action>
+  <verify>
+    <automated>npm test -- --filter=shipping</automated>
+  </verify>
+  <done>All shipping test cases passing</done>
+</task>
+```
+
+The `tdd="true"` flag tells executor to:
+1. **RED:** Write tests from `<behavior>`, run (must fail), commit
+2. **GREEN:** Write code from `<action>`, run (must pass), commit
+3. **REFACTOR:** Clean up if needed, run (must pass), commit
+
+### Checkpoint Tasks
+
+```xml
+<task type="checkpoint:human-verify" gate="blocking">
+  <what-built>
+    Complete authentication flow: login UI, registration, password reset
+  </what-built>
+  <how-to-verify>
+    1. Visit http://localhost:3000/login
+    2. Register new account with email test@example.com
+    3. Verify email link appears in terminal logs
+    4. Click link, confirm account activated
+    5. Log in with credentials
+    6. Visit /dashboard - should see welcome message
+    7. Test password reset flow
+  </how-to-verify>
+  <resume-signal>Type "approved" or describe issues</resume-signal>
+</task>
+```
+
+Executor:
+1. Completes all automation BEFORE checkpoint
+2. Starts server if needed
+3. Pauses at checkpoint
+4. Returns structured message with verification steps
+5. Waits for user
+
+## Frontmatter: Plan Metadata
+
+Every PLAN.md includes YAML frontmatter:
+
+```yaml
+---
+phase: 02-auth
+plan: 01
+type: execute
+wave: 1
+depends_on: []
+files_modified: [
+  src/app/api/auth/login/route.ts,
+  src/app/api/auth/refresh/route.ts,
+  src/middleware/auth.ts
+]
+autonomous: true
+requirements: [AUTH-01, AUTH-02]
+
+must_haves:
+  truths:
+    - User can log in with email and password
+    - User session persists across page refreshes
+    - Protected routes require authentication
+  artifacts:
+    - path: src/app/api/auth/login/route.ts
+      provides: Login endpoint
+      exports: [POST]
+    - path: src/middleware/auth.ts
+      provides: Auth middleware
+      exports: [requireAuth, optionalAuth]
+  key_links:
+    - from: src/middleware/auth.ts
+      to: jose library
+      via: JWT verification
+      pattern: "jwtVerify\\(.*\\)"
+---
+```
+
+<AccordionGroup>
+  <Accordion title="Execution Metadata">
+    ```yaml
+    phase: 02-auth       # Phase identifier
+    plan: 01             # Plan number within phase
+    type: execute        # or 'tdd' for TDD plans
+    wave: 1              # Execution wave number
+    depends_on: []       # Plans this plan requires
+    autonomous: true     # false if has checkpoints
+    ```
+    
+    Used by orchestrator for wave coordination.
+  </Accordion>
+  
+  <Accordion title="File Tracking">
+    ```yaml
+    files_modified: [
+      src/app/api/auth/login/route.ts,
+      src/app/api/auth/refresh/route.ts,
+      src/middleware/auth.ts
+    ]
+    ```
+    
+    Determines parallelization: plans with no file overlap can run in parallel.
+  </Accordion>
+  
+  <Accordion title="Requirements Traceability">
+    ```yaml
+    requirements: [AUTH-01, AUTH-02]
+    ```
+    
+    Links plan to REQUIREMENTS.md. Used by verifier to check coverage.
+    
+    **CRITICAL:** Every requirement ID from ROADMAP must appear in at least one plan.
+  </Accordion>
+  
+  <Accordion title="Must-Haves (Goal-Backward)">
+    ```yaml
+    must_haves:
+      truths:           # Observable behaviors
+        - User can log in
+      artifacts:        # Files that must exist
+        - path: src/api/auth.ts
+          provides: Auth API
+      key_links:        # Critical connections
+        - from: middleware
+          to: jwt library
+    ```
+    
+    Used by verifier after execution. Checks these are actually delivered.
+  </Accordion>
+  
+  <Accordion title="User Setup (Optional)">
+    ```yaml
+    user_setup:
+      - service: stripe
+        why: Payment processing
+        env_vars:
+          - name: STRIPE_SECRET_KEY
+            source: "Stripe Dashboard -> API keys"
+    ```
+    
+    Documents human-required setup for external services.
+  </Accordion>
+</AccordionGroup>
+
+## Why This Structure Works
+
+<CardGroup cols={2}>
+  <Card title="Unambiguous instructions" icon="bullseye">
+    Executor knows exactly what to do, how to verify, what success looks like. No interpretation needed.
+  </Card>
+  
+  <Card title="Built-in verification" icon="check-double">
+    Every task includes `<verify>` and `<done>`. Quality is baked in, not bolted on.
+  </Card>
+  
+  <Card title="Deviation handling" icon="route">
+    Executor applies Rules 1-4 automatically, documents in SUMMARY. Plans are guides, not scripts.
+  </Card>
+  
+  <Card title="Traceability" icon="link">
+    Frontmatter links plans to requirements, files, dependencies. Full visibility from requirement to commit.
+  </Card>
+</CardGroup>
+
+## Specificity Examples
+
+| TOO VAGUE | JUST RIGHT |
+|-----------|------------|
+| "Add authentication" | "Add JWT auth with refresh rotation using jose library, store in httpOnly cookie, 15min access / 7day refresh" |
+| "Create the API" | "Create POST /api/projects endpoint accepting name and description, validates name length 3-50 chars, returns 201 with project object" |
+| "Style the dashboard" | "Add Tailwind classes to Dashboard.tsx: grid layout (3 cols on lg, 1 on mobile), card shadows, hover states on action buttons" |
+| "Handle errors" | "Wrap API calls in try/catch, return error string on 4xx/5xx, show toast via sonner on client" |
+| "Set up the database" | "Add User and Project models to schema.prisma with UUID ids, email unique constraint, createdAt/updatedAt timestamps, run prisma db push" |
+
+## Anti-Patterns
+
+<Warning>
+**DON'T:**
+- Use vague task names ("Implement feature")
+- Omit `<verify>` or use manual-only verification
+- Put implementation details in frontmatter
+- Reference files with wildcards ("the auth files")
+- Chain plans unnecessarily (02 refs 01, 03 refs 02...)
+- Create checkpoints for work Claude can automate
+</Warning>
+
+<Tip>
+**DO:**
+- Be specific in `<action>` — include what NOT to do and why
+- Include automated verification commands
+- Use `@-references` for context files
+- Declare file ownership in frontmatter
+- Prefer vertical slices over horizontal layers
+- Automate everything, checkpoint only for verification
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workflow Stages" icon="list-check" href="/concepts/workflow-stages">
+    See how XML plans fit into the 5-stage workflow
+  </Card>
+  
+  <Card title="Atomic Commits" icon="git-alt" href="/concepts/atomic-commits">
+    Learn how each task becomes a commit
+  </Card>
+</CardGroup>

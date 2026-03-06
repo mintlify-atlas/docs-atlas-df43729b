@@ -1,0 +1,390 @@
+---
+title: "STATE.md"
+description: "Structure and purpose of STATE.md - living memory across sessions"
+---
+
+STATE.md is your project's short-term memory. It tracks current position, performance metrics, and accumulated context across all phases and sessions.
+
+## Location
+
+```
+.planning/STATE.md
+```
+
+Created after ROADMAP.md during initialization, updated after every significant action.
+
+## Purpose
+
+**Problem it solves:** Information is captured in summaries, issues, and decisions but not systematically consumed. Sessions start without context.
+
+**Solution:** A single, small file that's:
+- Read first in every workflow
+- Updated after every significant action
+- Contains digest of accumulated context
+- Enables instant session restoration
+
+## Template Structure
+
+```markdown
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated [date])
+
+**Core value:** [One-liner from PROJECT.md Core Value section]
+**Current focus:** [Current phase name]
+
+## Current Position
+
+Phase: [X] of [Y] ([Phase name])
+Plan: [A] of [B] in current phase
+Status: [Ready to plan / Planning / Ready to execute / In progress / Phase complete]
+Last activity: [YYYY-MM-DD] — [What happened]
+
+Progress: [░░░░░░░░░░] 0%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: [N]
+- Average duration: [X] min
+- Total execution time: [X.X] hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+- Last 5 plans: [durations]
+- Trend: [Improving / Stable / Degrading]
+
+*Updated after each plan completion*
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [Phase X]: [Decision summary]
+- [Phase Y]: [Decision summary]
+
+### Pending Todos
+
+[From .planning/todos/pending/ — ideas captured during sessions]
+
+None yet.
+
+### Blockers/Concerns
+
+[Issues that affect future work]
+
+None yet.
+
+## Session Continuity
+
+Last session: [YYYY-MM-DD HH:MM]
+Stopped at: [Description of last completed action]
+Resume file: [Path to .continue-here*.md if exists, otherwise "None"]
+```
+
+## Section Details
+
+### Project Reference
+
+**Purpose:** Points to PROJECT.md for full context.
+
+**Includes:**
+- Core value (the ONE thing that matters)
+- Current focus (which phase)
+- Last update date (triggers re-read if stale)
+
+**Note:** Claude reads PROJECT.md directly for requirements, constraints, and full decisions.
+
+### Current Position
+
+**Purpose:** Where we are right now.
+
+**Fields:**
+- **Phase X of Y** - Which phase
+- **Plan A of B** - Which plan within phase
+- **Status** - Current state (see status values below)
+- **Last activity** - What happened most recently
+- **Progress bar** - Visual indicator of overall completion
+
+**Progress calculation:**
+```
+(completed plans) / (total plans across all phases) × 100%
+```
+
+**Example:**
+```markdown
+## Current Position
+
+Phase: 2 of 4 (User Features)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2025-01-20 — Completed plan 02-01, started 02-02
+
+Progress: [████░░░░░░] 40%
+```
+
+### Status Values
+
+| Status | Meaning |
+|--------|----------|
+| Ready to plan | Phase ready for `/gsd:plan-phase` |
+| Planning | Planning in progress |
+| Ready to execute | Plans created, ready for `/gsd:execute-phase` |
+| In progress | Executing plans |
+| Phase complete | All plans done, ready for verification |
+
+### Performance Metrics
+
+**Purpose:** Track velocity to understand execution patterns.
+
+**Velocity section:**
+- Total plans completed across all phases
+- Average duration per plan
+- Total execution time
+
+**By Phase table:**
+- Breakdown per phase
+- Helps identify complex vs simple phases
+
+**Recent Trend:**
+- Last 5 plan durations
+- Trend analysis (improving/stable/degrading)
+
+**Updated:** After each plan completion.
+
+**Example:**
+```markdown
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 7
+- Average duration: 12 min
+- Total execution time: 1.4 hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|---------|
+| 1. Foundation | 3 | 45 min | 15 min |
+| 2. Features | 4 | 39 min | 9.8 min |
+
+**Recent Trend:**
+- Last 5 plans: 15, 12, 10, 8, 9 min
+- Trend: Improving
+```
+
+### Accumulated Context
+
+#### Decisions
+
+**Purpose:** Quick reference to recent decisions.
+
+**Guidelines:**
+- Full decision log lives in PROJECT.md Key Decisions table
+- STATE.md keeps 3-5 recent decisions affecting current work
+- Format: `[Phase X]: [Decision summary]`
+
+**Example:**
+```markdown
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- Phase 2: Use SWR for data fetching (cleaner than useEffect)
+- Phase 1: PostgreSQL for relational data and transactions
+```
+
+#### Pending Todos
+
+**Purpose:** Track captured ideas.
+
+**Source:** Ideas captured via `/gsd:add-todo`
+
+**Format:**
+- Count of pending todos
+- Reference to `.planning/todos/pending/`
+- Brief list if few, count if many
+
+**Example:**
+```markdown
+### Pending Todos
+
+3 pending todos:
+- Add rate limiting to API endpoints
+- Investigate pagination performance
+- Consider adding caching layer
+
+See `/gsd:check-todos` for details.
+```
+
+#### Blockers/Concerns
+
+**Purpose:** Issues that affect future work.
+
+**Source:** From "Next Phase Readiness" sections in summaries.
+
+**Guidelines:**
+- Prefix with originating phase
+- Cleared when addressed
+- Focus on actionable concerns
+
+**Example:**
+```markdown
+### Blockers/Concerns
+
+- Phase 2: Need to set up Stripe account for payment testing
+- Phase 3: Email service not configured yet
+```
+
+### Session Continuity
+
+**Purpose:** Enable instant resumption.
+
+**Fields:**
+- **Last session** - When was last work done
+- **Stopped at** - What was last completed
+- **Resume file** - Path to `.continue-here*.md` if exists
+
+**Example:**
+```markdown
+## Session Continuity
+
+Last session: 2025-01-20 15:30
+Stopped at: Completed plan 02-02, ready to execute 02-03
+Resume file: .planning/phases/02-features/.continue-here-02-03.md
+```
+
+## Lifecycle
+
+### Creation
+
+**When:** After ROADMAP.md is created during initialization.
+
+**Initial state:**
+- Reference PROJECT.md
+- Initialize empty accumulated context sections
+- Set position to "Phase 1 ready to plan"
+
+### Reading
+
+**First step of every workflow:**
+
+- **progress** - Present status to user
+- **plan** - Inform planning decisions
+- **execute** - Know current position
+- **transition** - Know what's complete
+
+### Writing
+
+**After every significant action:**
+
+**execute** - After SUMMARY.md created:
+- Update position (phase, plan, status)
+- Note new decisions (detail in PROJECT.md)
+- Add blockers/concerns
+- Update performance metrics
+
+**transition** - After phase marked complete:
+- Update progress bar
+- Clear resolved blockers
+- Refresh Project Reference date
+
+## Size Constraint
+
+**Keep STATE.md under 100 lines.**
+
+It's a DIGEST, not an archive.
+
+**If accumulated context grows too large:**
+- Keep only 3-5 recent decisions in summary (full log in PROJECT.md)
+- Keep only active blockers, remove resolved ones
+- Summarize trends rather than listing all metrics
+
+**Goal:** "Read once, know where we are" — if it's too long, that fails.
+
+## Example: Mid-Project State
+
+```markdown
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2025-01-15)
+
+**Core value:** Developers can capture and find tasks instantly without context switching
+**Current focus:** Phase 2 - Git Integration
+
+## Current Position
+
+Phase: 2 of 4 (Git Integration)
+Plan: 2 of 3 in current phase
+Status: In progress
+Last activity: 2025-01-20 — Completed plan 02-01, started 02-02
+
+Progress: [████░░░░░░] 42%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 5
+- Average duration: 11 min
+- Total execution time: 55 min
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|---------|
+| 1. Foundation | 2 | 28 min | 14 min |
+| 2. Git Integration | 3 | 27 min | 9 min |
+
+**Recent Trend:**
+- Last 5 plans: 14, 14, 10, 8, 9 min
+- Trend: Improving
+
+*Updated after each plan completion*
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- Phase 2: Use simple-git package for git operations
+- Phase 1: Store tasks in markdown files, not database
+
+### Pending Todos
+
+2 pending todos:
+- Add color coding for task priorities
+- Consider adding time tracking
+
+See `/gsd:check-todos` for details.
+
+### Blockers/Concerns
+
+None currently.
+
+## Session Continuity
+
+Last session: 2025-01-20 15:30
+Stopped at: Completed plan 02-01, ready to execute 02-02
+Resume file: None
+```
+
+## See Also
+
+- [PROJECT.md Structure](/reference/project-md)
+- [ROADMAP.md Structure](/reference/roadmap-md)
+- [.planning Directory](/reference/planning-directory)

@@ -1,0 +1,464 @@
+---
+title: 'Workflow Agents'
+description: 'Research, plan_check, verifier, auto_advance, and nyquist_validation settings with performance implications'
+---
+
+GSD spawns specialized agents during planning and execution. These agents improve quality but add tokens and time. Configure them based on project needs.
+
+## Agent Overview
+
+| Agent | Stage | Purpose | Default |
+|-------|-------|---------|----------|
+| **Researcher** | Planning | Investigates domain/stack before planning | `true` |
+| **Plan Checker** | Planning | Verifies plans achieve phase goals | `true` |
+| **Verifier** | Execution | Confirms must-haves after execution | `true` |
+| **Nyquist Validation** | Planning | Maps requirements to automated tests | `true` |
+| **Auto-Advance** | Pipeline | Chains discuss → plan → execute | `false` |
+
+## Configuration
+
+Set in `.planning/config.json` under `workflow`:
+
+```json
+{
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "auto_advance": false,
+    "nyquist_validation": true
+  }
+}
+```
+
+Update via:
+
+```bash
+/gsd:settings
+```
+
+## Research Agent
+
+### What It Does
+
+Spawns 4 parallel researchers during `plan-phase`:
+
+1. **Stack Researcher** — Investigates technologies, libraries, APIs
+2. **Features Researcher** — Explores similar features, UX patterns
+3. **Architecture Researcher** — Studies implementation approaches
+4. **Pitfalls Researcher** — Identifies common mistakes, edge cases
+
+**Output:** `{phase}-RESEARCH.md`
+
+### When to Enable
+
+- Complex or unfamiliar domain
+- Using new technologies
+- Need best practices guidance
+- Want comprehensive context
+
+### When to Disable
+
+- Familiar domain
+- Simple CRUD work
+- Iterating on existing patterns
+- Conserving tokens
+
+### Token Impact
+
+Adds ~4x researcher contexts (parallel) to each `plan-phase`.
+
+**Model used:** Depends on [profile](/reference/model-profiles)
+- Quality: Opus (high cost)
+- Balanced: Sonnet (medium cost)
+- Budget: Haiku (low cost)
+
+### Command Override
+
+```bash
+/gsd:plan-phase --skip-research  # Force skip
+/gsd:plan-phase --research       # Force enable
+```
+
+## Plan Checker Agent
+
+### What It Does
+
+Verifies plans achieve phase goals before execution. Checks 8 dimensions:
+
+1. **Completeness** — All requirements addressed
+2. **Atomicity** — Tasks are small enough (2-3 per plan)
+3. **Dependencies** — Proper sequencing and wave allocation
+4. **Verifiability** — Clear success criteria
+5. **XML Structure** — Proper formatting for executor
+6. **File Coverage** — All necessary files identified
+7. **Edge Cases** — Error handling included
+8. **Validation** — Automated test coverage (if Nyquist enabled)
+
+**Loops up to 3 times** until plans pass all checks.
+
+**Output:** Annotations in plan review, iteration feedback
+
+### When to Enable
+
+- Complex phases
+- Critical work
+- Want high-quality plans
+- Unfamiliar domain
+
+### When to Disable
+
+- Simple phases
+- Speed is critical
+- Trust initial plans
+- Budget constraints
+
+### Token Impact
+
+Adds 1-3 plan-checker contexts per `plan-phase` (iterative).
+
+**Model used:** Depends on [profile](/reference/model-profiles)
+- Quality: Sonnet
+- Balanced: Sonnet
+- Budget: Haiku
+
+### Command Override
+
+```bash
+/gsd:plan-phase --skip-verify  # Force skip
+```
+
+## Verifier Agent
+
+### What It Does
+
+Confirms must-haves were delivered after `execute-phase`. Checks:
+
+1. **Requirements Coverage** — All phase requirements addressed
+2. **Files Created** — Planned files exist
+3. **Tests Pass** — Automated tests succeed
+4. **No Stubs** — Implementation complete, not placeholder
+5. **Integration** — Components work together
+
+**Output:** `{phase}-VERIFICATION.md`
+
+### Verification Results
+
+| Status | Meaning | Next Step |
+|--------|---------|----------|
+| **PASS** | All must-haves delivered | Proceed to next phase |
+| **PARTIAL** | Some issues found | Review via `/gsd:verify-work` |
+| **FAIL** | Critical gaps | Fix and re-execute |
+
+### When to Enable
+
+- Complex phases
+- Critical deliverables
+- Want automated validation
+- Reduce manual testing burden
+
+### When to Disable
+
+- Simple phases
+- Manual UAT preferred
+- Budget constraints
+- Obvious success criteria
+
+### Token Impact
+
+Adds 1 verifier context per `execute-phase`.
+
+**Model used:** Depends on [profile](/reference/model-profiles)
+- Quality: Sonnet
+- Balanced: Sonnet
+- Budget: Haiku
+
+### Manual Verification Alternative
+
+Disable verifier and use manual UAT instead:
+
+```bash
+/gsd:verify-work [N]
+```
+
+Walks through testable deliverables with auto-diagnosis on failures.
+
+## Auto-Advance
+
+### What It Does
+
+Chains stages automatically without manual `/clear` and command re-entry:
+
+```
+discuss-phase → plan-phase → execute-phase
+```
+
+Each stage still runs in a subagent with fresh context (same isolation as manual workflow).
+
+### When to Enable
+
+- Running known phases in batch
+- Trust the pipeline
+- Hands-off execution
+- Multiple phases queued
+
+### When to Disable
+
+- Want to review between stages
+- Complex phases needing oversight
+- First time using GSD
+- Prefer manual control (default)
+
+### How It Works
+
+1. Complete `discuss-phase` → auto-spawn `plan-phase`
+2. Complete `plan-phase` → auto-spawn `execute-phase`
+3. Complete `execute-phase` → stop (manual decision for next phase)
+
+<Note>
+  Auto-advance does NOT chain phases together (e.g., phase 1 → phase 2). It only chains stages within a single phase.
+</Note>
+
+### Configuration
+
+```json
+{
+  "workflow": {
+    "auto_advance": true
+  }
+}
+```
+
+Or via `/gsd:settings` → "Auto-advance pipeline?"
+
+### Token Impact
+
+No additional tokens (same subagents as manual workflow).
+
+## Nyquist Validation
+
+### What It Does
+
+Maps requirements to automated test coverage during `plan-phase`. Ensures feedback mechanism exists before code is written.
+
+**Process:**
+
+1. Detect existing test infrastructure (Jest, Pytest, RSpec, etc.)
+2. Map each requirement to specific test command
+3. Identify test scaffolding needed (Wave 0 tasks)
+4. Enforce automated verify commands in plans
+
+**Output:** `{phase}-VALIDATION.md` — the feedback contract
+
+### Why "Nyquist"?
+
+Named after the Nyquist sampling theorem: to accurately capture a signal, you must sample at twice its frequency.
+
+**In GSD:** To verify implementation quality, you must validate at a higher frequency than you commit. Automated tests provide that rapid feedback loop.
+
+### When to Enable
+
+- Production code
+- Complex logic
+- Want test coverage enforced
+- Building for maintainability
+- Default for most work
+
+### When to Disable
+
+- Rapid prototyping
+- Spike work
+- UI-only phases
+- Test infrastructure doesn't exist yet
+- Budget constraints
+
+### Token Impact
+
+Adds validation research during `plan-phase` (minor increase).
+
+**Model used:** Same as phase researcher (see [profiles](/reference/model-profiles))
+
+### Plan-Check Integration
+
+When Nyquist is enabled, plan-checker enforces an 8th dimension:
+
+**8. Validation** — Each task must have automated verify command
+
+Plans lacking test coverage will not be approved until:
+- Tests are added to Wave 0 (scaffolding), OR
+- Requirement is explicitly marked manual-only
+
+### Retroactive Validation
+
+For phases executed without Nyquist, retroactively audit coverage:
+
+```bash
+/gsd:validate-phase [N]
+```
+
+Scans implementation, maps tests, fills gaps.
+
+### Configuration
+
+```json
+{
+  "workflow": {
+    "nyquist_validation": true
+  }
+}
+```
+
+Or via `/gsd:settings` → "Enable Nyquist Validation?"
+
+## Performance Profiles
+
+Combine agent settings for different scenarios:
+
+### Maximum Quality
+
+```json
+{
+  "model_profile": "quality",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true
+  }
+}
+```
+
+**Use for:** Critical work, complex domains, production systems.
+
+### Balanced (Default)
+
+```json
+{
+  "model_profile": "balanced",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true
+  }
+}
+```
+
+**Use for:** Most development work.
+
+### Speed Mode
+
+```json
+{
+  "model_profile": "budget",
+  "workflow": {
+    "research": false,
+    "plan_check": false,
+    "verifier": false,
+    "nyquist_validation": false
+  }
+}
+```
+
+**Use for:** Prototypes, iteration, familiar domains.
+
+### Batch Mode
+
+```json
+{
+  "model_profile": "balanced",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "auto_advance": true
+  }
+}
+```
+
+**Use for:** Running known phases unattended.
+
+## Agent Coordination Architecture
+
+### Planning Stage
+
+```
+/gsd:plan-phase N
+      │
+      ├─> Phase Researcher (x4 parallel)
+      │     └─> RESEARCH.md
+      │
+      ├─> Nyquist Validator
+      │     └─> VALIDATION.md
+      │
+      ├─> Planner
+      │     └─> Draft plans
+      │
+      └─> Plan Checker (loop 1-3x)
+            └─> PLAN files
+```
+
+### Execution Stage
+
+```
+/gsd:execute-phase N
+      │
+      ├─> Wave 1 Executors (parallel)
+      ├─> Wave 2 Executors (parallel)
+      ├─> Wave N Executors (parallel)
+      │
+      └─> Verifier
+            └─> VERIFICATION.md
+```
+
+## Token and Time Estimates
+
+Typical phase with 3 plans:
+
+| Configuration | Time | Tokens | Quality |
+|--------------|------|---------|----------|
+| All agents (quality) | 20-30 min | ~400K | Highest |
+| All agents (balanced) | 15-25 min | ~200K | High |
+| All agents (budget) | 10-20 min | ~100K | Good |
+| No agents (budget) | 5-10 min | ~50K | Acceptable |
+
+<Note>
+  Estimates vary based on phase complexity, codebase size, and domain familiarity.
+</Note>
+
+## Best Practices
+
+### Start with Defaults
+
+All agents enabled with balanced profile. Adjust based on experience.
+
+### Disable Selectively
+
+Disable agents per-phase via command overrides:
+
+```bash
+# Simple phase, skip research
+/gsd:plan-phase 5 --skip-research
+
+# Trust the plan, skip verification
+/gsd:plan-phase 6 --skip-verify
+```
+
+### Match Agents to Risk
+
+High-risk phases → all agents enabled.
+Low-risk phases → disable agents for speed.
+
+### Monitor Token Usage
+
+If costs are high, disable research first (biggest impact), then plan-check, then verifier.
+
+### Use Auto-Advance for Known Work
+
+Once you trust the pipeline, enable auto-advance for batch execution.
+
+## Related References
+
+- [Configuration Schema](/reference/config-schema) — Full config.json reference
+- [Model Profiles](/reference/model-profiles) — Per-agent model breakdown
+- [Commands](/commands) — Command overrides and workflow

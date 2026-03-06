@@ -1,0 +1,248 @@
+---
+title: Nyquist Auditor Agent
+description: Fills Nyquist validation gaps by generating tests and verifying coverage for phase requirements
+---
+
+# Nyquist Auditor Agent
+
+The **Nyquist auditor agent** fills validation gaps in completed phases by generating tests and verifying coverage for phase requirements.
+
+## Purpose
+
+For each gap in validation coverage: generate minimal behavioral test, run it, debug if failing (max 3 iterations), report results.
+
+<Warning>
+**Implementation files are READ-ONLY.** Only create/modify: test files, fixtures, VALIDATION.md. Implementation bugs → ESCALATE. Never fix implementation.
+</Warning>
+
+## When Invoked
+
+Spawned by `/gsd:validate-phase` to fill validation gaps.
+
+## What It Does
+
+### 1. Load Context
+
+Read ALL files from `<files_to_read>`. Extract:
+- Implementation: exports, public API, input/output contracts
+- PLANs: requirement IDs, task structure, verify blocks
+- SUMMARYs: what was implemented, files changed, deviations
+- Test infrastructure: framework, config, runner commands, conventions
+- Existing VALIDATION.md: current map, compliance status
+
+### 2. Analyze Gaps
+
+For each gap:
+
+1. Read related implementation files
+2. Identify observable behavior the requirement demands
+3. Classify test type:
+
+| Behavior | Test Type |
+|----------|-----------||
+| Pure function I/O | Unit |
+| API endpoint | Integration |
+| CLI command | Smoke |
+| DB/filesystem operation | Integration |
+
+4. Map to test file path per project conventions
+
+**Action by gap type:**
+- `no_test_file` → Create test file
+- `test_fails` → Diagnose and fix the test (not impl)
+- `no_automated_command` → Determine command, update map
+
+### 3. Generate Tests
+
+**Convention discovery:** existing tests → framework defaults → fallback
+
+| Framework | File Pattern | Runner | Assert Style |
+|-----------|-------------|--------|-------------|
+| pytest | `test_{name}.py` | `pytest {file} -v` | `assert result == expected` |
+| jest | `{name}.test.ts` | `npx jest {file}` | `expect(result).toBe(expected)` |
+| vitest | `{name}.test.ts` | `npx vitest run {file}` | `expect(result).toBe(expected)` |
+| go test | `{name}_test.go` | `go test -v -run {Name}` | `if got != want { t.Errorf(...) }` |
+
+**Per gap:** Write test file. One focused test per requirement behavior. Arrange/Act/Assert. Behavioral test names (`test_user_can_reset_password`), not structural (`test_reset_function`).
+
+### 4. Run and Verify
+
+Execute each test. If passes: record success, next gap. If fails: enter debug loop.
+
+<Note>
+Run every test. Never mark untested tests as passing.
+</Note>
+
+### 5. Debug Loop
+
+Max 3 iterations per failing test.
+
+| Failure Type | Action |
+|--------------|--------|
+| Import/syntax/fixture error | Fix test, re-run |
+| Assertion: actual matches impl but violates requirement | IMPLEMENTATION BUG → ESCALATE |
+| Assertion: test expectation wrong | Fix assertion, re-run |
+| Environment/runtime error | ESCALATE |
+
+Track: `{ gap_id, iteration, error_type, action, result }`
+
+After 3 failed iterations: ESCALATE with requirement, expected vs actual behavior, impl file reference.
+
+### 6. Report
+
+**Resolved gaps:** `{ task_id, requirement, test_type, automated_command, file_path, status: "green" }`
+
+**Escalated gaps:** `{ task_id, requirement, reason, debug_iterations, last_error }`
+
+## What It Produces
+
+### Structured Returns
+
+<Tabs>
+  <Tab title="Gaps Filled">
+    ```markdown
+    ## GAPS FILLED
+    
+    **Phase:** {N} — {name}
+    **Resolved:** {count}/{count}
+    
+    ### Tests Created
+    | # | File | Type | Command |
+    |---|------|------|----------|
+    | 1 | {path} | {unit/integration/smoke} | `{cmd}` |
+    
+    ### Verification Map Updates
+    | Task ID | Requirement | Command | Status |
+    |---------|-------------|---------|--------|
+    | {id} | {req} | `{cmd}` | green |
+    
+    ### Files for Commit
+    {test file paths}
+    ```
+  </Tab>
+  <Tab title="Partial">
+    ```markdown
+    ## PARTIAL
+    
+    **Phase:** {N} — {name}
+    **Resolved:** {M}/{total} | **Escalated:** {K}/{total}
+    
+    ### Resolved
+    | Task ID | Requirement | File | Command | Status |
+    |---------|-------------|------|---------|--------|
+    | {id} | {req} | {file} | `{cmd}` | green |
+    
+    ### Escalated
+    | Task ID | Requirement | Reason | Iterations |
+    |---------|-------------|--------|------------|
+    | {id} | {req} | {reason} | {N}/3 |
+    
+    ### Files for Commit
+    {test file paths for resolved gaps}
+    ```
+  </Tab>
+  <Tab title="Escalate">
+    ```markdown
+    ## ESCALATE
+    
+    **Phase:** {N} — {name}
+    **Resolved:** 0/{total}
+    
+    ### Details
+    | Task ID | Requirement | Reason | Iterations |
+    |---------|-------------|--------|------------|
+    | {id} | {req} | {reason} | {N}/3 |
+    
+    ### Recommendations
+    - **{req}:** {manual test instructions or implementation fix needed}
+    ```
+  </Tab>
+</Tabs>
+
+## Philosophy
+
+### Implementation Files are READ-ONLY
+
+You can:
+- Read implementation to understand contracts
+- Create test files
+- Modify test files
+- Create fixtures
+- Update VALIDATION.md
+
+You cannot:
+- Fix implementation bugs
+- Refactor implementation
+- Change implementation contracts
+
+**If you find an implementation bug:** ESCALATE. Don't fix it.
+
+### Behavioral Tests, Not Structural
+
+**Good test names:**
+- `test_user_can_reset_password`
+- `test_api_returns_404_for_missing_user`
+- `test_invalid_email_rejected`
+
+**Bad test names:**
+- `test_reset_function`
+- `test_api_route`
+- `test_validation`
+
+**Good tests verify behavior from user/API perspective, not implementation details.**
+
+### Max 3 Debug Iterations
+
+After 3 failed attempts to fix a test:
+- STOP trying
+- ESCALATE with details
+- Move to next gap
+
+Don't get stuck in infinite debugging loops.
+
+## Execution Flow
+
+<Steps>
+  <Step title="Load context">
+    Read ALL files from `<files_to_read>`. Extract implementation, plans, summaries, test infrastructure, existing VALIDATION.md.
+  </Step>
+  <Step title="Analyze gaps">
+    For each gap: read related implementation, identify observable behavior, classify test type, map to test file path.
+  </Step>
+  <Step title="Generate tests">
+    Discover conventions, write test files. One focused test per requirement behavior. Arrange/Act/Assert.
+  </Step>
+  <Step title="Run and verify">
+    Execute each test. If passes: record success, next gap. If fails: enter debug loop.
+  </Step>
+  <Step title="Debug loop (max 3 iterations)">
+    Diagnose failure type. Fix test OR escalate implementation bug. Track iterations.
+  </Step>
+  <Step title="Report">
+    Return one of three structured formats: GAPS FILLED / PARTIAL / ESCALATE
+  </Step>
+</Steps>
+
+## Success Criteria
+
+- [ ] All `<files_to_read>` loaded before any action
+- [ ] Each gap analyzed with correct test type
+- [ ] Tests follow project conventions
+- [ ] Tests verify behavior, not structure
+- [ ] Every test executed — none marked passing without running
+- [ ] Implementation files never modified
+- [ ] Max 3 debug iterations per gap
+- [ ] Implementation bugs escalated, not fixed
+- [ ] Structured return provided (GAPS FILLED / PARTIAL / ESCALATE)
+- [ ] Test files listed for commit
+
+## Related Agents
+
+<CardGroup cols={2}>
+  <Card title="Verifier" icon="check" href="/agents/verifier">
+    Identifies validation gaps that Nyquist auditor fills
+  </Card>
+  <Card title="Planner" icon="diagram-project" href="/agents/planner">
+    Creates VALIDATION.md that Nyquist auditor updates
+  </Card>
+</CardGroup>

@@ -1,0 +1,421 @@
+---
+title: Plan Checker Agent
+description: Verifies plans will achieve phase goal before execution using goal-backward analysis
+---
+
+# Plan Checker Agent
+
+The **plan checker agent** verifies that plans WILL achieve the phase goal, not just that they look complete.
+
+## Purpose
+
+Goal-backward verification of PLANS before execution. Start from what the phase SHOULD deliver, verify plans address it.
+
+<Warning>
+**Critical mindset:** Plans describe intent. You verify they deliver. A plan can have all tasks filled in but still miss the goal.
+</Warning>
+
+## When Invoked
+
+Spawned by:
+- `/gsd:plan-phase` orchestrator (after planner creates PLAN.md)
+- Re-verification (after planner revises)
+
+## Core Principle
+
+**Plan completeness ≠ Goal achievement**
+
+A task "create auth endpoint" can be in the plan while password hashing is missing. The task exists but the goal "secure authentication" won't be achieved.
+
+Goal-backward verification works backwards from outcome:
+
+1. What must be TRUE for the phase goal to be achieved?
+2. Which tasks address each truth?
+3. Are those tasks complete (files, action, verify, done)?
+4. Are artifacts wired together, not just created in isolation?
+5. Will execution complete within context budget?
+
+Then verify each level against the actual plan files.
+
+**The difference:**
+- `gsd-verifier`: Verifies code DID achieve goal (after execution)
+- `gsd-plan-checker`: Verifies plans WILL achieve goal (before execution)
+
+## Verification Dimensions
+
+### Dimension 1: Requirement Coverage
+
+**Question:** Does every phase requirement have task(s) addressing it?
+
+<Steps>
+  <Step title="Extract phase goal from ROADMAP.md">
+  </Step>
+  <Step title="Extract requirement IDs">
+    From ROADMAP.md `**Requirements:**` line for this phase (strip brackets if present)
+  </Step>
+  <Step title="Verify each requirement ID">
+    Appears in at least one plan's `requirements` frontmatter field
+  </Step>
+  <Step title="For each requirement">
+    Find covering task(s) in the plan that claims it
+  </Step>
+  <Step title="Flag gaps">
+    Requirements with no coverage or missing from all plans' `requirements` fields
+  </Step>
+</Steps>
+
+<Warning>
+**FAIL the verification** if any requirement ID from the roadmap is absent from all plans' `requirements` fields. This is a blocking issue, not a warning.
+</Warning>
+
+**Example issue:**
+
+```yaml
+issue:
+  dimension: requirement_coverage
+  severity: blocker
+  description: "AUTH-02 (logout) has no covering task"
+  plan: "16-01"
+  fix_hint: "Add task for logout endpoint in plan 01 or new plan"
+```
+
+### Dimension 2: Task Completeness
+
+**Question:** Does every task have Files + Action + Verify + Done?
+
+**Required by task type:**
+
+| Type | Files | Action | Verify | Done |
+|------|-------|--------|--------|------|
+| `auto` | Required | Required | Required | Required |
+| `checkpoint:*` | N/A | N/A | N/A | N/A |
+| `tdd` | Required | Behavior + Implementation | Test commands | Expected outcomes |
+
+**Red flags:**
+- Missing `<verify>` — can't confirm completion
+- Missing `<done>` — no acceptance criteria
+- Vague `<action>` — "implement auth" instead of specific steps
+- Empty `<files>` — what gets created?
+
+### Dimension 3: Dependency Correctness
+
+**Question:** Are plan dependencies valid and acyclic?
+
+**Red flags:**
+- Plan references non-existent plan (`depends_on: ["99"]` when 99 doesn't exist)
+- Circular dependency (A -> B -> A)
+- Future reference (plan 01 referencing plan 03's output)
+- Wave assignment inconsistent with dependencies
+
+**Dependency rules:**
+- `depends_on: []` = Wave 1 (can run parallel)
+- `depends_on: ["01"]` = Wave 2 minimum (must wait for 01)
+- Wave number = max(deps) + 1
+
+### Dimension 4: Key Links Planned
+
+**Question:** Are artifacts wired together, not just created in isolation?
+
+**Red flags:**
+- Component created but not imported anywhere
+- API route created but component doesn't call it
+- Database model created but API doesn't query it
+- Form created but submit handler is missing or stub
+
+**What to check:**
+
+```
+Component -> API: Does action mention fetch/axios call?
+API -> Database: Does action mention Prisma/query?
+Form -> Handler: Does action mention onSubmit implementation?
+State -> Render: Does action mention displaying state?
+```
+
+### Dimension 5: Scope Sanity
+
+**Question:** Will plans complete within context budget?
+
+**Thresholds:**
+
+| Metric | Target | Warning | Blocker |
+|--------|--------|---------|----------|
+| Tasks/plan | 2-3 | 4 | 5+ |
+| Files/plan | 5-8 | 10 | 15+ |
+| Total context | ~50% | ~70% | 80%+ |
+
+**Red flags:**
+- Plan with 5+ tasks (quality degrades)
+- Plan with 15+ file modifications
+- Single task with 10+ files
+- Complex work (auth, payments) crammed into one plan
+
+### Dimension 6: Verification Derivation
+
+**Question:** Do must_haves trace back to phase goal?
+
+**Red flags:**
+- Missing `must_haves` entirely
+- Truths are implementation-focused ("bcrypt installed") not user-observable ("passwords are secure")
+- Artifacts don't map to truths
+- Key links missing for critical wiring
+
+### Dimension 7: Context Compliance
+
+**Question:** Do plans honor user decisions from /gsd:discuss-phase?
+
+<Note>
+Only check if CONTEXT.md was provided in the verification context.
+</Note>
+
+**Red flags:**
+- Locked decision has no implementing task
+- Task contradicts a locked decision (user said "cards layout", plan says "table layout")
+- Task implements something from Deferred Ideas
+- Plan ignores user's stated preference
+
+**Example — contradiction:**
+
+```yaml
+issue:
+  dimension: context_compliance
+  severity: blocker
+  description: "Plan contradicts locked decision: user specified 'card layout' but Task 2 implements 'table layout'"
+  plan: "01"
+  task: 2
+  user_decision: "Layout: Cards (from Decisions section)"
+  plan_action: "Create DataTable component with rows..."
+  fix_hint: "Change Task 2 to implement card-based layout per user decision"
+```
+
+**Example — scope creep:**
+
+```yaml
+issue:
+  dimension: context_compliance
+  severity: blocker
+  description: "Plan includes deferred idea: 'search functionality' was explicitly deferred"
+  plan: "02"
+  task: 1
+  deferred_idea: "Search/filtering (Deferred Ideas section)"
+  fix_hint: "Remove search task - belongs in future phase per user decision"
+```
+
+### Dimension 8: Nyquist Compliance
+
+**Skip if:** `workflow.nyquist_validation` is explicitly set to `false` in config.json, phase has no RESEARCH.md, or RESEARCH.md has no "Validation Architecture" section.
+
+#### Check 8e — VALIDATION.md Existence (Gate)
+
+Before running checks 8a-8d, verify VALIDATION.md exists:
+
+```bash
+ls "${PHASE_DIR}"/*-VALIDATION.md 2>/dev/null
+```
+
+**If missing:** **BLOCKING FAIL** — "VALIDATION.md not found for phase {N}. Re-run `/gsd:plan-phase {N} --research` to regenerate."
+
+**If exists:** Proceed to checks 8a-8d.
+
+#### Check 8a — Automated Verify Presence
+
+For each `<task>` in each plan:
+- `<verify>` must contain `<automated>` command, OR a Wave 0 dependency that creates the test first
+- If `<automated>` is absent with no Wave 0 dependency → **BLOCKING FAIL**
+
+#### Check 8b — Feedback Latency Assessment
+
+For each `<automated>` command:
+- Full E2E suite (playwright, cypress, selenium) → **WARNING** — suggest faster unit/smoke test
+- Watch mode flags (`--watchAll`) → **BLOCKING FAIL**
+- Delays > 30 seconds → **WARNING**
+
+#### Check 8c — Sampling Continuity
+
+Map tasks to waves. Per wave, any consecutive window of 3 implementation tasks must have ≥2 with `<automated>` verify. 3 consecutive without → **BLOCKING FAIL**.
+
+#### Check 8d — Wave 0 Completeness
+
+For each `<automated>MISSING</automated>` reference:
+- Wave 0 task must exist with matching `<files>` path
+- Wave 0 plan must execute before dependent task
+- Missing match → **BLOCKING FAIL**
+
+## What It Produces
+
+### Structured Returns
+
+<Tabs>
+  <Tab title="Verification Passed">
+    ```markdown
+    ## VERIFICATION PASSED
+    
+    **Phase:** {phase-name}
+    **Plans verified:** {N}
+    **Status:** All checks passed
+    
+    ### Coverage Summary
+    
+    | Requirement | Plans | Status |
+    |-------------|-------|--------|
+    | {req-1} | 01 | Covered |
+    | {req-2} | 01,02 | Covered |
+    
+    ### Plan Summary
+    
+    | Plan | Tasks | Files | Wave | Status |
+    |------|-------|-------|------|--------|
+    | 01 | 3 | 5 | 1 | Valid |
+    | 02 | 2 | 4 | 2 | Valid |
+    
+    Plans verified. Run `/gsd:execute-phase {phase}` to proceed.
+    ```
+  </Tab>
+  <Tab title="Issues Found">
+    ```markdown
+    ## ISSUES FOUND
+    
+    **Phase:** {phase-name}
+    **Plans checked:** {N}
+    **Issues:** {X} blocker(s), {Y} warning(s), {Z} info
+    
+    ### Blockers (must fix)
+    
+    **1. [{dimension}] {description}**
+    - Plan: {plan}
+    - Task: {task if applicable}
+    - Fix: {fix_hint}
+    
+    ### Warnings (should fix)
+    
+    **1. [{dimension}] {description}**
+    - Plan: {plan}
+    - Fix: {fix_hint}
+    
+    ### Structured Issues
+    
+    (YAML issues list)
+    
+    ### Recommendation
+    
+    {N} blocker(s) require revision. Returning to planner with feedback.
+    ```
+  </Tab>
+</Tabs>
+
+## Issue Format
+
+```yaml
+issue:
+  plan: "16-01"              # Which plan (null if phase-level)
+  dimension: "task_completeness"  # Which dimension failed
+  severity: "blocker"        # blocker | warning | info
+  description: "..."
+  task: 2                    # Task number if applicable
+  fix_hint: "..."
+```
+
+### Severity Levels
+
+**blocker** - Must fix before execution
+- Missing requirement coverage
+- Missing required task fields
+- Circular dependencies
+- Scope > 5 tasks per plan
+
+**warning** - Should fix, execution may work
+- Scope 4 tasks (borderline)
+- Implementation-focused truths
+- Minor wiring missing
+
+**info** - Suggestions for improvement
+- Could split for better parallelization
+- Could improve verification specificity
+
+## Verification Process
+
+<Steps>
+  <Step title="Load Context">
+    Load phase operation context, CONTEXT.md (if provided), plans, ROADMAP.md, RESEARCH.md
+  </Step>
+  <Step title="Load All Plans">
+    Use gsd-tools to validate plan structure:
+    
+    ```bash
+    PLAN_STRUCTURE=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" verify plan-structure "$plan")
+    ```
+  </Step>
+  <Step title="Parse must_haves">
+    Extract must_haves from each plan using gsd-tools:
+    
+    ```bash
+    MUST_HAVES=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" frontmatter get "$PLAN_PATH" --field must_haves)
+    ```
+  </Step>
+  <Step title="Check Requirement Coverage">
+    Map requirements to tasks, verify all covered
+  </Step>
+  <Step title="Validate Task Structure">
+    Use gsd-tools plan-structure verification (from Step 2)
+  </Step>
+  <Step title="Verify Dependency Graph">
+    Validate: all referenced plans exist, no cycles, wave numbers consistent
+  </Step>
+  <Step title="Check Key Links">
+    For each key_link in must_haves: find source artifact task, check if action mentions the connection
+  </Step>
+  <Step title="Assess Scope">
+    Check tasks/plan and files/plan against thresholds
+  </Step>
+  <Step title="Verify must_haves Derivation">
+    Truths: user-observable, testable, specific
+    
+    Artifacts: map to truths, reasonable min_lines
+    
+    Key_links: connect dependent artifacts, specify method
+  </Step>
+  <Step title="Determine Overall Status">
+    **passed:** All requirements covered, all tasks complete, dependency graph valid, key links planned, scope within budget, must_haves properly derived
+    
+    **issues_found:** One or more blockers or warnings. Plans need revision.
+  </Step>
+</Steps>
+
+## Anti-Patterns
+
+<CardGroup cols={2}>
+  <Card title="Don't check code existence" icon="code">
+    That's gsd-verifier's job. You verify plans, not codebase.
+  </Card>
+  <Card title="Don't run the application" icon="play">
+    Static plan analysis only.
+  </Card>
+  <Card title="Don't accept vague tasks" icon="text-slash">
+    "Implement auth" is not specific. Tasks need concrete files, actions, verification.
+  </Card>
+  <Card title="Don't skip dependency analysis" icon="link">
+    Circular/broken dependencies cause execution failures.
+  </Card>
+  <Card title="Don't ignore scope" icon="gauge-high">
+    5+ tasks/plan degrades quality. Report and split.
+  </Card>
+  <Card title="Don't verify implementation details" icon="wrench">
+    Check that plans describe what to build.
+  </Card>
+  <Card title="Don't trust task names alone" icon="file-signature">
+    Read action, verify, done fields. A well-named task can be empty.
+  </Card>
+</CardGroup>
+
+## Related Agents
+
+<CardGroup cols={2}>
+  <Card title="Planner" icon="diagram-project" href="/agents/planner">
+    Creates the plans that checker verifies
+  </Card>
+  <Card title="Verifier" icon="check" href="/agents/verifier">
+    Verifies execution after plans complete
+  </Card>
+  <Card title="Executor" icon="code" href="/agents/executor">
+    Executes the verified plans
+  </Card>
+</CardGroup>

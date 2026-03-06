@@ -1,0 +1,254 @@
+---
+title: Installation
+description: Install Get Shit Done for Claude Code, OpenCode, Gemini CLI, or Codex
+---
+
+Get Shit Done (GSD) is a light-weight and powerful meta-prompting, context engineering and spec-driven development system. Install it once, use it across all your projects.
+
+## Quick Install
+
+Run the interactive installer:
+
+```bash
+npx get-shit-done-cc@latest
+```
+
+The installer will prompt you to choose:
+
+<Steps>
+  <Step title="Select Runtime">
+    Choose which AI coding assistant you're using:
+    - **Claude Code** - Anthropic's official coding assistant
+    - **OpenCode** - Open source, supports free models
+    - **Gemini CLI** - Google's Gemini-powered assistant
+    - **Codex** - Skills-first architecture
+    - **All** - Install for all runtimes
+  </Step>
+
+  <Step title="Choose Location">
+    Select installation scope:
+    - **Global** - Available in all projects (recommended)
+    - **Local** - Current project only
+  </Step>
+</Steps>
+
+<Info>
+GSD works on **Mac, Windows, and Linux**.
+</Info>
+
+## Verify Installation
+
+After installation, verify that GSD is working:
+
+<CodeGroup>
+```bash Claude Code / Gemini
+/gsd:help
+```
+
+```bash OpenCode
+/gsd-help
+```
+
+```bash Codex
+$gsd-help
+```
+</CodeGroup>
+
+You should see the GSD command reference and usage guide.
+
+<Note>
+Codex installation uses skills (`skills/gsd-*/SKILL.md`) rather than custom prompts.
+</Note>
+
+## Non-Interactive Installation
+
+For Docker, CI pipelines, or automated scripts, use command-line flags to skip prompts:
+
+<CodeGroup>
+```bash Claude Code
+# Global installation
+npx get-shit-done-cc --claude --global
+
+# Local installation
+npx get-shit-done-cc --claude --local
+```
+
+```bash OpenCode
+# Global installation
+npx get-shit-done-cc --opencode --global
+
+# Local installation
+npx get-shit-done-cc --opencode --local
+```
+
+```bash Gemini CLI
+# Global installation
+npx get-shit-done-cc --gemini --global
+
+# Local installation
+npx get-shit-done-cc --gemini --local
+```
+
+```bash Codex
+# Global installation
+npx get-shit-done-cc --codex --global
+
+# Local installation
+npx get-shit-done-cc --codex --local
+```
+
+```bash All Runtimes
+# Install globally for all runtimes
+npx get-shit-done-cc --all --global
+```
+</CodeGroup>
+
+### Flag Reference
+
+- Use `--global` or `-g` to skip the location prompt
+- Use `--local` or `-l` for project-specific installation
+- Use `--claude`, `--opencode`, `--gemini`, `--codex`, or `--all` to skip the runtime prompt
+
+## Development Installation
+
+If you want to test modifications before contributing:
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    git clone https://github.com/glittercowboy/get-shit-done.git
+    cd get-shit-done
+    ```
+  </Step>
+
+  <Step title="Install Locally">
+    ```bash
+    node bin/install.js --claude --local
+    ```
+  </Step>
+</Steps>
+
+This installs to `./.claude/` for testing modifications.
+
+## Docker & Containerized Environments
+
+If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
+
+```bash
+CLAUDE_CONFIG_DIR=/home/youruser/.claude npx get-shit-done-cc --global
+```
+
+This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
+
+## Recommended: Skip Permissions Mode
+
+GSD is designed for frictionless automation. Run Claude Code with:
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+<Warning>
+This is how GSD is intended to be used. Stopping to approve `date` and `git commit` 50 times defeats the purpose of automated workflows.
+</Warning>
+
+### Alternative: Granular Permissions
+
+If you prefer not to use `--dangerously-skip-permissions`, add this to your project's `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(date:*)",
+      "Bash(echo:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(sort:*)",
+      "Bash(grep:*)",
+      "Bash(tr:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git tag:*)"
+    ]
+  }
+}
+```
+
+## Updating GSD
+
+GSD evolves fast. Update periodically to get new features and improvements:
+
+```bash
+npx get-shit-done-cc@latest
+```
+
+<Info>
+Since v1.17, the installer backs up locally modified files to `gsd-local-patches/`. Run `/gsd:reapply-patches` to merge your changes back after updating.
+</Info>
+
+## Uninstalling
+
+To remove GSD completely:
+
+<CodeGroup>
+```bash Global Installs
+# Claude Code
+npx get-shit-done-cc --claude --global --uninstall
+
+# OpenCode
+npx get-shit-done-cc --opencode --global --uninstall
+
+# Codex
+npx get-shit-done-cc --codex --global --uninstall
+```
+
+```bash Local Installs
+# Claude Code
+npx get-shit-done-cc --claude --local --uninstall
+
+# OpenCode
+npx get-shit-done-cc --opencode --local --uninstall
+
+# Codex
+npx get-shit-done-cc --codex --local --uninstall
+```
+</CodeGroup>
+
+This removes all GSD commands, agents, hooks, and settings while preserving your other configurations.
+
+## Troubleshooting
+
+### Commands Not Found
+
+If commands aren't working after installation:
+
+1. **Restart your runtime** to reload commands/skills
+2. **Verify files exist:**
+   - Claude Code: `~/.claude/commands/gsd/` (global) or `./.claude/commands/gsd/` (local)
+   - Codex: `~/.codex/skills/gsd-*/SKILL.md` (global) or `./.codex/skills/gsd-*/SKILL.md` (local)
+3. **Re-run installer:** `npx get-shit-done-cc`
+
+### Commands Not Working as Expected
+
+- Run `/gsd:help` to verify installation
+- Re-run `npx get-shit-done-cc` to reinstall
+- Check the [User Guide](https://github.com/glittercowboy/get-shit-done/blob/main/docs/USER-GUIDE.md) for detailed troubleshooting
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Create your first project with GSD
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Customize GSD settings for your workflow
+  </Card>
+</CardGroup>

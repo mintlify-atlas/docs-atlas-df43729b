@@ -1,0 +1,497 @@
+---
+title: Execute Phase Plans
+description: Run plans in parallel waves with atomic commits and fresh context
+icon: play
+---
+
+## Overview
+
+The `/gsd:execute-phase` command runs all plans for a phase using wave-based parallelization. Each plan executes in a fresh 200k token context window, eliminating context rot.
+
+## What It Does
+
+<Steps>
+  <Step title="Discover Plans">
+    Finds all PLAN.md files for the phase.
+  </Step>
+  
+  <Step title="Analyze Dependencies">
+    Builds dependency graph from plan frontmatter.
+  </Step>
+  
+  <Step title="Group Into Waves">
+    Independent plans → same wave (parallel)
+    Dependent plans → later waves (sequential)
+  </Step>
+  
+  <Step title="Execute Each Wave">
+    Spawns executor agents for each plan in the wave.
+    Each agent gets fresh 200k context.
+  </Step>
+  
+  <Step title="Commit Per Plan">
+    Atomic git commit after each plan completes.
+  </Step>
+  
+  <Step title="Verify Phase">
+    Checks if phase goals and requirements were achieved.
+  </Step>
+</Steps>
+
+## Command Usage
+
+```bash
+/gsd:execute-phase <phase-number> [flags]
+```
+
+<Tabs>
+  <Tab title="Execute All Plans">
+    ```bash
+    /gsd:execute-phase 2
+    ```
+    
+    Runs all plans for phase 2 in optimal wave order.
+  </Tab>
+  
+  <Tab title="Execute Gap Fixes Only">
+    ```bash
+    /gsd:execute-phase 3 --gaps-only
+    ```
+    
+    Runs only plans marked with `gap_closure: true` in frontmatter.
+    
+    <Info>
+      Use after `/gsd:verify-work` creates fix plans for failures.
+    </Info>
+  </Tab>
+</Tabs>
+
+## Wave-Based Execution
+
+Plans are grouped into waves based on dependencies:
+
+<CodeGroup>
+```markdown Wave Execution Example
+┌─────────────────────────────────────────────────────────────────────┐
+│  PHASE 2 EXECUTION: User Authentication                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  WAVE 1 (parallel)          WAVE 2 (parallel)          WAVE 3       │
+│  ┌─────────┐ ┌─────────┐    ┌─────────┐               ┌─────────┐  │
+│  │ Plan 01 │ │ Plan 02 │ →  │ Plan 03 │            →  │ Plan 04 │  │
+│  │         │ │         │    │         │               │         │  │
+│  │Register │ │  Login  │    │  Rate   │               │  Tests  │  │
+│  │ API     │ │  API    │    │Limiting │               │         │  │
+│  └─────────┘ └─────────┘    └─────────┘               └─────────┘  │
+│       │           │              ↑                         ↑        │
+│       └───────────┴──────────────┘                         │        │
+│              Plan 03 depends on 01 + 02                    │        │
+│              Plan 04 depends on all previous               │        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+</CodeGroup>
+
+### Why Waves Matter
+
+- **Independent plans** → Same wave → Run simultaneously → Faster completion
+- **Dependent plans** → Later wave → Wait for dependencies → Correct order
+- **File conflicts** → Detected and serialized automatically
+
+<Tip>
+  Design phases with **vertical slices** (feature end-to-end) rather than **horizontal layers** (all models, then all APIs). Vertical slices parallelize better.
+</Tip>
+
+## Fresh Context Per Plan
+
+Each executor agent starts with:
+
+- **200k tokens available** - Full context budget
+- **Zero accumulated garbage** - No prior conversation history
+- **Focused context** - Only loads what's needed for this plan
+
+Context loaded per agent:
+- `PROJECT.md` - Project vision
+- `{phase_num}-CONTEXT.md` - Implementation preferences
+- `{phase_num}-RESEARCH.md` - Domain knowledge
+- `{phase_num}-{N}-PLAN.md` - The specific plan to execute
+- `STATE.md` - Current decisions and blockers
+
+<Info>
+  **This is why quality stays high.** No context rot, no "I'll be more concise", no degradation.
+</Info>
+
+## Atomic Git Commits
+
+Each plan gets its own commit immediately after completion:
+
+<CodeGroup>
+```bash Example Git History
+$ git log --oneline
+
+abc123f docs(02-03): complete rate limiting plan
+def456g feat(02-03): add rate limiting middleware
+hij789k feat(02-02): implement login endpoint
+lmn012o feat(02-02): add session management
+pqr345s feat(02-01): create registration endpoint
+stu678v feat(02-01): add password validation
+```
+</CodeGroup>
+
+Commit format: `type(phase-plan): description`
+
+- **feat** - New functionality
+- **fix** - Bug fix
+- **docs** - Documentation or completion
+- **refactor** - Code restructuring
+- **test** - Test addition/update
+
+### Benefits
+
+- **Git bisect** finds exact failing task
+- **Selective revert** - Each task independently revertable
+- **Clear history** - Future Claude sessions understand what happened
+- **Better observability** - Track progress at task granularity
+
+<Tip>
+  Atomic commits are invaluable for debugging. If something breaks, `git bisect` pinpoints the exact task that caused it.
+</Tip>
+
+## Execution Flow
+
+<Steps>
+  <Step title="Pre-flight Checks">
+    ```markdown
+    📋 Phase 2: User Authentication
+    
+    Plans found:
+    - 02-01-PLAN.md: User Registration Endpoint (4 tasks)
+    - 02-02-PLAN.md: Login and Session Management (5 tasks)
+    - 02-03-PLAN.md: Rate Limiting Middleware (2 tasks)
+    
+    Analyzing dependencies...
+    Building wave structure...
+    ```
+  </Step>
+  
+  <Step title="Wave 1 Execution">
+    ```markdown
+    🌊 Wave 1: 2 plans (parallel)
+    
+    Spawning executor agents:
+    - Agent 1: Plan 02-01 (Registration)
+    - Agent 2: Plan 02-02 (Login)
+    
+    [Agent 1] ✓ Task 1: Create registration API route
+    [Agent 1] ✓ Task 2: Add email validation
+    [Agent 2] ✓ Task 1: Create login API route
+    [Agent 1] ✓ Task 3: Add password validation
+    [Agent 2] ✓ Task 2: Implement session creation
+    [Agent 1] ✓ Task 4: Write registration tests
+    [Agent 2] ✓ Task 3: Add session middleware
+    [Agent 2] ✓ Task 4: Handle token refresh
+    [Agent 2] ✓ Task 5: Write login tests
+    
+    ✓ Wave 1 complete
+    Commits:
+    - abc123f feat(02-01): complete user registration endpoint
+    - def456g feat(02-02): complete login and session management
+    ```
+  </Step>
+  
+  <Step title="Wave 2 Execution">
+    ```markdown
+    🌊 Wave 2: 1 plan
+    
+    Spawning executor agent:
+    - Agent 3: Plan 02-03 (Rate Limiting)
+    
+    [Agent 3] ✓ Task 1: Create rate limit middleware
+    [Agent 3] ✓ Task 2: Apply to auth endpoints
+    
+    ✓ Wave 2 complete
+    Commits:
+    - hij789k feat(02-03): complete rate limiting middleware
+    ```
+  </Step>
+  
+  <Step title="Phase Verification">
+    ```markdown
+    ✓ Phase 2 execution complete
+    
+    Verifying phase goals...
+    
+    ✓ Users can register with email/password
+    ✓ Users can log in securely
+    ✓ Sessions persist across requests
+    ✓ Rate limiting prevents abuse
+    
+    ✓ All requirements met:
+    - REQ-004: User registration
+    - REQ-005: Rate limiting
+    - REQ-006: Secure sessions
+    
+    Created: 02-VERIFICATION.md
+    ```
+  </Step>
+  
+  <Step title="Next Steps">
+    ```markdown
+    Next steps:
+    - /gsd:verify-work 2 - Manual testing of features
+    - /gsd:discuss-phase 3 - Start next phase
+    - /gsd:progress - Check overall status
+    ```
+  </Step>
+</Steps>
+
+## Checkpoint Handling
+
+If execution is interrupted (crash, timeout, user cancellation):
+
+```markdown
+⚠ Execution interrupted during Wave 2
+
+Completed:
+- Wave 1: 02-01 ✓, 02-02 ✓
+
+Incomplete:
+- Wave 2: 02-03 (in progress)
+- Wave 3: 02-04 (not started)
+
+Checkpoint saved. Resume with:
+/gsd:execute-phase 2
+```
+
+Re-running the command resumes from the last checkpoint:
+- Completed plans are skipped
+- In-progress plan restarts from beginning
+- Uncommitted work is preserved
+
+<Warning>
+  If a plan partially completes, the executor will restart it. Ensure tasks are idempotent or use git to inspect changes before re-running.
+</Warning>
+
+## Parallel Execution Configuration
+
+Control parallelization via config:
+
+```json
+{
+  "parallelization": {
+    "enabled": true  // Set false to run plans sequentially
+  }
+}
+```
+
+Disable parallel execution if:
+- Working on a slow machine
+- Debugging execution issues
+- File conflicts occur frequently
+
+## Model Selection
+
+Executor agents use models based on your profile:
+
+| Profile | Execution Model | Characteristics |
+|---------|-----------------|------------------|
+| `quality` | Opus | Best code quality, highest cost |
+| `balanced` | Sonnet | Good quality, reasonable cost (default) |
+| `budget` | Sonnet | Faster execution, lower cost |
+
+Set profile with `/gsd:set-profile` or configure in `/gsd:settings`.
+
+## Plan Summaries
+
+After each plan completes, a SUMMARY.md is created:
+
+<CodeGroup>
+```markdown Example: 02-01-SUMMARY.md
+# Plan 01 Summary: User Registration Endpoint
+
+## Completed Tasks
+
+### Task 1: Create registration API route
+- Created: `src/app/api/auth/register/route.ts`
+- Validates email and password
+- Hashes password with bcrypt (12 rounds)
+- Returns 201 on success, 400/409 on errors
+
+### Task 2: Add email validation
+- Created: `src/lib/validation.ts` (email validation)
+- Rejects invalid formats
+- Exported `isValidEmail` function
+
+### Task 3: Add password validation
+- Updated: `src/lib/validation.ts`
+- Min 8 chars, uppercase, number, special char
+- Exported `isValidPassword` function
+
+### Task 4: Write registration tests
+- Created: `tests/api/auth/register.test.ts`
+- Tests: success, duplicate email, validation errors
+- All tests passing
+
+## Files Changed
+- src/app/api/auth/register/route.ts (new)
+- src/lib/validation.ts (new)
+- tests/api/auth/register.test.ts (new)
+
+## Git Commits
+- abc123f feat(02-01): complete user registration endpoint
+
+## Verification
+✓ POST /api/auth/register with valid data returns 201
+✓ POST with duplicate email returns 409
+✓ POST with weak password returns 400
+✓ Password hashed in database (not plain text)
+✓ All tests pass
+
+## Notes
+- Used bcrypt instead of argon2 (better Node.js support)
+- Email validation does not check MX records (marked as nice-to-have)
+- Rate limiting deferred to Plan 03
+```
+</CodeGroup>
+
+Summaries provide:
+- Audit trail of what was built
+- Context for future phases
+- Debugging starting point if issues arise
+
+## Phase Verification
+
+After all plans complete, automatic verification checks:
+
+<Steps>
+  <Step title="Requirements Coverage">
+    Were all phase requirements delivered?
+  </Step>
+  
+  <Step title="Goal Achievement">
+    Does the codebase match the phase goal?
+  </Step>
+  
+  <Step title="Integration Points">
+    Do new components integrate with existing code?
+  </Step>
+  
+  <Step title="Must-Have Validation">
+    Are critical features present and functional?
+  </Step>
+</Steps>
+
+Results saved to `{phase_num}-VERIFICATION.md`.
+
+If verification fails:
+```markdown
+❌ Phase verification found gaps:
+
+- REQ-005: Rate limiting not applied to all endpoints
+- Integration: Login endpoint not connected to dashboard
+
+Recommendation:
+Run /gsd:verify-work 2 to test manually, or
+Run /gsd:plan-phase 2 --gaps to create fix plans
+```
+
+<Info>
+  Automatic verification catches obvious issues. Manual verification with `/gsd:verify-work` tests actual user workflows.
+</Info>
+
+## Files Created
+
+After execution, your `.planning/` directory has:
+
+```
+.planning/
+├── 02-01-PLAN.md
+├── 02-01-SUMMARY.md       # New
+├── 02-02-PLAN.md
+├── 02-02-SUMMARY.md       # New
+├── 02-03-PLAN.md
+├── 02-03-SUMMARY.md       # New
+└── 02-VERIFICATION.md     # New
+```
+
+## Git Branching
+
+If you've configured git branching strategy:
+
+<Tabs>
+  <Tab title="None (Default)">
+    All commits go to current branch.
+    
+    ```bash
+    git log --oneline
+    abc123f feat(02-03): rate limiting
+    def456g feat(02-02): login endpoint
+    hij789k feat(02-01): registration endpoint
+    ```
+  </Tab>
+  
+  <Tab title="Phase Branching">
+    Creates a branch per phase:
+    
+    ```bash
+    # Execution creates and switches to branch
+    git checkout -b gsd/phase-02-user-authentication
+    
+    # All commits go to this branch
+    git log --oneline
+    abc123f feat(02-03): rate limiting
+    def456g feat(02-02): login endpoint
+    hij789k feat(02-01): registration endpoint
+    
+    # After phase completes, offers merge
+    git checkout main
+    git merge --squash gsd/phase-02-user-authentication
+    git commit -m "feat: add user authentication (phase 02)"
+    ```
+  </Tab>
+  
+  <Tab title="Milestone Branching">
+    Creates one branch for entire milestone:
+    
+    ```bash
+    # First phase creates branch
+    git checkout -b gsd/v1.0-mvp
+    
+    # All phases commit to this branch
+    # At milestone completion, merge to main
+    ```
+  </Tab>
+</Tabs>
+
+Configure branching in `/gsd:settings` or `.planning/config.json`.
+
+## Next Steps
+
+After execution completes:
+
+<CardGroup cols={2}>
+  <Card title="Verify Work" icon="check" href="/workflow/verify-work">
+    Manually test features through conversational UAT
+  </Card>
+  <Card title="Next Phase" icon="forward" href="/workflow/discuss-phase">
+    Start discussing the next phase
+  </Card>
+</CardGroup>
+
+## Tips
+
+<Tip>
+  **Don't interrupt execution.** Let waves complete. Checkpoints work but restarting wastes tokens.
+</Tip>
+
+<Tip>
+  **Monitor the first wave.** If plans fail immediately, pause and check for missing dependencies or unclear instructions.
+</Tip>
+
+<Tip>
+  **Review summaries.** They tell you exactly what was built and reveal if the executor misunderstood something.
+</Tip>
+
+<Warning>
+  If multiple plans modify the same file, they'll be serialized automatically. This can slow execution - consider splitting files or merging plans.
+</Warning>

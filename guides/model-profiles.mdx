@@ -1,0 +1,358 @@
+---
+title: Model Profiles
+description: Control quality and cost by choosing which Claude models power each agent
+icon: sliders
+---
+
+GSD uses different Claude models for different agents. Model profiles let you balance quality vs token spend based on your needs.
+
+## Profile Overview
+
+Three profiles control the quality/cost tradeoff:
+
+| Profile | Philosophy | Best For |
+|---------|-----------|----------|
+| `quality` | Opus for decisions, Sonnet for verification | Critical work with quota available |
+| `balanced` | Opus for planning, Sonnet for everything else | Default recommended setting |
+| `budget` | Sonnet for code, Haiku for research | High-volume work or less critical phases |
+
+## Switching Profiles
+
+### Quick switch
+
+```bash
+/gsd:set-profile budget
+```
+
+Changes profile immediately and shows model assignments.
+
+### Interactive configuration
+
+```bash
+/gsd:settings
+```
+
+Walk through all settings including model profile.
+
+## Per-Agent Model Breakdown
+
+### Quality Profile
+
+| Agent | Model | Why Opus |
+|-------|-------|----------|
+| gsd-planner | **Opus** | Architectural decisions, plan structure |
+| gsd-roadmapper | **Opus** | High-level project decomposition |
+| gsd-executor | **Opus** | Complex implementation, multiple files |
+| gsd-phase-researcher | **Opus** | Deep domain investigation |
+| gsd-project-researcher | **Opus** | Ecosystem and stack research |
+| gsd-research-synthesizer | Sonnet | Read-only synthesis of research |
+| gsd-debugger | **Opus** | Root cause analysis, complex investigation |
+| gsd-codebase-mapper | Sonnet | Read-only codebase analysis |
+| gsd-verifier | Sonnet | Read-only goal verification |
+| gsd-plan-checker | Sonnet | Read-only plan validation |
+| gsd-integration-checker | Sonnet | Read-only integration verification |
+
+**Use when:** You need maximum quality and have quota available.
+
+### Balanced Profile (Default)
+
+| Agent | Model | Rationale |
+|-------|-------|-----------|
+| gsd-planner | **Opus** | Plans determine everything downstream |
+| gsd-roadmapper | Sonnet | Roadmap structure is simpler than plan details |
+| gsd-executor | Sonnet | Follows well-structured plans reliably |
+| gsd-phase-researcher | Sonnet | Research quality good enough for most domains |
+| gsd-project-researcher | Sonnet | Initial research doesn't need Opus |
+| gsd-research-synthesizer | Sonnet | Synthesizing existing research |
+| gsd-debugger | Sonnet | Scientific method works well at Sonnet level |
+| gsd-codebase-mapper | Haiku | Simple pattern recognition |
+| gsd-verifier | Sonnet | Verification needs reasoning, not just pattern matching |
+| gsd-plan-checker | Sonnet | Critical feedback loop |
+| gsd-integration-checker | Sonnet | Checks are straightforward |
+
+**Use when:** You want high quality with reasonable token usage (recommended).
+
+### Budget Profile
+
+| Agent | Model | Tradeoff |
+|-------|-------|----------|
+| gsd-planner | Sonnet | Plans may be less creative but still valid |
+| gsd-roadmapper | Sonnet | Roadmap structure adequate |
+| gsd-executor | Sonnet | Follows plans well |
+| gsd-phase-researcher | **Haiku** | Research may be shallower |
+| gsd-project-researcher | **Haiku** | Initial research less comprehensive |
+| gsd-research-synthesizer | **Haiku** | Basic synthesis sufficient |
+| gsd-debugger | Sonnet | Keep Sonnet for debugging (quality matters) |
+| gsd-codebase-mapper | **Haiku** | Pattern recognition fine |
+| gsd-verifier | **Haiku** | Simple pass/fail checks |
+| gsd-plan-checker | **Haiku** | Basic validation adequate |
+| gsd-integration-checker | **Haiku** | Integration checks straightforward |
+
+**Use when:** High token volume, prototyping, or less critical phases.
+
+<Info>
+Notice that even in budget mode, the **debugger stays Sonnet**. Finding root causes is important enough to justify the quality.
+</Info>
+
+## Which Agents Use Which Models
+
+### Planning agents
+
+| Agent | Role | Quality | Balanced | Budget |
+|-------|------|---------|----------|--------|
+| gsd-planner | Creates execution plans | Opus | **Opus** | Sonnet |
+| gsd-plan-checker | Validates plans | Sonnet | Sonnet | Haiku |
+| gsd-roadmapper | Decomposes milestone into phases | Opus | Sonnet | Sonnet |
+
+**Why planner gets Opus in balanced:** Plans determine everything that follows. An Opus plan + Sonnet execution beats Sonnet plan + Opus execution.
+
+### Research agents
+
+| Agent | Role | Quality | Balanced | Budget |
+|-------|------|---------|----------|--------|
+| gsd-phase-researcher | Domain research per phase | Opus | Sonnet | Haiku |
+| gsd-project-researcher | Ecosystem research at init | Opus | Sonnet | Haiku |
+| gsd-research-synthesizer | Combines research findings | Sonnet | Sonnet | Haiku |
+
+**Toggle:** Set `workflow.research: false` to skip research entirely.
+
+### Execution agents
+
+| Agent | Role | Quality | Balanced | Budget |
+|-------|------|---------|----------|--------|
+| gsd-executor | Implements plans | Opus | **Sonnet** | Sonnet |
+| gsd-verifier | Confirms goals met | Sonnet | Sonnet | Haiku |
+
+**Why Sonnet is enough:** Executors follow explicit XML plans. With good plans, Sonnet executes reliably.
+
+### Utility agents
+
+| Agent | Role | Quality | Balanced | Budget |
+|-------|------|---------|----------|--------|
+| gsd-debugger | Investigates issues | Opus | **Sonnet** | Sonnet |
+| gsd-codebase-mapper | Analyzes existing code | Sonnet | Haiku | Haiku |
+| gsd-integration-checker | Validates integrations | Sonnet | Sonnet | Haiku |
+
+## Cost Considerations
+
+### Token usage patterns
+
+| Stage | Agents | Context Size | Profile Impact |
+|-------|--------|--------------|----------------|
+| Project init | 4 researchers, roadmapper | 50-100K per agent | Moderate |
+| Phase planning | 4 researchers, planner, checker | 100-150K total | Moderate |
+| Phase execution | N executors, verifier | 200K per executor | **High** |
+| Debugging | 1 debugger | 100-150K | Low |
+
+**Execution uses the most tokens** because each plan gets a fresh 200K context. This is where budget profile helps most.
+
+### Example milestone cost
+
+<Tabs>
+  <Tab title="Quality Profile">
+    **Milestone: 8 phases, ~15 plans total**
+    
+    - Project init: 4 Opus researchers × 50K = 200K Opus
+    - Planning (8 phases): 32 Opus researchers × 100K = 3.2M Opus
+    - Planning overhead: 8 Opus planners × 50K = 400K Opus
+    - Execution: 15 Opus executors × 200K = **3M Opus**
+    - Verification: 8 Sonnet verifiers × 30K = 240K Sonnet
+    
+    **Total:** ~6.8M Opus, 240K Sonnet
+  </Tab>
+  
+  <Tab title="Balanced Profile (Default)">
+    **Milestone: 8 phases, ~15 plans total**
+    
+    - Project init: 4 Sonnet researchers × 50K = 200K Sonnet
+    - Planning (8 phases): 32 Sonnet researchers × 100K = 3.2M Sonnet
+    - Planning overhead: 8 Opus planners × 50K = 400K Opus
+    - Execution: 15 Sonnet executors × 200K = **3M Sonnet**
+    - Verification: 8 Sonnet verifiers × 30K = 240K Sonnet
+    
+    **Total:** ~400K Opus, 6.6M Sonnet
+    
+    This is why balanced is default - orders of magnitude cheaper than quality.
+  </Tab>
+  
+  <Tab title="Budget Profile">
+    **Milestone: 8 phases, ~15 plans total**
+    
+    - Project init: 4 Haiku researchers × 50K = 200K Haiku
+    - Planning (8 phases): 32 Haiku researchers × 100K = 3.2M Haiku
+    - Planning overhead: 8 Sonnet planners × 50K = 400K Sonnet
+    - Execution: 15 Sonnet executors × 200K = **3M Sonnet**
+    - Verification: 8 Haiku verifiers × 30K = 240K Haiku
+    
+    **Total:** ~3.4M Sonnet, 3.6M Haiku
+    
+    Cheapest option but research quality suffers.
+  </Tab>
+</Tabs>
+
+## When to Use Each Profile
+
+<Steps>
+  <Step title="Start with balanced">
+    The default profile is well-tuned. Opus planning + Sonnet execution is the sweet spot for most work.
+  </Step>
+  
+  <Step title="Upgrade to quality if...">
+    - Working on production-critical systems
+    - Domain is complex or unfamiliar
+    - Architectural decisions are high-stakes
+    - You have Opus quota to spare
+  </Step>
+  
+  <Step title="Downgrade to budget if...">
+    - Prototyping or experimental work
+    - Domain is very familiar
+    - High volume of phases to execute
+    - Token budget is constrained
+    - Working on less critical features
+  </Step>
+</Steps>
+
+## Mixing Profiles
+
+You can switch profiles mid-milestone:
+
+```bash
+# Use quality for critical foundation
+/gsd:set-profile quality
+/gsd:plan-phase 1  # Auth system
+/gsd:execute-phase 1
+
+# Switch to balanced for standard features  
+/gsd:set-profile balanced
+/gsd:plan-phase 2  # User profiles
+/gsd:execute-phase 2
+
+# Drop to budget for nice-to-haves
+/gsd:set-profile budget
+/gsd:plan-phase 8  # Easter eggs
+/gsd:execute-phase 8
+```
+
+## Workflow Toggle Interaction
+
+Model profiles work with workflow toggles:
+
+```bash
+/gsd:settings
+
+# Model profile: budget
+# Research: off       # Skip 4 research agents entirely
+# Plan check: off     # Skip plan checker loop
+# Verifier: off       # Skip post-execution verification
+```
+
+**Combined effect:**
+
+- **Budget + all agents on** - Cheaper models, full process
+- **Balanced + research off** - Good models, skip research
+- **Budget + research/verify off** - Fastest/cheapest, minimal guardrails
+
+<Warning>
+Disabling agents speeds up execution but removes quality checks. Use judiciously.
+</Warning>
+
+## Per-Command Overrides
+
+Some commands support per-invocation overrides:
+
+```bash
+# Skip research for this phase (use existing knowledge)
+/gsd:plan-phase 5 --skip-research
+
+# Skip plan verification (trust the plan)
+/gsd:plan-phase 5 --skip-verify
+```
+
+These don't change your profile - they just skip agents temporarily.
+
+## Model Selection Logic
+
+GSD resolves models at runtime:
+
+1. Read `.planning/config.json` for `model_profile`
+2. Look up agent in profile mapping
+3. Resolve model name from profile
+4. Pass to `Task()` invocation
+
+You can inspect resolved models:
+
+```bash
+node ~/.claude/get-shit-done/bin/gsd-tools.cjs resolve-model gsd-planner --raw
+# Output: claude-opus-4-20250514 (if profile is balanced)
+```
+
+## Best Practices
+
+### Do:
+
+- **Start with balanced** (it's the default for good reason)
+- **Upgrade to quality** for critical phases
+- **Switch profiles freely** based on phase importance
+- **Disable research** in familiar domains (bigger win than profile change)
+
+### Don't:
+
+- Use quality everywhere (token costs explode)
+- Use budget for complex/critical work (quality suffers)
+- Change profiles mid-phase (finish what you started)
+- Obsess over profiles (focus on good plans instead)
+
+## Troubleshooting
+
+### "Plans seem wrong"
+
+This is usually a **planning issue**, not a model issue:
+
+1. Run `/gsd:discuss-phase N` to clarify preferences
+2. Check if `CONTEXT.md` captured your vision
+3. Try `/gsd:list-phase-assumptions N` to spot misalignment
+
+Only after ruling out context issues should you try upgrading to quality profile.
+
+### "Execution produces stubs"
+
+This is usually a **plan scope issue**, not a model issue:
+
+1. Check if plan has >3 tasks (too ambitious)
+2. Verify tasks are atomic and clear
+3. Consider breaking phase into smaller phases
+
+Sonnet executors handle well-scoped plans reliably. Opus won't fix bad plans.
+
+### "Research feels shallow"
+
+This might be a model issue:
+
+```bash
+/gsd:set-profile quality
+```
+
+Or disable research if domain is familiar:
+
+```bash
+/gsd:settings
+# Set research: off
+```
+
+## Configuration File
+
+Profile is stored in `.planning/config.json`:
+
+```json
+{
+  "model_profile": "balanced",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  }
+}
+```
+
+Edit directly or use `/gsd:settings` to update interactively.

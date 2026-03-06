@@ -1,0 +1,105 @@
+---
+title: 'gsd:add-phase'
+description: 'Add phase to end of current milestone in roadmap'
+---
+
+## Overview
+
+Add a new integer phase to the end of the current milestone in the roadmap. This command handles phase number calculation, directory creation with slug generation, roadmap structure updates, and state tracking.
+
+## Syntax
+
+```bash
+/gsd:add-phase <description>
+```
+
+<ParamField path="description" type="string" required>
+  The phase description (e.g., "User authentication system", "Dashboard analytics")
+</ParamField>
+
+## Process
+
+The command follows the add-phase workflow:
+
+1. **Argument Parsing** - Validates the description is provided
+2. **Roadmap Check** - Verifies ROADMAP.md exists
+3. **Milestone Identification** - Identifies the current milestone
+4. **Phase Number Calculation** - Calculates next sequential integer phase number (ignores existing decimal phases)
+5. **Slug Generation** - Creates URL-friendly slug from description
+6. **Directory Creation** - Creates `.planning/phases/{number}-{slug}/` directory
+7. **Roadmap Update** - Adds phase entry to ROADMAP.md under current milestone
+8. **State Update** - Tracks roadmap evolution in STATE.md
+
+## Phase Numbering
+
+Phases use integer numbering (71, 72, 73, etc.) when added to the end of a milestone. Decimal phases (72.1, 72.2) are created only via `/gsd:insert-phase` for urgent work.
+
+## Directory Structure
+
+Creates a directory with this pattern:
+```
+.planning/phases/{phase-number}-{slug}/
+```
+
+For example:
+- Phase 75: "User authentication system" → `.planning/phases/75-user-authentication-system/`
+- Phase 76: "Dashboard analytics" → `.planning/phases/76-dashboard-analytics/`
+
+## Examples
+
+### Add Authentication Phase
+
+```bash
+/gsd:add-phase User authentication system
+```
+
+Creates phase 75 (assuming previous phase was 74) with directory `75-user-authentication-system/`.
+
+### Add API Integration Phase
+
+```bash
+/gsd:add-phase Integrate third-party API
+```
+
+Creates the next sequential phase for API integration work.
+
+### Add Testing Phase
+
+```bash
+/gsd:add-phase End-to-end testing suite
+```
+
+Adds a testing phase at the end of the current milestone.
+
+## Updated Files
+
+- `.planning/ROADMAP.md` - New phase entry added under current milestone
+- `.planning/STATE.md` - Roadmap evolution tracked
+- `.planning/phases/{number}-{slug}/` - New empty phase directory created
+
+## Next Steps
+
+After adding a phase:
+
+```bash
+/gsd:plan-phase {phase-number}
+```
+
+Plan the newly added phase to create its execution plan.
+
+## When to Use
+
+- Adding planned work to the end of the current milestone
+- Extending the milestone with additional sequential phases
+- Adding work discovered during planning (not urgent mid-execution work)
+
+## When NOT to Use
+
+- **Urgent mid-execution work**: Use `/gsd:insert-phase` instead to insert work between existing phases
+- **Future milestone work**: Wait until the milestone is active, or note in PROJECT.md for next `/gsd:new-milestone`
+
+## Allowed Tools
+
+- Read
+- Write
+- Bash

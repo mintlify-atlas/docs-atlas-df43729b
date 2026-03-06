@@ -1,0 +1,536 @@
+---
+title: "PLAN.xml Structure"
+description: "XML structure for executable plans with examples and tag explanations"
+---
+
+Every GSD plan uses structured XML optimized for Claude to parse and execute. This format ensures precise instructions, clear verification steps, and deterministic execution.
+
+## Why XML?
+
+From the README:
+
+> Every plan is structured XML optimized for Claude:
+> 
+> - Precise instructions
+> - No guessing
+> - Verification built in
+
+Claude excels at parsing and following XML-structured instructions. The format makes it impossible to miss required steps or skip verification.
+
+## Plan File Structure
+
+Plans live in `.planning/phases/XX-name/{phase}-{plan}-PLAN.md` with YAML frontmatter and XML body.
+
+### Complete Example
+
+```markdown
+---
+phase: 03-features
+plan: 01
+type: execute
+wave: 1
+depends_on: []
+files_modified: [src/models/user.ts, src/api/users.ts]
+autonomous: true
+requirements: [AUTH-01, AUTH-02]
+must_haves:
+  truths:
+    - "User can create account with email/password"
+    - "User session persists across browser refresh"
+  artifacts:
+    - path: "src/models/user.ts"
+      provides: "User model and types"
+      min_lines: 20
+    - path: "src/api/users.ts"
+      provides: "User CRUD endpoints"
+      exports: ["GET", "POST"]
+  key_links:
+    - from: "src/api/users.ts"
+      to: "src/models/user.ts"
+      via: "imports User type"
+      pattern: "import.*User.*from.*models/user"
+---
+
+<objective>
+Create user authentication system with signup and login.
+
+Purpose: Enable users to create accounts and authenticate.
+Output: User model, signup/login endpoints, session management.
+</objective>
+
+<execution_context>
+@~/.claude/get-shit-done/workflows/execute-plan.md
+@~/.claude/get-shit-done/templates/summary.md
+</execution_context>
+
+<context>
+@.planning/PROJECT.md
+@.planning/ROADMAP.md
+@.planning/STATE.md
+</context>
+
+<tasks>
+
+<task type="auto">
+  <name>Create User model</name>
+  <files>src/models/user.ts</files>
+  <action>
+Define User type with id, email, password (hashed), createdAt.
+Use jose for JWT (not jsonwebtoken - CommonJS issues).
+Export TypeScript interface and Zod schema for validation.
+  </action>
+  <verify>tsc --noEmit passes without errors</verify>
+  <done>User type exported and usable</done>
+</task>
+
+<task type="auto">
+  <name>Create signup endpoint</name>
+  <files>src/app/api/auth/signup/route.ts</files>
+  <action>
+POST endpoint that:
+1. Validates email format and password strength
+2. Hashes password with bcrypt (cost factor 12)
+3. Creates user in database
+4. Returns JWT token in httpOnly cookie
+
+Error handling:
+- 400 if validation fails
+- 409 if email already exists
+- 500 for database errors
+  </action>
+  <verify>curl -X POST localhost:3000/api/auth/signup -d '{"email":"test@example.com","password":"Test123!"}' returns 201 + Set-Cookie</verify>
+  <done>Signup works with valid input, rejects invalid input</done>
+</task>
+
+<task type="auto">
+  <name>Create login endpoint</name>
+  <files>src/app/api/auth/login/route.ts</files>
+  <action>
+POST endpoint that:
+1. Validates credentials against users table
+2. Compares password with bcrypt.compare
+3. Returns JWT token in httpOnly cookie on success
+4. Returns 401 on invalid credentials
+
+Avoid timing attacks: use constant-time comparison.
+  </action>
+  <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie with valid creds, 401 with invalid</verify>
+  <done>Valid credentials return cookie, invalid return 401</done>
+</task>
+
+</tasks>
+
+<verification>
+Before declaring plan complete:
+- [ ] npm run build succeeds
+- [ ] All endpoints respond correctly
+- [ ] TypeScript types are properly exported
+- [ ] No console errors or warnings
+</verification>
+
+<success_criteria>
+- All tasks completed
+- All verification checks pass
+- No errors or warnings introduced
+- JWT authentication working end-to-end
+</success_criteria>
+
+<output>
+After completion, create `.planning/phases/03-features/03-01-SUMMARY.md`
+</output>
+```
+
+## Frontmatter Fields
+
+YAML frontmatter provides metadata for the orchestrator:
+
+```yaml
+phase: 03-features           # Phase identifier
+plan: 01                     # Plan number within phase
+type: execute                # Plan type (execute or tdd)
+wave: 1                      # Execution wave (1, 2, 3...)
+depends_on: []               # Plan IDs this requires (e.g., ["01-01"])
+files_modified: [...]        # Files this plan touches
+autonomous: true             # false if has checkpoints
+requirements: [AUTH-01]      # Requirement IDs from ROADMAP
+must_haves:                  # Goal-backward verification
+  truths: [...]              # Observable behaviors
+  artifacts: [...]           # Files that must exist
+  key_links: [...]           # Critical connections
+```
+
+### Key Fields Explained
+
+**wave** - Pre-computed execution wave:
+- Wave 1: Independent plans run in parallel
+- Wave 2: Plans depending on Wave 1
+- Wave 3+: Further dependencies
+
+**depends_on** - Explicit dependencies:
+- `[]` - No dependencies, can run in Wave 1
+- `["01-01"]` - Requires plan 01-01 complete
+- `["01-01", "01-02"]` - Requires both plans
+
+**autonomous** - Checkpoint indicator:
+- `true` - Fully autonomous, no user interaction
+- `false` - Has checkpoints requiring user input
+
+**must_haves** - Verification criteria:
+- Used by verification subagent after execution
+- Ensures goal achievement, not just task completion
+
+## XML Tags
+
+### `<objective>`
+
+**Purpose:** What this plan accomplishes and why.
+
+**Structure:**
+```xml
+<objective>
+[One-line description of what gets built]
+
+Purpose: [Why this matters for the project]
+Output: [What artifacts will be created]
+</objective>
+```
+
+**Example:**
+```xml
+<objective>
+Build responsive dashboard with user and product data.
+
+Purpose: Provide unified view of system state for admin users.
+Output: Dashboard component with data fetching and layout.
+</objective>
+```
+
+### `<execution_context>`
+
+**Purpose:** Workflow and template references.
+
+**Structure:**
+```xml
+<execution_context>
+@~/.claude/get-shit-done/workflows/execute-plan.md
+@~/.claude/get-shit-done/templates/summary.md
+[If plan has checkpoints:]
+@~/.claude/get-shit-done/references/checkpoints.md
+</execution_context>
+```
+
+These files guide Claude's execution behavior.
+
+### `<context>`
+
+**Purpose:** Project files and prior work to read.
+
+**Structure:**
+```xml
+<context>
+@.planning/PROJECT.md
+@.planning/ROADMAP.md
+@.planning/STATE.md
+
+[Only include if genuinely needed:]
+@.planning/phases/XX-name/XX-YY-SUMMARY.md
+
+[Relevant source files:]
+@src/path/to/relevant.ts
+</context>
+```
+
+**Important:** Don't reflexively chain summaries. Only reference prior work if:
+- This plan imports types/exports from prior plan
+- Prior plan made decision affecting this plan
+- Prior plan's output is input to this plan
+
+### `<tasks>`
+
+**Purpose:** Container for all task elements.
+
+**Structure:**
+```xml
+<tasks>
+  <task type="auto">...</task>
+  <task type="auto">...</task>
+  <task type="checkpoint:human-verify">...</task>
+</tasks>
+```
+
+### `<task type="auto">`
+
+**Purpose:** Fully autonomous task Claude executes.
+
+**Structure:**
+```xml
+<task type="auto">
+  <name>[Action-oriented name]</name>
+  <files>[comma-separated file paths]</files>
+  <action>
+[Specific implementation details]
+[What to do]
+[How to do it]
+[What to avoid and WHY]
+  </action>
+  <verify>[Command or check to prove it worked]</verify>
+  <done>[Measurable acceptance criteria]</done>
+</task>
+```
+
+**Example from README:**
+```xml
+<task type="auto">
+  <name>Create login endpoint</name>
+  <files>src/app/api/auth/login/route.ts</files>
+  <action>
+Use jose for JWT (not jsonwebtoken - CommonJS issues).
+Validate credentials against users table.
+Return httpOnly cookie on success.
+  </action>
+  <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
+  <done>Valid credentials return cookie, invalid return 401</done>
+</task>
+```
+
+#### `<name>` Tag
+
+**Purpose:** Clear, action-oriented task name.
+
+**Format:** `[Verb] [noun]` or `[Verb] [noun]: [specifics]`
+
+**Good examples:**
+- `Create User model`
+- `Implement password hashing`
+- `Add error handling to login endpoint`
+
+**Bad examples:**
+- `User model` (not action-oriented)
+- `Authentication` (too vague)
+- `Task 1` (meaningless)
+
+#### `<files>` Tag
+
+**Purpose:** Which files this task creates or modifies.
+
+**Format:** Comma-separated paths relative to project root.
+
+**Examples:**
+```xml
+<files>src/models/user.ts</files>
+<files>src/api/users.ts, src/api/auth.ts</files>
+<files>src/components/Dashboard.tsx, src/styles/dashboard.css</files>
+```
+
+#### `<action>` Tag
+
+**Purpose:** Specific implementation instructions.
+
+**Include:**
+- What to build
+- How to build it
+- What to avoid and WHY
+- Technology choices
+- Error handling requirements
+
+**Example:**
+```xml
+<action>
+Create POST endpoint at /api/auth/signup that:
+1. Validates email format with Zod schema
+2. Checks password strength (min 8 chars, uppercase, number, symbol)
+3. Hashes password with bcrypt (cost factor 12)
+4. Creates user in database via Prisma
+5. Returns JWT in httpOnly cookie
+
+Error responses:
+- 400 for validation failures (clear error message)
+- 409 if email already exists
+- 500 for database errors (log details, return generic message)
+
+Use jose for JWT, NOT jsonwebtoken (CommonJS issues in Next.js).
+</action>
+```
+
+#### `<verify>` Tag
+
+**Purpose:** Command or check to prove the task worked.
+
+**Format:** Executable command or manual check.
+
+**Examples:**
+```xml
+<verify>npm run build succeeds</verify>
+<verify>tsc --noEmit passes without errors</verify>
+<verify>curl -X POST localhost:3000/api/users returns 201</verify>
+<verify>Open http://localhost:3000/dashboard and see user list</verify>
+```
+
+#### `<done>` Tag
+
+**Purpose:** Measurable acceptance criteria.
+
+**Format:** Observable outcome that proves task complete.
+
+**Examples:**
+```xml
+<done>User type exported and usable in other files</done>
+<done>Valid credentials return JWT cookie, invalid return 401</done>
+<done>Dashboard renders without errors and displays data</done>
+```
+
+### Checkpoint Tasks
+
+**Purpose:** Tasks requiring user interaction.
+
+**Types:**
+- `checkpoint:decision` - User makes implementation choice
+- `checkpoint:human-verify` - User verifies visual/functional output
+- `checkpoint:human-action` - User performs manual step
+
+**Example:**
+```xml
+<task type="checkpoint:human-verify" gate="blocking">
+  <what-built>Dashboard component - server running at http://localhost:3000</what-built>
+  <how-to-verify>
+Visit http://localhost:3000/dashboard and verify:
+- Desktop: 3-column grid layout
+- Mobile: Single column stack
+- No horizontal scroll
+- Data loads without errors
+  </how-to-verify>
+  <resume-signal>Type "approved" or describe issues</resume-signal>
+</task>
+```
+
+**Important:** Claude starts dev server BEFORE human-verify checkpoints. User only visits URLs.
+
+### `<verification>`
+
+**Purpose:** Final checks before declaring plan complete.
+
+**Structure:**
+```xml
+<verification>
+Before declaring plan complete:
+- [ ] [Specific test command]
+- [ ] [Build/type check passes]
+- [ ] [Behavior verification]
+</verification>
+```
+
+**Example:**
+```xml
+<verification>
+Before declaring plan complete:
+- [ ] npm run build succeeds
+- [ ] npm test passes all tests
+- [ ] TypeScript has no errors
+- [ ] All endpoints return expected status codes
+- [ ] No console errors or warnings
+</verification>
+```
+
+### `<success_criteria>`
+
+**Purpose:** Overall plan success definition.
+
+**Structure:**
+```xml
+<success_criteria>
+- All tasks completed
+- All verification checks pass
+- No errors or warnings introduced
+- [Plan-specific criteria]
+</success_criteria>
+```
+
+### `<output>`
+
+**Purpose:** Where to write the completion summary.
+
+**Structure:**
+```xml
+<output>
+After completion, create `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
+</output>
+```
+
+## Real Example from README
+
+From the "Why It Works" section:
+
+```xml
+<task type="auto">
+  <name>Create login endpoint</name>
+  <files>src/app/api/auth/login/route.ts</files>
+  <action>
+Use jose for JWT (not jsonwebtoken - CommonJS issues).
+Validate credentials against users table.
+Return httpOnly cookie on success.
+  </action>
+  <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
+  <done>Valid credentials return cookie, invalid return 401</done>
+</task>
+```
+
+**What makes this work:**
+
+1. **Precise technology choice:** "Use jose for JWT (not jsonwebtoken - CommonJS issues)"
+2. **Clear verification:** Exact curl command with expected output
+3. **Measurable done criteria:** Specific behaviors to test
+4. **No ambiguity:** Claude knows exactly what to build and how to verify
+
+## Anti-Patterns
+
+### Vague Actions
+
+**Bad:**
+```xml
+<action>Set up authentication</action>
+```
+
+**Good:**
+```xml
+<action>
+Create POST endpoint at /api/auth/login that:
+1. Validates credentials with Zod
+2. Compares password with bcrypt.compare
+3. Returns JWT in httpOnly cookie
+Use jose for JWT (not jsonwebtoken - CommonJS issues).
+</action>
+```
+
+### Non-Verifiable Checks
+
+**Bad:**
+```xml
+<verify>Authentication works</verify>
+```
+
+**Good:**
+```xml
+<verify>curl -X POST localhost:3000/api/auth/login -d '{"email":"test@example.com","password":"Test123!"}' returns 200 + Set-Cookie header</verify>
+```
+
+### Missing Context
+
+**Bad:**
+```xml
+<action>Use JWT for authentication</action>
+```
+
+**Good:**
+```xml
+<action>
+Use jose for JWT (not jsonwebtoken - CommonJS issues in Next.js App Router).
+Sign with HS256, 24h expiration.
+Store in httpOnly cookie for security.
+</action>
+```
+
+## See Also
+
+- [ROADMAP.md Structure](/reference/roadmap-md)
+- [.planning Directory](/reference/planning-directory)
+- [Phase Workflow Guide](/workflows/phase-workflow)

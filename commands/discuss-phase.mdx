@@ -1,0 +1,148 @@
+---
+title: 'gsd:discuss-phase'
+description: 'Gather phase context through adaptive questioning before planning'
+---
+
+## Overview
+
+The `gsd:discuss-phase` command extracts implementation decisions through adaptive questioning. It creates a `CONTEXT.md` file that downstream agents (researcher and planner) use to understand what to investigate and what choices are already locked in.
+
+## Usage
+
+```bash
+/gsd:discuss-phase <phase>
+```
+
+```bash
+/gsd:discuss-phase <phase> --auto
+```
+
+## Parameters
+
+<ParamField path="phase" type="number" required>
+  The phase number to discuss (e.g., 1, 2, 3). Must exist in your ROADMAP.md.
+</ParamField>
+
+<ParamField path="--auto" type="flag">
+  Automatic mode for reduced interaction.
+</ParamField>
+
+## How It Works
+
+The command follows an intelligent workflow:
+
+1. **Load Prior Context** - Reads PROJECT.md, REQUIREMENTS.md, STATE.md, and all prior CONTEXT.md files
+2. **Scout Codebase** - Finds reusable assets, patterns, and integration points
+3. **Analyze Phase** - Identifies gray areas, skipping decisions already made in prior phases
+4. **Present Gray Areas** - User selects which areas to discuss
+5. **Deep-Dive Each Area** - 4 questions per area, with code-informed options
+6. **Create CONTEXT.md** - Documents decisions that guide research and planning
+
+<Info>
+  The system uses Context7 integration for library and framework selection decisions.
+</Info>
+
+## Gray Areas by Domain
+
+Gray areas are intelligently generated based on what you're building:
+
+- **User Interface** → layout, density, interactions, states
+- **API** → responses, errors, auth, versioning
+- **CLI Tool** → output format, flags, modes, error handling
+- **Documentation** → structure, tone, depth, flow
+- **Data Organization** → criteria, grouping, naming, exceptions
+
+<Note>
+  The system generates 3-4 phase-specific gray areas, not generic categories.
+</Note>
+
+## Scope Guardrail
+
+<Warning>
+  Phase boundaries from ROADMAP.md are FIXED. Discussion clarifies HOW to implement, not WHETHER to add more features. If you suggest new capabilities, the system will respond: "That's its own phase. I'll note it for later."
+</Warning>
+
+Deferred ideas are captured but not acted upon during the current phase.
+
+## What NOT to Discuss
+
+Claude handles these automatically - you don't need to discuss:
+
+- Technical implementation details
+- Architecture choices
+- Performance concerns
+- Scope expansion
+
+## Files Created
+
+<ParamField path=".planning/{phase_num}-CONTEXT.md" type="file">
+  Implementation context with decisions clear enough that downstream agents can act without asking you again
+</ParamField>
+
+## Examples
+
+### Discuss Phase 2
+
+```bash
+/gsd:discuss-phase 2
+```
+
+Interactively discuss implementation decisions for phase 2.
+
+### Check Existing Context
+
+```bash
+/gsd:discuss-phase 3
+```
+
+If CONTEXT.md already exists for phase 3, you'll be offered options to:
+- Update existing context
+- View current context
+- Skip to next step
+
+## Probing Depth
+
+The questioning system is designed for thorough exploration:
+
+- Asks 4 questions per area before checking in
+- Offers: "More questions about [area], or move to next?"
+- If more → asks 4 more questions, checks again
+- After all areas → "Ready to create context?"
+
+## Success Criteria
+
+The command succeeds when:
+
+- Prior context loaded and applied (no re-asking decided questions)
+- Gray areas identified through intelligent analysis
+- User chose which areas to discuss
+- Each selected area explored until satisfied
+- Scope creep redirected to deferred ideas
+- CONTEXT.md captures decisions, not vague vision
+- User knows next steps
+
+## Next Steps
+
+After discussing a phase, you can:
+
+**Run research** (if domain knowledge is needed):
+```bash
+/gsd:plan-phase <phase> --research
+```
+
+**Skip straight to planning**:
+```bash
+/gsd:plan-phase <phase> --skip-research
+```
+
+## Allowed Tools
+
+This command has access to:
+- **Read** - Read context and code files
+- **Write** - Create CONTEXT.md
+- **Bash** - Execute shell commands
+- **Glob** - Find files by pattern
+- **Grep** - Search file contents
+- **AskUserQuestion** - Interactive questioning
+- **Task** - Delegate to specialized agents
+- **mcp__context7__*** - Library documentation lookup

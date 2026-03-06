@@ -1,0 +1,461 @@
+---
+title: 'Git Settings'
+description: 'Branching strategies, commit_docs, phase_branch_template, and milestone_branch_template configuration'
+---
+
+GSD provides flexible git integration with branching strategies, commit automation, and branch naming templates.
+
+## Configuration
+
+Set in `.planning/config.json`:
+
+```json
+{
+  "planning": {
+    "commit_docs": true,
+    "search_gitignored": false
+  },
+  "git": {
+    "branching_strategy": "none",
+    "phase_branch_template": "gsd/phase-{phase}-{slug}",
+    "milestone_branch_template": "gsd/{milestone}-{slug}"
+  }
+}
+```
+
+Update via:
+
+```bash
+/gsd:settings
+```
+
+## Branching Strategies
+
+<ParamField path="git.branching_strategy" type="string" default="none">
+  Controls when and how GSD creates branches:
+  - `none` — Commit directly to current branch (default)
+  - `phase` — Create branch per phase
+  - `milestone` — Create branch for entire milestone
+</ParamField>
+
+### Strategy: None (Default)
+
+**Behavior:**
+- All commits go to current branch
+- No automatic branch creation
+- Simple, straightforward workflow
+
+**Best for:**
+- Solo development
+- Trunk-based development
+- Simple projects
+- When you manage branches manually
+
+**Example:**
+```bash
+git checkout main
+/gsd:execute-phase 1  # Commits to main
+/gsd:execute-phase 2  # Commits to main
+/gsd:execute-phase 3  # Commits to main
+```
+
+### Strategy: Phase
+
+**Behavior:**
+- Creates new branch at start of each `execute-phase`
+- Branch name from `phase_branch_template`
+- Offers merge back to base branch at phase completion
+- Next phase branches from base (not previous phase)
+
+**Best for:**
+- Code review per phase
+- Granular rollback
+- Testing phases independently
+- Team workflows
+
+**Example:**
+```bash
+git checkout main
+/gsd:execute-phase 1  # Creates gsd/phase-01-user-auth, commits there
+# Offers merge to main
+/gsd:execute-phase 2  # Creates gsd/phase-02-api-endpoints from main
+# Offers merge to main
+```
+
+**Branch Lifecycle:**
+1. Phase execution starts
+2. Create branch from current (base)
+3. Execute all plans, commit to branch
+4. Offer merge to base:
+   - **Squash merge** (recommended) — Single commit per phase
+   - **Merge with history** — Preserve individual task commits
+5. Next phase branches from base, not previous phase branch
+
+### Strategy: Milestone
+
+**Behavior:**
+- Creates branch at first `execute-phase` in milestone
+- All phases commit to same milestone branch
+- Offers merge at `complete-milestone`
+- Clean release branch workflow
+
+**Best for:**
+- Release branches
+- PR per version/milestone
+- Feature branches
+- When phases are tightly coupled
+
+**Example:**
+```bash
+git checkout main
+/gsd:execute-phase 1  # Creates gsd/v1.0-mvp, commits there
+/gsd:execute-phase 2  # Commits to gsd/v1.0-mvp
+/gsd:execute-phase 3  # Commits to gsd/v1.0-mvp
+/gsd:complete-milestone  # Offers merge to main
+```
+
+**Branch Lifecycle:**
+1. First phase execution in milestone
+2. Create milestone branch from current (base)
+3. All subsequent phases commit to milestone branch
+4. At milestone completion, offer merge to base
+5. New milestone creates new branch
+
+## Branch Name Templates
+
+### Phase Branch Template
+
+<ParamField path="git.phase_branch_template" type="string" default="gsd/phase-{phase}-{slug}">
+  Template for phase branch names.
+</ParamField>
+
+**Available variables:**
+- `{phase}` — Zero-padded phase number (e.g., "01", "03", "12")
+- `{slug}` — Lowercase hyphenated phase name
+
+**Examples:**
+
+| Template | Phase 3: "User Authentication" | Result |
+|----------|--------------------------------|--------|
+| `gsd/phase-{phase}-{slug}` | Phase 3 | `gsd/phase-03-user-authentication` |
+| `feature/{phase}-{slug}` | Phase 3 | `feature/03-user-authentication` |
+| `phase-{phase}` | Phase 3 | `phase-03` |
+| `{slug}-phase-{phase}` | Phase 3 | `user-authentication-phase-03` |
+
+### Milestone Branch Template
+
+<ParamField path="git.milestone_branch_template" type="string" default="gsd/{milestone}-{slug}">
+  Template for milestone branch names.
+</ParamField>
+
+**Available variables:**
+- `{milestone}` — Version identifier (e.g., "v1.0", "v2.1")
+- `{slug}` — Lowercase hyphenated milestone name
+
+**Examples:**
+
+| Template | v1.0: "MVP" | Result |
+|----------|-------------|--------|
+| `gsd/{milestone}-{slug}` | v1.0 MVP | `gsd/v1.0-mvp` |
+| `release/{milestone}` | v1.0 MVP | `release/v1.0` |
+| `{milestone}/{slug}` | v1.0 MVP | `v1.0/mvp` |
+| `milestone-{slug}` | v1.0 MVP | `milestone-mvp` |
+
+### Custom Templates
+
+Edit `.planning/config.json` directly:
+
+```json
+{
+  "git": {
+    "branching_strategy": "phase",
+    "phase_branch_template": "feature/{phase}-{slug}",
+    "milestone_branch_template": "release/{milestone}"
+  }
+}
+```
+
+## Commit Behavior
+
+GSD commits automatically during execution:
+
+### Commit Frequency
+
+**Every task gets its own commit** immediately after completion.
+
+**Example phase execution:**
+```bash
+abc123f feat(03-02): add JWT authentication
+def456g feat(03-02): implement login endpoint  
+hij789k feat(03-02): create user session store
+lmn012o docs(03-02): complete user auth plan
+```
+
+### Commit Message Format
+
+```
+<type>(phase-plan): <description>
+```
+
+**Types:**
+- `feat` — New feature implementation
+- `fix` — Bug fix
+- `refactor` — Code refactoring
+- `test` — Test additions
+- `docs` — Documentation (plan summaries)
+- `chore` — Maintenance tasks
+
+**Examples:**
+```
+feat(01-01): create database schema
+feat(01-01): add migration files
+docs(01-01): complete database setup plan
+
+feat(02-03): implement API endpoints
+test(02-03): add endpoint tests
+docs(02-03): complete API implementation plan
+```
+
+## Planning Docs in Git
+
+<ParamField path="planning.commit_docs" type="boolean" default="true">
+  Track `.planning/` directory in git.
+</ParamField>
+
+### When Enabled (Default)
+
+**Commits include:**
+- `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`
+- Phase plans (`XX-YY-PLAN.md`)
+- Research findings (`XX-RESEARCH.md`)
+- Execution summaries (`XX-YY-SUMMARY.md`)
+- Verification results (`XX-VERIFICATION.md`)
+- Context and validation docs
+
+**Benefits:**
+- Full project history
+- Context for future work
+- Audit trail
+- Team visibility
+
+**Example commits:**
+```bash
+abc123f docs: initialize project planning
+def456g docs(01): create phase 1 research
+hij789k docs(01): create phase 1 plans
+lmn012o feat(01-01): implement database setup
+pqr345s docs(01-01): complete database setup summary
+```
+
+### When Disabled
+
+**Set when:**
+- Working on sensitive/private projects
+- Don't want planning artifacts in version control
+- `.planning/` is in `.gitignore`
+
+**Set via:**
+```bash
+/gsd:settings
+```
+
+Or edit config:
+```json
+{
+  "planning": {
+    "commit_docs": false
+  }
+}
+```
+
+**Behavior:**
+- Planning docs stay local
+- Only code/tests committed
+- `.planning/` in `.gitignore` auto-disables this
+
+<ParamField path="planning.search_gitignored" type="boolean" default="false">
+  Add `--no-ignore` to searches to include `.planning/`.
+</ParamField>
+
+**Enable when:**
+- `.planning/` is gitignored
+- Need to search planning docs for context
+
+## Merge Strategies
+
+### Squash Merge (Recommended)
+
+Combines all task commits into single phase/milestone commit.
+
+**Benefits:**
+- Clean, linear history
+- One commit per phase
+- Easy to review
+- Simple to revert
+
+**Example:**
+```bash
+# Phase branch has 15 task commits
+# Squash merge to main creates:
+abc123f feat: implement user authentication (Phase 3)
+```
+
+**When offered merge:**
+```
+Squash merge phase into main?
+  - Combines all commits into one
+  - Recommended for clean history
+  
+[Yes (Squash)] [No (Keep History)] [Skip]
+```
+
+### Merge with History
+
+Preserves individual task commits.
+
+**Benefits:**
+- Full granular history
+- Git bisect to exact task
+- Detailed audit trail
+
+**Drawback:**
+- Noisy commit history
+- Many commits per phase
+
+**Example:**
+```bash
+# Merge preserves all task commits:
+abc123f feat(03-02): add JWT authentication
+def456g feat(03-02): implement login endpoint
+hij789k feat(03-02): create user session store
+lmn012o docs(03-02): complete user auth plan
+```
+
+## Git Workflow Examples
+
+### Solo Developer (Default)
+
+```json
+{
+  "git": {
+    "branching_strategy": "none"
+  },
+  "planning": {
+    "commit_docs": true
+  }
+}
+```
+
+```bash
+git checkout main
+/gsd:execute-phase 1  # Commits to main
+/gsd:execute-phase 2  # Commits to main
+/gsd:complete-milestone  # Tag on main
+```
+
+### Team with Phase Reviews
+
+```json
+{
+  "git": {
+    "branching_strategy": "phase",
+    "phase_branch_template": "feature/{phase}-{slug}"
+  },
+  "planning": {
+    "commit_docs": true
+  }
+}
+```
+
+```bash
+git checkout develop
+/gsd:execute-phase 1  # Creates feature/01-database-setup
+# Review PR, merge to develop
+/gsd:execute-phase 2  # Creates feature/02-api-endpoints
+# Review PR, merge to develop
+```
+
+### Release Branch Workflow
+
+```json
+{
+  "git": {
+    "branching_strategy": "milestone",
+    "milestone_branch_template": "release/{milestone}"
+  },
+  "planning": {
+    "commit_docs": false
+  }
+}
+```
+
+```bash
+git checkout develop
+/gsd:execute-phase 1  # Creates release/v1.0
+/gsd:execute-phase 2  # Commits to release/v1.0
+/gsd:execute-phase 3  # Commits to release/v1.0
+/gsd:complete-milestone  # Merge release/v1.0 to main, tag
+```
+
+## Atomic Commits
+
+Every task creates an atomic commit:
+
+**Benefits:**
+1. **Git bisect** — Find exact failing task
+2. **Surgical reverts** — Undo specific task
+3. **Clear history** — See what changed when
+4. **AI context** — Claude reads commit history in future sessions
+
+**Example history:**
+```bash
+git log --oneline
+
+lmn012o docs(03-02): complete user auth plan
+hij789k feat(03-02): create user session store
+def456g feat(03-02): implement login endpoint
+abc123f feat(03-02): add JWT authentication
+pqr345s docs(03): create user auth research
+```
+
+**Bisect to find bug:**
+```bash
+git bisect start
+git bisect bad HEAD
+git bisect good abc123f
+# Git finds exact commit that introduced bug
+```
+
+## Safety Features
+
+### Always Confirm Destructive
+
+Force pushes, hard resets always require confirmation regardless of mode.
+
+```json
+{
+  "safety": {
+    "always_confirm_destructive": true
+  }
+}
+```
+
+### Pre-commit Hooks
+
+GSD respects your pre-commit hooks:
+- Runs hooks before each commit
+- If hook fails, fixes issues and retries
+- Never uses `--no-verify`
+
+### Merge Conflicts
+
+If merge conflict detected:
+1. GSD stops execution
+2. Provides conflict details
+3. Offers manual resolution or abort
+
+## Related References
+
+- [Configuration Schema](/reference/config-schema) — Full config.json reference
+- [Commands](/commands) — Git-related commands
+- [Workflows](/workflows) — Phase execution and branching flows

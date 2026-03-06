@@ -1,0 +1,390 @@
+---
+title: "update"
+description: "Update GSD to latest version with changelog display"
+---
+
+## Overview
+
+The `update` command checks for GSD updates, displays what changed, and installs the latest version with user confirmation. It handles both local and global npm installations.
+
+## Syntax
+
+```bash
+/gsd:update
+```
+
+## How It Works
+
+1. **Detects installation type** - Local vs global npm package
+2. **Checks current version** - Reads installed version
+3. **Fetches latest version** - Queries npm registry
+4. **Compares versions** - Determines if update available
+5. **Fetches changelog** - Gets changes between versions
+6. **Displays preview** - Shows what will be updated
+7. **Confirms with user** - Gets approval before updating
+8. **Executes update** - Runs npm install/update
+9. **Clears cache** - Removes cached workflow files
+10. **Confirms success** - Shows new version
+
+## Usage Examples
+
+### Update available
+
+```bash
+/gsd:update
+```
+
+**Output:**
+```
+Checking for GSD updates...
+
+Current version: 1.2.3
+Latest version:  1.3.0
+
+📋 Changelog (1.2.3 → 1.3.0)
+════════════════════════════════════════
+
+## Version 1.3.0 (2026-03-06)
+
+### ✨ New Features
+- Added `gsd:progress` command for progress tracking
+- Intelligent routing (Routes A-F) in progress workflow
+- Todo area inference from file paths
+
+### 🔧 Improvements
+- Faster parallel mapper agents in map-codebase
+- Better checkpoint handling in debug sessions
+- Enhanced STATE.md reconstruction in health check
+
+### 🐛 Bug Fixes
+- Fixed duplicate phase detection in health check
+- Resolved checkpoint age calculation
+- Corrected git commit formatting in quick mode
+
+### 📚 Documentation
+- Added progress command docs
+- Updated workflow diagrams
+- Improved troubleshooting guide
+
+════════════════════════════════════════
+
+⚠️  Update will perform clean install
+   This ensures no dependency conflicts.
+
+Proceed with update? (y/n):
+```
+
+**User confirms:**
+```
+y
+
+Updating GSD to 1.3.0...
+
+> npm install -g @claude/get-shit-done@latest
+
+[npm output]
+
+Clearing GSD cache...
+✓ Cache cleared
+
+✅ Successfully updated to GSD 1.3.0
+
+Changes take effect immediately.
+No restart required for slash commands.
+
+New commands available:
+- /gsd:progress
+
+Run /gsd:help to see updated command list.
+```
+
+### Already on latest version
+
+```bash
+/gsd:update
+```
+
+**Output:**
+```
+Checking for GSD updates...
+
+Current version: 1.3.0
+Latest version:  1.3.0
+
+✅ You're already on the latest version!
+
+No update needed.
+
+To see what's new in this version:
+https://github.com/gsd/releases/tag/v1.3.0
+```
+
+### User declines update
+
+```bash
+/gsd:update
+```
+
+**After changelog preview:**
+```
+Proceed with update? (y/n): n
+
+Update cancelled.
+
+You can update later by running:
+  /gsd:update
+
+To update manually:
+  npm install -g @claude/get-shit-done@latest
+```
+
+### Update with breaking changes
+
+```bash
+/gsd:update
+```
+
+**Output:**
+```
+Checking for GSD updates...
+
+Current version: 1.5.2
+Latest version:  2.0.0
+
+📋 Changelog (1.5.2 → 2.0.0)
+════════════════════════════════════════
+
+## Version 2.0.0 (2026-04-01)
+
+⚠️  BREAKING CHANGES
+
+- Config file format changed from JSON to YAML
+  Migration: Your config will be auto-migrated on first run
+
+- `gsd:execute` now requires explicit phase number
+  Before: /gsd:execute
+  After:  /gsd:execute <N>
+
+- Removed deprecated `gsd:init` command
+  Use: /gsd:new-project instead
+
+### ✨ New Features
+[...]
+
+════════════════════════════════════════
+
+⚠️  Breaking changes detected!
+   Please review changelog carefully.
+   Your projects will be auto-migrated.
+
+Proceed with update? (y/n):
+```
+
+## Version Detection
+
+### Local Installation
+```bash
+# Installed in current project
+node_modules/@claude/get-shit-done/
+
+# Update command
+npm install @claude/get-shit-done@latest
+```
+
+### Global Installation
+```bash
+# Installed globally
+~/.npm/lib/node_modules/@claude/get-shit-done/
+
+# Update command
+npm install -g @claude/get-shit-done@latest
+```
+
+GSD detects installation type automatically.
+
+## Changelog Fetching
+
+Changelog is fetched from:
+
+1. **GitHub releases** (primary)
+   - `https://api.github.com/repos/gsd/releases`
+   - Extracts release notes between versions
+
+2. **npm package** (fallback)
+   - Reads CHANGELOG.md from package
+   - Parses version sections
+
+3. **Local cache** (offline)
+   - Last fetched changelog
+   - Used if network unavailable
+
+## Update Process
+
+### 1. Version Check
+```bash
+# Get installed version
+npm list @claude/get-shit-done --depth=0
+
+# Get latest version
+npm view @claude/get-shit-done version
+```
+
+### 2. Changelog Preview
+```bash
+# Fetch releases between versions
+curl https://api.github.com/repos/gsd/releases
+
+# Extract and format changes
+```
+
+### 3. User Confirmation
+```
+⚠️  Update will perform clean install
+Proceed? (y/n):
+```
+
+### 4. Clean Install
+```bash
+# Uninstall current version
+npm uninstall -g @claude/get-shit-done
+
+# Install latest version
+npm install -g @claude/get-shit-done@latest
+```
+
+### 5. Cache Clearing
+```bash
+# Remove cached workflows and configs
+rm -rf ~/.claude/get-shit-done/.cache
+
+# Ensures fresh files loaded
+```
+
+### 6. Verification
+```bash
+# Verify new version
+gsd --version
+
+# Test command availability
+/gsd:help
+```
+
+## Clean Install Warning
+
+GSD performs **clean install** to prevent dependency conflicts:
+
+```
+⚠️  Update will perform clean install
+   This ensures no dependency conflicts.
+```
+
+Clean install:
+1. Uninstalls current version completely
+2. Clears npm cache for package
+3. Installs fresh from registry
+4. Rebuilds all dependencies
+
+**Why?** Prevents issues from:
+- Stale dependency versions
+- Cached modules
+- Partial update failures
+- Lock file conflicts
+
+## Breaking Change Handling
+
+When breaking changes are detected:
+
+```
+⚠️  Breaking changes detected!
+   Please review changelog carefully.
+   Your projects will be auto-migrated.
+```
+
+**Auto-migration runs on first command after update:**
+
+```bash
+# After updating to 2.0.0
+/gsd:resume-work
+
+Detected project from GSD 1.x.
+Running migration to 2.0.0...
+
+✓ Config file migrated (JSON → YAML)
+✓ STATE.md format updated
+✓ Phase files migrated
+
+Migration complete. Continuing with resume-work...
+```
+
+## Update Frequency
+
+<Card title="Check for updates" icon="clock">
+  - **Weekly** - For active projects
+  - **Before important work** - Get latest features
+  - **After seeing new features** - In documentation or changelog
+  - **When issues occur** - May be fixed in update
+</Card>
+
+## Rollback
+
+If update causes issues:
+
+```bash
+# Rollback to specific version
+npm install -g @claude/get-shit-done@1.2.3
+
+# Clear cache
+rm -rf ~/.claude/get-shit-done/.cache
+
+# Verify rollback
+gsd --version
+```
+
+## Offline Updates
+
+If offline, manual update:
+
+```bash
+# Download package
+# From: https://registry.npmjs.org/@claude/get-shit-done/-/get-shit-done-1.3.0.tgz
+
+# Install from tarball
+npm install -g ./get-shit-done-1.3.0.tgz
+
+# Clear cache
+rm -rf ~/.claude/get-shit-done/.cache
+```
+
+## Version Pinning
+
+To prevent auto-updates (not recommended):
+
+```json
+// package.json (local install)
+{
+  "dependencies": {
+    "@claude/get-shit-done": "1.3.0"
+  }
+}
+```
+
+## Update Notifications
+
+GSD checks for updates automatically:
+
+```bash
+/gsd:resume-work
+
+💡 GSD update available: 1.3.0 (you have 1.2.3)
+   Run /gsd:update to see what's new
+
+[Continues with resume-work...]
+```
+
+**Notification frequency:** Once per day maximum
+
+## Related Commands
+
+- [`help`](/commands/help) - See updated command list
+- [`settings`](/commands/settings) - Configure after update
+- [`health`](/commands/health) - Verify project integrity after update

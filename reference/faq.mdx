@@ -1,0 +1,546 @@
+---
+title: 'FAQ'
+description: 'Frequently asked questions about Get Shit Done'
+icon: 'circle-question'
+---
+
+## General Questions
+
+<AccordionGroup>
+  <Accordion title="What is Get Shit Done?">
+    GSD is a meta-prompting, context engineering, and spec-driven development system for Claude Code, OpenCode, Gemini CLI, and Codex. It solves context rot — the quality degradation that happens as Claude fills its context window.
+
+    Instead of vibecoding (describe what you want, get inconsistent garbage), GSD uses structured workflows, subagent orchestration, and XML prompting to build reliable software.
+  </Accordion>
+
+  <Accordion title="Who is this for?">
+    People who want to describe what they want and have it built correctly — without pretending they're running a 50-person engineering org.
+
+    Ideal for:
+    - Solo developers building with AI
+    - Creators who don't write code themselves
+    - Teams prototyping new features quickly
+    - Anyone frustrated with AI code quality degradation
+  </Accordion>
+
+  <Accordion title="How is this different from other spec-driven tools?">
+    Other tools (BMAD, SpecKit) add enterprise theater: sprint ceremonies, story points, stakeholder syncs, retrospectives, Jira workflows.
+
+    GSD focuses on what actually matters:
+    - **Context engineering** — Give Claude exactly what it needs
+    - **Fresh context per task** — 200K tokens purely for implementation
+    - **Atomic commits** — Clear history, easy rollback
+    - **Thin orchestrators** — Complexity in the system, not your workflow
+
+    What you see: a few commands that just work.
+  </Accordion>
+
+  <Accordion title="Does this work with my existing codebase?">
+    Yes! Run `/gsd:map-codebase` first. It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Then `/gsd:new-project` knows your codebase — questions focus on what you're adding, and planning automatically loads your patterns.
+  </Accordion>
+
+  <Accordion title="What runtimes does GSD support?">
+    GSD works with:
+    - **Claude Code** (Anthropic's official CLI)
+    - **OpenCode** (open source, supports free models)
+    - **Gemini CLI** (Google's Gemini models)
+    - **Codex** (skills-first architecture)
+
+    Install for any or all of them:
+    ```bash
+    npx get-shit-done-cc@latest --all --global
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Workflow Questions
+
+<AccordionGroup>
+  <Accordion title="What's the typical workflow?">
+    **Full cycle:**
+
+    1. **Initialize:** `/gsd:new-project` — Questions → Research → Requirements → Roadmap
+    2. **For each phase:**
+       - `/gsd:discuss-phase N` — Lock in your preferences
+       - `/gsd:plan-phase N` — Research + Plan + Verify
+       - `/gsd:execute-phase N` — Parallel execution in fresh contexts
+       - `/gsd:verify-work N` — Manual UAT with auto-diagnosis
+    3. **Complete:** `/gsd:audit-milestone` → `/gsd:complete-milestone`
+    4. **Next version:** `/gsd:new-milestone`
+
+    **Quick fixes:**
+    ```bash
+    /gsd:quick
+    > "Fix the login button"
+    ```
+  </Accordion>
+
+  <Accordion title="Do I have to use all the commands?">
+    No! The workflow is modular:
+
+    - **Skip discuss-phase** if you trust Claude's defaults
+    - **Skip research** with `--skip-research` if the domain is familiar
+    - **Skip verification** if you're prototyping
+    - **Use Quick Mode** for ad-hoc tasks
+
+    Configure defaults:
+    ```bash
+    /gsd:settings
+    ```
+  </Accordion>
+
+  <Accordion title="What's the difference between discuss-phase and plan-phase?">
+    **`/gsd:discuss-phase`** captures *your preferences* before planning:
+    - UI layout, component density, interactions
+    - API response formats, error handling
+    - Content structure, tone, depth
+    - Naming conventions, grouping criteria
+
+    Output: `CONTEXT.md` — feeds directly into researcher and planner.
+
+    **`/gsd:plan-phase`** creates *implementation plans*:
+    - Researches how to build it
+    - Creates 2-3 atomic task plans
+    - Verifies plans achieve phase goals
+
+    Output: `PLAN.md` files — ready for execution.
+
+    **Skip discuss-phase** and you get reasonable defaults. **Use discuss-phase** and you get your vision.
+  </Accordion>
+
+  <Accordion title="Can I change the roadmap mid-project?">
+    Yes! The system is modular:
+
+    ```bash
+    # Append phase
+    /gsd:add-phase
+
+    # Insert urgent work (creates decimal phase like 3.1)
+    /gsd:insert-phase 3
+
+    # Remove future phase and renumber
+    /gsd:remove-phase 7
+    ```
+
+    You're never locked in.
+  </Accordion>
+
+  <Accordion title="How do I resume work after a break?">
+    Two options:
+
+    **Quick status check:**
+    ```bash
+    /gsd:progress
+    ```
+
+    **Full context restoration:**
+    ```bash
+    /gsd:resume-work
+    ```
+
+    Both read state files and tell you exactly where you are and what's next.
+  </Accordion>
+
+  <Accordion title="What's Quick Mode?">
+    Quick Mode executes ad-hoc tasks with GSD guarantees but skips optional agents:
+
+    ```bash
+    /gsd:quick
+    > "Add dark mode toggle to settings"
+    ```
+
+    - **Same agents** — Planner + executor, same quality
+    - **Skips** — Research, plan checker, verifier
+    - **Separate tracking** — Lives in `.planning/quick/`, not phases
+
+    Use for: bug fixes, small features, config changes.
+
+    **Full quick mode** (includes verification):
+    ```bash
+    /gsd:quick --full
+    ```
+
+    **Discuss first** (gather context):
+    ```bash
+    /gsd:quick --discuss
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Technical Questions
+
+<AccordionGroup>
+  <Accordion title="Why does GSD use subagents?">
+    **Fresh context = consistent quality.**
+
+    Each subagent gets a clean 200K token window. No accumulated garbage, no degradation. Your main session stays at 30-40% context usage even during massive phases.
+
+    Example: Planning phase
+    - Orchestrator: 30-40% context (coordination only)
+    - Researcher: Fresh 200K (domain investigation)
+    - Planner: Fresh 200K (plan creation)
+    - Checker: Fresh 200K (verification)
+
+    The work happens in fresh contexts. You get consistent output.
+  </Accordion>
+
+  <Accordion title="What's in the .planning/ directory?">
+    ```
+    .planning/
+      PROJECT.md              # Vision (always loaded)
+      REQUIREMENTS.md         # Scoped v1/v2 requirements
+      ROADMAP.md              # Phase breakdown
+      STATE.md                # Decisions, blockers, memory
+      config.json             # Workflow configuration
+      research/               # Domain research
+      phases/
+        XX-phase-name/
+          XX-YY-PLAN.md       # Execution plans
+          XX-YY-SUMMARY.md    # What happened
+          CONTEXT.md          # Your preferences
+          RESEARCH.md         # Ecosystem research
+          VERIFICATION.md     # Verification results
+    ```
+
+    Each file is size-limited based on where Claude's quality degrades. Stay under, get consistent excellence.
+  </Accordion>
+
+  <Accordion title="Why XML prompts?">
+    Claude performs better with structured XML than unstructured text.
+
+    Every plan is XML:
+    ```xml
+    <task type="auto">
+      <name>Create login endpoint</name>
+      <files>src/app/api/auth/login/route.ts</files>
+      <action>
+        Use jose for JWT (not jsonwebtoken - CommonJS issues).
+        Validate credentials against users table.
+        Return httpOnly cookie on success.
+      </action>
+      <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
+      <done>Valid credentials return cookie, invalid return 401</done>
+    </task>
+    ```
+
+    Precise instructions. No guessing. Verification built in.
+  </Accordion>
+
+  <Accordion title="How does parallel execution work?">
+    Plans are grouped into "waves" based on dependencies:
+
+    ```
+    Wave 1 (parallel):
+      ├── Plan 01: User Model
+      └── Plan 02: Product Model
+             ↓
+    Wave 2 (parallel):
+      ├── Plan 03: Orders API (needs Plan 01)
+      └── Plan 04: Cart API (needs Plan 02)
+             ↓
+    Wave 3:
+      └── Plan 05: Checkout UI (needs Plans 03 + 04)
+    ```
+
+    - Independent plans → Same wave → Run in parallel
+    - Dependent plans → Later wave → Wait for dependencies
+    - File conflicts → Sequential plans or same plan
+
+    Configure:
+    ```bash
+    /gsd:settings
+    # Toggle: parallelization.enabled
+    ```
+  </Accordion>
+
+  <Accordion title="What are atomic commits?">
+    Each task gets its own commit immediately after completion:
+
+    ```bash
+    abc123f docs(08-02): complete user registration plan
+    def456g feat(08-02): add email confirmation flow
+    hij789k feat(08-02): implement password hashing
+    lmn012o feat(08-02): create registration endpoint
+    ```
+
+    **Benefits:**
+    - `git bisect` finds exact failing task
+    - Each task independently revertable
+    - Clear history for Claude in future sessions
+    - Better observability in AI-automated workflow
+  </Accordion>
+
+  <Accordion title="Can I use my own git branching strategy?">
+    Yes! Configure branching:
+
+    ```bash
+    /gsd:settings
+    ```
+
+    **Options:**
+    - `none` (default) — Commit to current branch
+    - `phase` — Create branch per phase (`gsd/phase-3-auth`)
+    - `milestone` — Create branch per milestone (`gsd/v1.0-mvp`)
+
+    At milestone completion, GSD offers squash merge (recommended) or merge with history.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Configuration Questions
+
+<AccordionGroup>
+  <Accordion title="What's the difference between model profiles?">
+    | Profile | Planning | Execution | Verification | Best For |
+    |---------|----------|-----------|--------------|----------|
+    | `quality` | Opus | Opus | Sonnet | Critical work, quota available |
+    | `balanced` | Opus | Sonnet | Sonnet | **Default** — good quality, reasonable cost |
+    | `budget` | Sonnet | Sonnet | Haiku | High-volume, less critical work |
+
+    Switch profiles:
+    ```bash
+    /gsd:set-profile budget
+    ```
+  </Accordion>
+
+  <Accordion title="How do I reduce costs?">
+    1. **Switch to budget profile:**
+       ```bash
+       /gsd:set-profile budget
+       ```
+
+    2. **Disable optional agents:**
+       ```bash
+       /gsd:settings
+       # Toggle off:
+       # - workflow.research (skip domain research)
+       # - workflow.plan_check (skip plan verification)
+       # - workflow.verifier (skip post-execution verification)
+       ```
+
+    3. **Use coarser granularity:**
+       ```bash
+       /gsd:settings
+       # Set granularity to "coarse" (3-5 phases instead of 8-12)
+       ```
+
+    4. **Skip research when familiar:**
+       ```bash
+       /gsd:plan-phase --skip-research
+       ```
+  </Accordion>
+
+  <Accordion title="Can I keep .planning/ out of git?">
+    Yes! For OSS contributions, client work, or privacy:
+
+    **During setup:**
+    - Answer "no" when asked about git tracking
+
+    **After setup:**
+    ```bash
+    /gsd:settings
+    # Set: commit_docs = false
+    ```
+
+    **Add to .gitignore:**
+    ```bash
+    echo ".planning/" >> .gitignore
+    ```
+
+    Planning artifacts stay local and never touch git.
+  </Accordion>
+
+  <Accordion title="What's YOLO mode?">
+    `mode: yolo` auto-approves all decisions.
+
+    **Interactive mode** (default):
+    - Confirms roadmap before starting
+    - Confirms plans before execution
+    - Asks for approval at checkpoints
+
+    **YOLO mode:**
+    - Auto-approves everything
+    - Runs end-to-end without stopping
+    - You walk away, come back to completed work
+
+    Configure:
+    ```bash
+    /gsd:settings
+    # Set: mode = yolo
+    ```
+
+    Recommended for familiar domains or when you trust the system.
+  </Accordion>
+
+  <Accordion title="Can I customize which model each agent uses?">
+    Yes! **Since v1.19.2:**
+
+    Edit `.planning/config.json`:
+    ```json
+    {
+      "model_profile": "balanced",
+      "model_overrides": {
+        "gsd-executor": "opus",
+        "gsd-verifier": "haiku"
+      }
+    }
+    ```
+
+    Overrides take precedence over the profile.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="When should I use discuss-phase?">
+    **Always use for:**
+    - Visual features (UI/UX)
+    - User-facing content
+    - APIs with multiple design choices
+    - Complex state management
+
+    **Can skip for:**
+    - CRUD operations with obvious patterns
+    - Well-defined technical tasks
+    - Bug fixes or refactoring
+
+    The deeper you go in discuss-phase, the more the system builds what you actually want.
+  </Accordion>
+
+  <Accordion title="How do I handle external services (databases, APIs)?">
+    GSD creates `USER-SETUP.md` for external service configuration.
+
+    **Checkpoints handle setup:**
+    - Claude attempts automated setup first
+    - If it requires auth/credentials, presents a checkpoint
+    - You complete the setup, respond, execution continues
+
+    **Types:**
+    - `human-verify` — "Did this work?" (yes/no)
+    - `human-action` — "Please do X, then confirm" (auth gates)
+    - `human-decide` — "Option A or B?" (decisions)
+  </Accordion>
+
+  <Accordion title="What's the recommended permissions mode?">
+    GSD is designed for frictionless automation. Run Claude Code with:
+
+    ```bash
+    claude --dangerously-skip-permissions
+    ```
+
+    Stopping to approve `date` and `git commit` 50 times defeats the purpose.
+
+    **Alternative:** Granular permissions in `.claude/settings.json` (see [README Security section](https://github.com/glittercowboy/get-shit-done#recommended-skip-permissions-mode)).
+  </Accordion>
+
+  <Accordion title="How often should I run /clear?">
+    **Between major commands:**
+    - After `/gsd:new-project`
+    - Between phases
+    - When you notice quality degradation
+
+    GSD's main orchestrators stay lean (30-40% context), but clearing between phases ensures maximum freshness.
+
+    **Restore state after clearing:**
+    ```bash
+    /gsd:progress
+    # or
+    /gsd:resume-work
+    ```
+  </Accordion>
+
+  <Accordion title="Should I commit .planning/ to git?">
+    **Commit if:**
+    - Solo project or trusted team
+    - You want planning history tracked
+    - You value reproducibility
+
+    **Don't commit if:**
+    - OSS project (planning is your private workflow)
+    - Client work (keep your process separate)
+    - Privacy concerns (planning may contain sensitive info)
+
+    Configure during setup or via `/gsd:settings`.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Plans don't match my expectations">
+    **Solution:** Use `/gsd:discuss-phase` before planning.
+
+    Most plan quality issues come from Claude making assumptions that `CONTEXT.md` would have prevented.
+
+    Preview intended approach:
+    ```bash
+    /gsd:list-phase-assumptions [N]
+    ```
+  </Accordion>
+
+  <Accordion title="Execution produces stubs or incomplete code">
+    **Cause:** Plan scope too large for a single context window.
+
+    **Solution:**
+    1. Increase granularity: `/gsd:settings` → `fine`
+    2. Delete phase plans: `rm -rf .planning/phases/XX-phase-name/`
+    3. Re-plan: `/gsd:plan-phase XX`
+
+    Plans should have 2-3 tasks maximum.
+  </Accordion>
+
+  <Accordion title="Lost track of where I am">
+    ```bash
+    /gsd:progress
+    ```
+
+    Reads all state files and shows:
+    - Current milestone and version
+    - Current phase and status
+    - What to do next
+    - Recent decisions and blockers
+  </Accordion>
+
+  <Accordion title="Something broke and I don't know why">
+    ```bash
+    /gsd:debug "Description of what's broken"
+    ```
+
+    GSD spawns a debugger agent that:
+    - Forms hypotheses
+    - Investigates systematically
+    - Creates fix plans
+    - Tracks state in `.planning/debug/`
+  </Accordion>
+</AccordionGroup>
+
+For more troubleshooting, see the [Troubleshooting Guide](/reference/troubleshooting).
+
+---
+
+## Community & Support
+
+<CardGroup cols={2}>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/gsd">
+    Join the GSD Discord for help from the community and developers.
+  </Card>
+  <Card title="GitHub Discussions" icon="github" href="https://github.com/glittercowboy/get-shit-done/discussions">
+    Ask questions and share feedback on GitHub Discussions.
+  </Card>
+  <Card title="Report Issues" icon="bug" href="https://github.com/glittercowboy/get-shit-done/issues">
+    Found a bug? Report it on GitHub Issues.
+  </Card>
+  <Card title="X (Twitter)" icon="twitter" href="https://x.com/gsd_foundation">
+    Follow @gsd_foundation for updates and announcements.
+  </Card>
+</CardGroup>

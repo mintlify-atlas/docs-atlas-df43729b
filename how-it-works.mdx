@@ -1,0 +1,501 @@
+---
+title: How It Works
+description: Understanding the GSD architecture and workflow stages in detail
+---
+
+# How It Works
+
+GSD implements a systematic workflow that solves context rot through **context engineering**, **multi-agent orchestration**, and **wave-based execution**.
+
+## The Core Pattern
+
+Every phase follows the same pattern:
+
+<Steps>
+  <Step title="Discuss">
+    Capture your implementation preferences before anything gets researched or planned.
+  </Step>
+  
+  <Step title="Plan">
+    Research the domain and create 2-3 atomic task plans with XML structure.
+  </Step>
+  
+  <Step title="Execute">
+    Run plans in parallel waves with fresh context windows and atomic commits.
+  </Step>
+  
+  <Step title="Verify">
+    Manually test deliverables and auto-diagnose any issues.
+  </Step>
+</Steps>
+
+## Workflow Stages
+
+### 1. Initialize Project
+
+```bash
+/gsd:new-project
+```
+
+One command, one flow. The system:
+
+1. **Questions** — Asks until it understands your idea completely (goals, constraints, tech preferences, edge cases)
+2. **Research** — Spawns parallel agents to investigate the domain (optional but recommended)
+3. **Requirements** — Extracts what's v1, v2, and out of scope
+4. **Roadmap** — Creates phases mapped to requirements
+
+You approve the roadmap. Now you're ready to build.
+
+<Info>
+  **Already have code?** Run `/gsd:map-codebase` first. It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Then `/gsd:new-project` knows your codebase — questions focus on what you're adding, and planning automatically loads your patterns.
+</Info>
+
+**Creates:**
+- `PROJECT.md` — Project vision and context
+- `REQUIREMENTS.md` — Scoped v1/v2 requirements with IDs
+- `ROADMAP.md` — Phase breakdown with status tracking
+- `STATE.md` — Decisions, blockers, session memory
+- `.planning/research/` — Domain research findings
+
+### 2. Discuss Phase
+
+```bash
+/gsd:discuss-phase 1
+```
+
+**This is where you shape the implementation.**
+
+Your roadmap has a sentence or two per phase. That's not enough context to build something the way *you* imagine it. This step captures your preferences before anything gets researched or planned.
+
+The system analyzes the phase and identifies gray areas based on what's being built:
+
+<CardGroup cols={2}>
+  <Card title="Visual features" icon="eye">
+    Layout, density, interactions, empty states
+  </Card>
+  
+  <Card title="APIs/CLIs" icon="code">
+    Response format, flags, error handling, verbosity
+  </Card>
+  
+  <Card title="Content systems" icon="file-alt">
+    Structure, tone, depth, flow
+  </Card>
+  
+  <Card title="Organization tasks" icon="folder">
+    Grouping criteria, naming, duplicates, exceptions
+  </Card>
+</CardGroup>
+
+For each area you select, it asks until you're satisfied. The output — `CONTEXT.md` — feeds directly into the next two steps:
+
+1. **Researcher reads it** — Knows what patterns to investigate ("user wants card layout" → research card component libraries)
+2. **Planner reads it** — Knows what decisions are locked ("infinite scroll decided" → plan includes scroll handling)
+
+<Tip>
+  The deeper you go here, the more the system builds what you actually want. Skip it and you get reasonable defaults. Use it and you get *your* vision.
+</Tip>
+
+**Creates:** `{phase_num}-CONTEXT.md`
+
+### 3. Plan Phase
+
+```bash
+/gsd:plan-phase 1
+```
+
+The system:
+
+1. **Researches** — Investigates how to implement this phase, guided by your CONTEXT.md decisions
+2. **Plans** — Creates 2-3 atomic task plans with XML structure
+3. **Verifies** — Checks plans against requirements, loops until they pass
+
+Each plan is small enough to execute in a fresh context window. No degradation, no "I'll be more concise now."
+
+#### Planning Agent Coordination
+
+```
+/gsd:plan-phase N
+      │
+      ├── Phase Researcher (x4 parallel)
+      │     ├── Stack researcher
+      │     ├── Features researcher
+      │     ├── Architecture researcher
+      │     └── Pitfalls researcher
+      │           │
+      │     ┌──────▼──────┐
+      │     │ RESEARCH.md │
+      │     └──────┬──────┘
+      │            │
+      │     ┌──────▼──────┐
+      │     │   Planner   │  <- Reads PROJECT.md, REQUIREMENTS.md,
+      │     │             │     CONTEXT.md, RESEARCH.md
+      │     └──────┬──────┘
+      │            │
+      │     ┌──────▼───────────┐     ┌────────┐
+      │     │   Plan Checker   │────>│ PASS?  │
+      │     └──────────────────┘     └───┬────┘
+      │                                  │
+      │                             Yes  │  No
+      │                              │   │   │
+      │                              │   └───┘  (loop, up to 3x)
+      │                              │
+      │                        ┌─────▼──────┐
+      │                        │ PLAN files │
+      │                        └────────────┘
+      └── Done
+```
+
+#### XML Plan Structure
+
+Every plan uses structured XML optimized for Claude:
+
+```xml
+<task type="auto">
+  <name>Create login endpoint</name>
+  <files>src/app/api/auth/login/route.ts</files>
+  <action>
+    Use jose for JWT (not jsonwebtoken - CommonJS issues).
+    Validate credentials against users table.
+    Return httpOnly cookie on success.
+  </action>
+  <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
+  <done>Valid credentials return cookie, invalid return 401</done>
+</task>
+```
+
+Precise instructions. No guessing. Verification built in.
+
+#### Nyquist Validation (Automated Test Mapping)
+
+During plan-phase research, GSD maps automated test coverage to each phase requirement **before any code is written**. This ensures that when Claude's executor commits a task, a feedback mechanism already exists to verify it within seconds.
+
+The researcher:
+- Detects your existing test infrastructure
+- Maps each requirement to a specific test command
+- Identifies any test scaffolding that must be created before implementation begins (Wave 0 tasks)
+
+The plan-checker enforces this as an 8th verification dimension: plans where tasks lack automated verify commands will not be approved.
+
+<Note>
+  **Output:** `{phase}-VALIDATION.md` — the feedback contract for the phase.
+</Note>
+
+<Warning>
+  Disable with `workflow.nyquist_validation: false` in `/gsd:settings` for rapid prototyping phases where test infrastructure isn't the focus.
+</Warning>
+
+**Creates:**
+- `{phase_num}-RESEARCH.md` — Domain research findings
+- `{phase_num}-{N}-PLAN.md` — Atomic execution plans
+- `{phase_num}-VALIDATION.md` — Test coverage mapping
+
+### 4. Execute Phase
+
+```bash
+/gsd:execute-phase 1
+```
+
+The system:
+
+1. **Runs plans in waves** — Parallel where possible, sequential when dependent
+2. **Fresh context per plan** — 200k tokens purely for implementation, zero accumulated garbage
+3. **Commits per task** — Every task gets its own atomic commit
+4. **Verifies against goals** — Checks the codebase delivers what the phase promised
+
+Walk away, come back to completed work with clean git history.
+
+#### Wave Execution Architecture
+
+Plans are grouped into "waves" based on dependencies. Within each wave, plans run in parallel. Waves run sequentially.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  PHASE EXECUTION                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  WAVE 1 (parallel)          WAVE 2 (parallel)          WAVE 3       │
+│  ┌─────────┐ ┌─────────┐    ┌─────────┐ ┌─────────┐    ┌─────────┐ │
+│  │ Plan 01 │ │ Plan 02 │ →  │ Plan 03 │ │ Plan 04 │ →  │ Plan 05 │ │
+│  │         │ │         │    │         │ │         │    │         │ │
+│  │ User    │ │ Product │    │ Orders  │ │ Cart    │    │ Checkout│ │
+│  │ Model   │ │ Model   │    │ API     │ │ API     │    │ UI      │ │
+│  └─────────┘ └─────────┘    └─────────┘ └─────────┘    └─────────┘ │
+│       │           │              ↑           ↑              ↑       │
+│       └───────────┴──────────────┴───────────┘              │       │
+│              Dependencies: Plan 03 needs Plan 01            │
+│                          Plan 04 needs Plan 02              │
+│                          Plan 05 needs Plans 03 + 04        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Why waves matter:**
+- Independent plans → Same wave → Run in parallel
+- Dependent plans → Later wave → Wait for dependencies
+- File conflicts → Sequential plans or same plan
+
+<Tip>
+  "Vertical slices" (Plan 01: User feature end-to-end) parallelize better than "horizontal layers" (Plan 01: All models, Plan 02: All APIs).
+</Tip>
+
+#### Execution Coordination
+
+```
+/gsd:execute-phase N
+      │
+      ├── Analyze plan dependencies
+      │
+      ├── Wave 1 (independent plans):
+      │     ├── Executor A (fresh 200K context) -> commit
+      │     └── Executor B (fresh 200K context) -> commit
+      │
+      ├── Wave 2 (depends on Wave 1):
+      │     └── Executor C (fresh 200K context) -> commit
+      │
+      └── Verifier
+            └── Check codebase against phase goals
+                  │
+                  ├── PASS -> VERIFICATION.md (success)
+                  └── FAIL -> Issues logged for /gsd:verify-work
+```
+
+**Creates:**
+- `{phase_num}-{N}-SUMMARY.md` — Execution outcomes and decisions
+- `{phase_num}-VERIFICATION.md` — Post-execution verification results
+- Git commits for each task
+
+### 5. Verify Work
+
+```bash
+/gsd:verify-work 1
+```
+
+**This is where you confirm it actually works.**
+
+Automated verification checks that code exists and tests pass. But does the feature *work* the way you expected? This is your chance to use it.
+
+The system:
+
+1. **Extracts testable deliverables** — What you should be able to do now
+2. **Walks you through one at a time** — "Can you log in with email?" Yes/no, or describe what's wrong
+3. **Diagnoses failures automatically** — Spawns debug agents to find root causes
+4. **Creates verified fix plans** — Ready for immediate re-execution
+
+If everything passes, you move on. If something's broken, you don't manually debug — you just run `/gsd:execute-phase` again with the fix plans it created.
+
+<Info>
+  Manual user acceptance testing (UAT) was contributed by reddit user OracleGreyBeard.
+</Info>
+
+**Creates:** `{phase_num}-UAT.md`, fix plans if issues found
+
+### 6. Repeat → Complete → Next Milestone
+
+```bash
+/gsd:discuss-phase 2
+/gsd:plan-phase 2
+/gsd:execute-phase 2
+/gsd:verify-work 2
+...
+/gsd:complete-milestone
+/gsd:new-milestone
+```
+
+Loop **discuss → plan → execute → verify** until milestone complete.
+
+Each phase gets your input (discuss), proper research (plan), clean execution (execute), and human verification (verify). Context stays fresh. Quality stays high.
+
+When all phases are done, `/gsd:complete-milestone` archives the milestone and tags the release.
+
+Then `/gsd:new-milestone` starts the next version — same flow as `new-project` but for your existing codebase. You describe what you want to build next, the system researches the domain, you scope requirements, and it creates a fresh roadmap. Each milestone is a clean cycle: define → build → ship.
+
+## Context Engineering
+
+Claude Code is incredibly powerful *if* you give it the context it needs. Most people don't.
+
+GSD handles it for you:
+
+| File | What it Does |
+|------|-------------|
+| `PROJECT.md` | Project vision, always loaded |
+| `research/` | Ecosystem knowledge (stack, features, architecture, pitfalls) |
+| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability |
+| `ROADMAP.md` | Where you're going, what's done |
+| `STATE.md` | Decisions, blockers, position — memory across sessions |
+| `PLAN.md` | Atomic task with XML structure, verification steps |
+| `SUMMARY.md` | What happened, what changed, committed to history |
+| `todos/` | Captured ideas and tasks for later work |
+
+<Note>
+  Files have size limits based on where Claude's quality degrades. Stay under, get consistent excellence.
+</Note>
+
+## Multi-Agent Orchestration
+
+Every stage uses the same pattern: a thin orchestrator spawns specialized agents, collects results, and routes to the next step.
+
+| Stage | Orchestrator Does | Agents Do |
+|-------|------------------|----------|
+| **Research** | Coordinates, presents findings | 4 parallel researchers investigate stack, features, architecture, pitfalls |
+| **Planning** | Validates, manages iteration | Planner creates plans, checker verifies, loop until pass |
+| **Execution** | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context |
+| **Verification** | Presents results, routes next | Verifier checks codebase against goals, debuggers diagnose failures |
+
+The orchestrator never does heavy lifting. It spawns agents, waits, integrates results.
+
+<Tip>
+  **The result:** You can run an entire phase — deep research, multiple plans created and verified, thousands of lines of code written across parallel executors, automated verification against goals — and your main context window stays at 30-40%. The work happens in fresh subagent contexts. Your session stays fast and responsive.
+</Tip>
+
+## Quick Mode
+
+```bash
+/gsd:quick
+```
+
+**For ad-hoc tasks that don't need full planning.**
+
+Quick mode gives you GSD guarantees (atomic commits, state tracking) with a faster path:
+
+- **Same agents** — Planner + executor, same quality
+- **Skips optional steps** — No research, no plan checker, no verifier
+- **Separate tracking** — Lives in `.planning/quick/`, not phases
+
+Use for: bug fixes, small features, config changes, one-off tasks.
+
+```bash
+/gsd:quick
+> What do you want to do? "Add dark mode toggle to settings"
+```
+
+**Creates:** `.planning/quick/001-add-dark-mode-toggle/PLAN.md`, `SUMMARY.md`
+
+## Brownfield Workflow (Existing Codebase)
+
+```bash
+/gsd:map-codebase
+```
+
+For existing codebases, run `/gsd:map-codebase` before `/gsd:new-project`. It spawns parallel agents to analyze:
+
+<CardGroup cols={2}>
+  <Card title="Stack" icon="layer-group">
+    Languages, frameworks, libraries, tools
+  </Card>
+  
+  <Card title="Architecture" icon="sitemap">
+    File structure, data flow, key patterns
+  </Card>
+  
+  <Card title="Conventions" icon="book">
+    Naming, formatting, testing, documentation
+  </Card>
+  
+  <Card title="Concerns" icon="exclamation-triangle">
+    Technical debt, security issues, scalability concerns
+  </Card>
+</CardGroup>
+
+**Creates:**
+- `codebase/STACK.md`
+- `codebase/ARCHITECTURE.md`
+- `codebase/CONVENTIONS.md`
+- `codebase/CONCERNS.md`
+
+Then `/gsd:new-project` knows your codebase — questions focus on what you're **adding**, and planning automatically loads your patterns.
+
+## Project File Structure
+
+For reference, here is what GSD creates in your project:
+
+```
+.planning/
+  PROJECT.md              # Project vision and context (always loaded)
+  REQUIREMENTS.md         # Scoped v1/v2 requirements with IDs
+  ROADMAP.md              # Phase breakdown with status tracking
+  STATE.md                # Decisions, blockers, session memory
+  config.json             # Workflow configuration
+  MILESTONES.md           # Completed milestone archive
+  research/               # Domain research from /gsd:new-project
+  todos/
+    pending/              # Captured ideas awaiting work
+    done/                 # Completed todos
+  debug/                  # Active debug sessions
+    resolved/             # Archived debug sessions
+  codebase/               # Brownfield codebase mapping (from /gsd:map-codebase)
+  phases/
+    XX-phase-name/
+      XX-YY-PLAN.md       # Atomic execution plans
+      XX-YY-SUMMARY.md    # Execution outcomes and decisions
+      CONTEXT.md          # Your implementation preferences
+      RESEARCH.md         # Ecosystem research findings
+      VALIDATION.md       # Test coverage mapping
+      VERIFICATION.md     # Post-execution verification results
+```
+
+## Full Project Lifecycle
+
+```
+  ┌──────────────────────────────────────────────────┐
+  │                   NEW PROJECT                    │
+  │  /gsd:new-project                                │
+  │  Questions -> Research -> Requirements -> Roadmap│
+  └─────────────────────────┬────────────────────────┘
+                            │
+             ┌──────────────▼─────────────┐
+             │      FOR EACH PHASE:       │
+             │                            │
+             │  ┌────────────────────┐    │
+             │  │ /gsd:discuss-phase │    │  <- Lock in preferences
+             │  └──────────┬─────────┘    │
+             │             │              │
+             │  ┌──────────▼─────────┐    │
+             │  │ /gsd:plan-phase    │    │  <- Research + Plan + Verify
+             │  └──────────┬─────────┘    │
+             │             │              │
+             │  ┌──────────▼─────────┐    │
+             │  │ /gsd:execute-phase │    │  <- Parallel execution
+             │  └──────────┬─────────┘    │
+             │             │              │
+             │  ┌──────────▼─────────┐    │
+             │  │ /gsd:verify-work   │    │  <- Manual UAT
+             │  └──────────┬─────────┘    │
+             │             │              │
+             │     Next Phase?────────────┘
+             │             │ No
+             └─────────────┼──────────────┘
+                            │
+            ┌───────────────▼──────────────┐
+            │  /gsd:audit-milestone        │
+            │  /gsd:complete-milestone     │
+            └───────────────┬──────────────┘
+                            │
+                   Another milestone?
+                       │          │
+                      Yes         No -> Done!
+                       │
+               ┌───────▼──────────────┐
+               │  /gsd:new-milestone  │
+               └──────────────────────┘
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/getting-started/installation">
+    Install GSD for your runtime
+  </Card>
+  
+  <Card title="Quick Start" icon="rocket" href="/getting-started/quick-start">
+    Your first GSD project
+  </Card>
+  
+  <Card title="Commands" icon="terminal" href="/reference/commands">
+    Complete command reference
+  </Card>
+  
+  <Card title="Configuration" icon="sliders" href="/reference/configuration">
+    Workflow toggles and model profiles
+  </Card>
+</CardGroup>

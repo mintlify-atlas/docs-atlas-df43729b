@@ -1,0 +1,79 @@
+---
+title: 'gsd:audit-milestone'
+description: 'Audit milestone completion against original intent before archiving'
+---
+
+## Overview
+
+Verify that a milestone achieved its definition of done by checking requirements coverage, cross-phase integration, and end-to-end flows. This command orchestrates the audit process by reading existing VERIFICATION.md files from completed phases, aggregating technical debt and deferred gaps, then spawning an integration checker for cross-phase wiring.
+
+## Syntax
+
+```bash
+/gsd:audit-milestone [version]
+```
+
+<ParamField path="version" type="string" optional>
+  The milestone version to audit (e.g., "1.0", "1.1"). Defaults to the current milestone if not provided.
+</ParamField>
+
+## Process
+
+The command executes the audit-milestone workflow which:
+
+1. **Scope Determination** - Identifies the milestone version to audit
+2. **Verification Reading** - Reads all phase VERIFICATION.md files from completed phases
+3. **Integration Check** - Spawns integration checker to validate cross-phase wiring
+4. **Requirements Coverage** - Validates all requirements from REQUIREMENTS.md are addressed
+5. **Gap Identification** - Aggregates technical debt and deferred work
+6. **Routing** - Creates audit report and recommends next steps
+
+## Input Files
+
+The command reads:
+- `.planning/phases/*/*-SUMMARY.md` - Completed phase summaries
+- `.planning/phases/*/*-VERIFICATION.md` - Phase verification results
+- Core planning files loaded as needed via workflow initialization
+
+## Output
+
+Creates `.planning/v{version}-MILESTONE-AUDIT.md` with:
+- Requirements coverage analysis
+- Cross-phase integration verification
+- Technical debt summary
+- Identified gaps
+- Audit status (passed/gaps_found)
+
+## Examples
+
+### Audit Current Milestone
+
+```bash
+/gsd:audit-milestone
+```
+
+Audits the current milestone in progress.
+
+### Audit Specific Version
+
+```bash
+/gsd:audit-milestone 1.0
+```
+
+Audits the completed work for milestone v1.0.
+
+## Next Steps
+
+After auditing:
+- If **audit passed**: Run `/gsd:complete-milestone` to archive the milestone
+- If **gaps found**: Run `/gsd:plan-milestone-gaps` to create phases that close the gaps
+- Alternatively: Accept gaps as technical debt and proceed with completion
+
+## Allowed Tools
+
+- Read
+- Glob
+- Grep
+- Bash
+- Task
+- Write

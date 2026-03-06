@@ -1,0 +1,400 @@
+---
+title: Debugging
+description: Systematic debugging with persistent state and scientific method
+icon: bug
+---
+
+GSD's debugging system uses the scientific method with subagent isolation to investigate issues systematically while keeping your main context lean.
+
+## Why /gsd:debug Exists
+
+Debugging in chat sessions burns context fast - you read files, form hypotheses, test theories, and accumulate investigation artifacts. By the time you find the root cause, your context is polluted.
+
+GSD isolates debugging in fresh subagent contexts with persistent state across investigations.
+
+## How It Works
+
+<Steps>
+  <Step title="Gather symptoms">
+    The orchestrator asks structured questions about the issue:
+    
+    - Expected behavior
+    - Actual behavior  
+    - Error messages
+    - Timeline (when did it start?)
+    - Reproduction steps
+  </Step>
+  
+  <Step title="Spawn debugger agent">
+    A fresh `gsd-debugger` agent gets:
+    
+    - Full symptom context
+    - 200K clean context window
+    - Instructions to write findings to `.planning/debug/{slug}.md`
+  </Step>
+  
+  <Step title="Investigation">
+    The debugger uses scientific method:
+    
+    1. Form hypothesis
+    2. Design test
+    3. Execute test
+    4. Record evidence
+    5. Confirm or refute
+    6. Repeat until root cause found
+  </Step>
+  
+  <Step title="Checkpoints">
+    When human input is needed, the debugger writes a checkpoint and returns. You respond, and a continuation agent spawns with the debug file as context.
+  </Step>
+  
+  <Step title="Root cause or fix">
+    When found, the debugger either:
+    
+    - Offers to spawn a fix agent immediately
+    - Suggests creating a phase to address it properly
+    - Leaves it for manual intervention
+  </Step>
+</Steps>
+
+## Basic Usage
+
+### Start new debug session
+
+```bash
+/gsd:debug "Users can't log in after password reset"
+```
+
+The system will ask follow-up questions to gather symptoms, then spawn the debugger.
+
+### Resume active session
+
+```bash
+/gsd:debug
+```
+
+If active sessions exist, GSD lists them with:
+
+- Current hypothesis
+- Evidence gathered
+- Next action
+
+You can pick one to resume or start a new investigation.
+
+## Debug File Structure
+
+Each debug session creates a persistent file:
+
+```
+.planning/debug/
+  users-cant-login.md          # Active investigation
+  api-timeout-errors.md        # Active investigation
+  resolved/
+    memory-leak-dashboard.md   # Archived after resolution
+```
+
+The debug file contains:
+
+```markdown
+## Issue: Users Can't Log In
+
+### Symptoms
+- Expected: Login form submits, user redirected to dashboard
+- Actual: Form submits, shows "Invalid credentials" even with correct password
+- Timeline: Started 2024-03-15 around 14:00 UTC
+- Errors: None in frontend, 401 from /api/auth/login
+
+### Investigation
+
+#### Hypothesis 1: Password hashing mismatch
+Test: Check if recent password hash algorithm change affects verification
+Evidence: bcrypt rounds increased from 10 to 12 in commit abc123
+Status: REFUTED - old passwords still hash correctly
+
+#### Hypothesis 2: JWT secret rotated without user session migration
+Test: Check if JWT_SECRET environment variable changed
+Evidence: JWT_SECRET changed in deployment yesterday, sessions not invalidated
+Status: CONFIRMED
+
+### Root Cause
+JWT_SECRET was rotated but existing sessions weren't cleared. Users with old JWTs can't authenticate.
+
+### Fix
+Invalidate all sessions and force re-login on next request.
+```
+
+## Checkpoint Types
+
+The debugger may return checkpoints for human input:
+
+| Checkpoint Type | When Used | Example |
+|----------------|-----------|----------|
+| `human-verify` | Need you to test something | "Can you try logging in now?" |
+| `clarification` | Need more context | "What's the exact error message?" |
+| `permission` | Need approval to proceed | "This requires database access. Proceed?" |
+| `decision` | Multiple paths forward | "Fix now or plan properly?" |
+
+## Handling Debugger Returns
+
+<Tabs>
+  <Tab title="Root Cause Found">
+    ```
+    ## ROOT CAUSE FOUND
+    
+    JWT_SECRET was rotated without invalidating existing sessions.
+    Users with old tokens can't authenticate.
+    
+    Evidence: Environment variable changed in production deployment.
+    
+    Options:
+    1. Fix now - spawn fix agent
+    2. Plan fix - create phase for proper migration
+    3. Manual fix - you handle it
+    ```
+    
+    GSD offers next steps based on severity and complexity.
+  </Tab>
+  
+  <Tab title="Checkpoint Reached">
+    ```
+    ## CHECKPOINT REACHED
+    
+    Type: human-verify
+    
+    I've added session invalidation logic to the login endpoint.
+    Can you try logging in now and confirm it works?
+    ```
+    
+    You respond, then GSD spawns a continuation agent that:
+    
+    - Reads the debug file
+    - Sees your response
+    - Continues from where it left off
+  </Tab>
+  
+  <Tab title="Investigation Inconclusive">
+    ```
+    ## INVESTIGATION INCONCLUSIVE
+    
+    Checked:
+    - Password hashing (no issues)
+    - JWT configuration (looks correct)
+    - Database connectivity (healthy)
+    
+    Unable to reproduce the issue in development.
+    
+    Options:
+    1. Continue investigating with more context
+    2. Manual investigation recommended
+    3. Add logging and monitor production
+    ```
+    
+    Sometimes issues are environmental or intermittent.
+  </Tab>
+</Tabs>
+
+## Continuation Flow
+
+When you respond to a checkpoint:
+
+```bash
+# Debugger asks: "Can you try logging in now?"
+> Yes, it works!
+
+# GSD spawns continuation agent
+Task(
+  prompt="Continue debugging users-cant-login. Evidence in debug file.",
+  checkpoint_response="Yes, it works!",
+  subagent_type="gsd-debugger"
+)
+```
+
+The continuation agent:
+
+1. Reads `.planning/debug/users-cant-login.md`
+2. Sees the checkpoint
+3. Processes your response
+4. Decides whether to finalize/resolve or continue investigating
+
+## Modes
+
+The debugger has two modes:
+
+### `find_and_fix` (default)
+
+Investigates **and** fixes if the fix is simple and safe:
+
+- Single-file changes
+- Config adjustments
+- Clear, low-risk fixes
+
+For complex fixes, it recommends planning a proper phase.
+
+### `investigate_only`
+
+Investigates but never touches code. Use when:
+
+- You want diagnosis only
+- The fix requires careful planning
+- Multiple services are involved
+
+## Examples
+
+<CodeGroup>
+```bash Production Error
+/gsd:debug "500 errors on /api/users endpoint"
+
+# Symptoms:
+# Expected: Returns user list
+# Actual: 500 Internal Server Error
+# Timeline: Started 30 minutes ago
+# Errors: "Cannot read property 'map' of undefined"
+
+# Debugger investigates, finds null check missing
+# Offers to fix immediately
+```
+
+```bash Performance Issue
+/gsd:debug "Dashboard loads slowly"
+
+# Symptoms:
+# Expected: <2s load time
+# Actual: 8-10s load time
+# Timeline: Gradual degradation over 2 weeks
+
+# Debugger investigates:
+# - Checks database query plans
+# - Profiles frontend bundle size
+# - Analyzes network requests
+
+# Finds: N+1 query in user feed
+# Recommends: Plan phase to refactor query patterns
+```
+
+```bash Intermittent Bug
+/gsd:debug "Sometimes users see wrong data"
+
+# Symptoms:
+# Expected: User sees their own data
+# Actual: Occasionally sees another user's data
+# Timeline: Reported 3 times this week
+# Reproduction: Unclear
+
+# Debugger investigates:
+# - Checks for race conditions
+# - Reviews caching logic
+# - Examines session handling
+
+# Checkpoint: "Can you reproduce this in staging?"
+# You: "No, only in production"
+
+# Continues investigating with production logs
+```
+</CodeGroup>
+
+## Best Practices
+
+### Do:
+
+- **Be specific** when describing symptoms
+- **Include error messages** verbatim
+- **Note timeline** (when did it start?)
+- **Provide reproduction steps** if known
+- **Let debugger finish** before trying fixes
+
+### Don't:
+
+- Start debugging in main chat (wastes context)
+- Assume root cause (let debugger investigate)
+- Fix without understanding (may mask deeper issues)
+- Ignore checkpoints (debugger needs feedback)
+
+## When to Use /gsd:debug vs /gsd:quick
+
+<Tabs>
+  <Tab title="Use /gsd:debug When...">
+    - [ ] You don't know the root cause
+    - [ ] Multiple possible causes
+    - [ ] Issue is intermittent or environmental
+    - [ ] Need systematic investigation
+    - [ ] Want evidence trail for postmortem
+    - [ ] Complex system interactions
+  </Tab>
+  
+  <Tab title="Use /gsd:quick When...">
+    - [ ] Root cause is obvious
+    - [ ] Simple fix needed
+    - [ ] No investigation required
+    - [ ] Urgent hotfix
+    - [ ] Clear what to change
+  </Tab>
+</Tabs>
+
+## Integration with Phases
+
+If debugging reveals a complex issue:
+
+```bash
+# Debug finds root cause
+/gsd:debug "Memory leak in background jobs"
+
+# Debugger recommends:
+> This requires refactoring job queue architecture.
+> Recommend: /gsd:add-phase "Refactor background job system"
+
+# Add to roadmap
+/gsd:add-phase "Refactor background job system"
+
+# Plan properly
+/gsd:discuss-phase 14
+/gsd:plan-phase 14
+/gsd:execute-phase 14
+```
+
+The debug file becomes part of the phase research context.
+
+## Model Selection
+
+The debugger agent respects your model profile:
+
+| Profile | Debugger Model |
+|---------|---------------|
+| quality | Opus |
+| balanced | Sonnet |
+| budget | Sonnet |
+
+Debugging gets Opus in quality mode because investigation quality matters more than speed.
+
+## Archival
+
+When a debug session resolves:
+
+```bash
+# Debugger marks session resolved
+## STATUS: RESOLVED
+
+Root cause: JWT_SECRET rotation without session migration
+Fix: Added session invalidation on next request
+Commit: abc123f
+
+# File moved to resolved/
+mv .planning/debug/users-cant-login.md \
+   .planning/debug/resolved/users-cant-login.md
+```
+
+Resolved sessions are kept for reference and postmortems.
+
+## Context Efficiency
+
+The debug orchestrator stays lean:
+
+1. **Gathers symptoms** - Structured questions
+2. **Spawns agent** - Fresh 200K context
+3. **Receives checkpoint** - Brief summary only
+4. **Spawns continuation** - Fresh context again
+
+Your main session never sees the investigation details - only the final result.
+
+<Note>
+Debug sessions can spawn multiple continuation agents if needed. Each gets a fresh context, ensuring investigation quality never degrades.
+</Note>

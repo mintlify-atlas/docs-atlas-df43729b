@@ -1,0 +1,450 @@
+---
+title: "progress"
+description: "Check project progress, show context, and route to next action"
+---
+
+## Overview
+
+The `progress` command checks project progress, summarizes recent work and upcoming tasks, then intelligently routes you to the next action—either executing an existing plan or creating the next one. It provides situational awareness before continuing work.
+
+## Syntax
+
+```bash
+/gsd:progress
+```
+
+## How It Works
+
+1. **Loads project state** from STATE.md and ROADMAP.md
+2. **Analyzes recent work** - Last completed phases, quick tasks, commits
+3. **Checks current position** - Active phase, checkpoints, incomplete plans
+4. **Evaluates next steps** - What work is ready or needed
+5. **Routes intelligently** - Executes plan, creates plan, or offers options
+6. **Preserves routing logic** - Implements Routes A-F from workflow
+
+## Routing Logic
+
+The progress command uses six intelligent routing paths:
+
+### Route A: Execute Existing Plan
+**Condition:** Phase has PLAN.md but no SUMMARY.md
+
+```
+✓ Plan exists and ready
+→ /gsd:execute {N}
+```
+
+### Route B: Resume from Checkpoint  
+**Condition:** `.continue-here.md` exists
+
+```
+✓ Checkpoint detected
+→ Resume from saved state
+```
+
+### Route C: Plan Next Phase
+**Condition:** Current phase complete, next phase in roadmap
+
+```
+✓ Phase N complete, Phase N+1 in roadmap
+→ /gsd:plan-phase
+```
+
+### Route D: Create Next Milestone
+**Condition:** All roadmap phases complete
+
+```
+✓ Milestone complete
+→ /gsd:plan-milestone
+```
+
+### Route E: Offer Options
+**Condition:** Ambiguous state or multiple valid paths
+
+```
+? Multiple options available
+→ Present user with choices
+```
+
+### Route F: Project Complete
+**Condition:** All work done, no todos, clean state
+
+```
+✓ Project complete
+→ Celebrate and suggest next project
+```
+
+## Usage Examples
+
+### Mid-project with ready plan
+
+```bash
+/gsd:progress
+```
+
+**Output:**
+```
+📊 Project Progress: E-commerce Platform
+════════════════════════════════════════
+
+**Overall Status**
+✅ Completed: 4/12 phases (33%)
+🎯 Current: Phase 5 - Shopping Cart
+📅 Started: 2 weeks ago
+
+**Recent Work**
+✓ Phase 4: Product Catalog (completed 2 days ago)
+  - Search and filtering
+  - Category navigation  
+  - Image optimization
+  Commit: feat: complete product catalog with search (a1b2c3d)
+
+✓ Quick task: Add loading states (completed yesterday)
+  Commit: feat: add loading spinners to product pages (d4e5f6g)
+
+**Current Phase: Shopping Cart**
+📋 Status: Planned, ready to execute
+📄 PLAN.md created: 2 days ago
+✓ All prerequisites met
+
+**Next Action**
+Route A: Execute existing plan
+
+Ready to implement Phase 5. Run:
+
+  /gsd:execute 5
+
+Estimated: 3-4 hours based on plan scope
+```
+
+### Phase complete, plan next
+
+```bash
+/gsd:progress
+```
+
+**Output:**
+```
+📊 Project Progress: Task Management API
+═══════════════════════════════════════
+
+**Overall Status**
+✅ Completed: 6/8 phases (75%)
+🎯 Current: Milestone 2 (75% complete)
+📅 Started: 3 weeks ago
+
+**Recent Work**
+✓ Phase 6: Notification System (completed 1 hour ago)
+  - Email notifications
+  - Push notification service
+  - Notification preferences
+  - Event-driven architecture
+  Commit: feat: complete notification system (g7h8i9j)
+  Verified: All tests passing ✓
+
+**Upcoming Work**
+Next in roadmap:
+- Phase 7: Real-time Updates (websockets)
+- Phase 8: Performance Optimization
+
+**Next Action**
+Route C: Plan next phase
+
+Phase 6 complete! Plan Phase 7:
+
+  /gsd:plan-phase
+
+Or review context first:
+
+  /gsd:discuss
+```
+
+### Resume from checkpoint
+
+```bash
+/gsd:progress
+```
+
+**Output:**
+```
+📊 Project Progress: Analytics Dashboard
+════════════════════════════════════════
+
+**Overall Status**
+✅ Completed: 2/10 phases (20%)
+🎯 Current: Phase 3 - Data Visualization
+📅 Started: 1 week ago
+
+**Recent Work**
+✓ Phase 2: Database Schema (completed 3 days ago)
+
+**Current Phase: Data Visualization**
+⏸️  Status: Paused mid-execution
+📄 Checkpoint: .continue-here.md (created 2 days ago)
+📊 Progress: 60% complete
+
+**Checkpoint Details**
+Position: Finishing chart components
+Completed:
+- Line and bar charts
+- Data aggregation logic
+- Chart configuration
+
+Remaining:
+- Pie and scatter charts
+- Interactive tooltips
+- Export functionality
+
+Blockers: None
+
+**Next Action**
+Route B: Resume from checkpoint
+
+Continue where you left off:
+
+  /gsd:resume-work
+
+Or start fresh:
+
+  /gsd:execute 3
+```
+
+### Multiple options available
+
+```bash
+/gsd:progress
+```
+
+**Output:**
+```
+📊 Project Progress: Mobile App
+═══════════════════════════════
+
+**Overall Status**
+✅ Completed: 5/8 phases (62%)
+📋 Pending todos: 4
+🎯 Current: Between phases
+
+**Recent Work**
+✓ Phase 5: User Settings (completed 1 day ago)
+✓ Quick task: Fix navigation bug (completed today)
+
+**Available Options**
+Route E: Multiple paths available
+
+1. 📋 Plan Phase 6: Push Notifications
+   Next in roadmap, prerequisites met
+   → /gsd:plan-phase
+
+2. ✅ Work on todos (4 pending)
+   - High priority: Add offline support (api)
+   - High priority: Fix image caching (performance)
+   - Medium priority: Add haptic feedback (frontend)
+   - Low priority: Update documentation (docs)
+   → /gsd:check-todos
+
+3. 🐛 Review debug sessions (1 active)
+   - Intermittent crash on profile page
+   - Status: hypothesis formed
+   → /gsd:debug
+
+4. 💬 Discuss next milestone
+   Milestone 1 is 62% complete
+   → /gsd:discuss
+
+What would you like to do?
+```
+
+### Project complete
+
+```bash
+/gsd:progress
+```
+
+**Output:**
+```
+📊 Project Progress: Blog Platform
+══════════════════════════════════
+
+**Overall Status**
+✅ Completed: 8/8 phases (100%)
+✅ All milestones complete
+✅ No pending todos
+✅ No active debug sessions
+📅 Duration: 6 weeks
+
+**Recent Work**
+✓ Phase 8: Deployment & Monitoring (completed today)
+  - CI/CD pipeline
+  - Production deployment
+  - Error monitoring
+  - Performance tracking
+  Commit: feat: complete deployment and monitoring (x1y2z3a)
+  
+**Project Summary**
+Milestone 1: Core Features
+- ✓ User authentication
+- ✓ Post creation and editing
+- ✓ Comment system
+- ✓ Search functionality
+
+Milestone 2: Enhancement
+- ✓ Image upload and optimization
+- ✓ Draft management
+- ✓ SEO optimization
+- ✓ Analytics integration
+
+**Next Action**
+Route F: Project complete! 🎉
+
+All planned work finished. Consider:
+
+1. 🚀 Deploy and launch
+   → Review deployment checklist
+
+2. 📊 Post-launch monitoring
+   → /gsd:add-todo Post-launch tasks
+
+3. 🔄 Plan next iteration
+   → /gsd:new-project (new milestone)
+
+4. 📝 Document learnings
+   → Update CONTEXT.md with insights
+
+Congratulations on completing Blog Platform!
+```
+
+## What Gets Analyzed
+
+### Project Metrics
+- Total phases vs completed
+- Milestone progress
+- Project start date and duration
+- Commit frequency
+
+### Recent Activity
+- Last 3 completed phases
+- Last 5 quick tasks
+- Recent commits with messages
+- Last discussion or planning session
+
+### Current State
+- Active phase identification
+- Checkpoint detection
+- Incomplete plans (PLAN without SUMMARY)
+- Health issues (via implicit health check)
+
+### Upcoming Work
+- Next phase in roadmap
+- Pending todos count by area
+- Active debug sessions
+- Blockers or dependencies
+
+## Edge Case Handling
+
+### No STATE.md
+```
+No project state found.
+
+Initialize project:
+  /gsd:new-project
+
+Or resume existing project:
+  /gsd:resume-work
+```
+
+### Corrupted STATE.md
+```
+State file corrupted. Running health check...
+[Attempts repair]
+
+If repair fails:
+  /gsd:health --repair
+```
+
+### Ambiguous next phase
+```
+Multiple incomplete phases detected:
+- Phase 4: Has PLAN, no SUMMARY
+- Phase 6: Has PLAN, no SUMMARY
+
+Which phase to execute?
+```
+
+## Integration with Other Commands
+
+### Before planning
+```bash
+# Check progress first
+/gsd:progress
+
+# Then plan based on what's needed
+/gsd:plan-phase
+```
+
+### After resuming
+```bash
+# Resume loads basic state  
+/gsd:resume-work
+
+# Progress gives detailed status
+/gsd:progress
+```
+
+### During active work
+```bash
+# Quick status check
+/gsd:progress
+
+# Continue working
+[Returns to phase execution]
+```
+
+## Files Read
+
+- `.planning/STATE.md` - Project state
+- `.planning/ROADMAP.md` - Phase definitions
+- `.planning/CONTEXT.md` - Decisions and context
+- `.planning/phases/**/PLAN.md` - Phase plans
+- `.planning/phases/**/SUMMARY.md` - Completion records
+- `.planning/phases/**/.continue-here.md` - Checkpoints
+- `.planning/quick/*.md` - Quick tasks
+- `.planning/todos/**/*.md` - Pending todos
+- `.planning/debug/*.md` - Debug sessions
+- `.git/logs/HEAD` - Recent commits
+
+## When to Use
+
+<Card title="Perfect for" icon="compass">
+  - Starting your work session
+  - After completing a phase
+  - When unsure what to do next
+  - Before planning sessions
+  - After long breaks
+  - Sprint planning
+  - Status check-ins
+</Card>
+
+<Card title="Pairs well with" icon="link">
+  - `/gsd:resume-work` → `/gsd:progress` (detailed status)
+  - `/gsd:progress` → `/gsd:execute` (ready to work)
+  - `/gsd:progress` → `/gsd:plan-phase` (plan next)
+  - `/gsd:progress` → `/gsd:check-todos` (review todos)
+</Card>
+
+## Success Criteria
+
+- ✅ Project state loaded
+- ✅ Recent work summarized
+- ✅ Current position identified
+- ✅ Next steps evaluated
+- ✅ Intelligent routing applied (Routes A-F)
+- ✅ User knows exactly what to do next
+
+## Related Commands
+
+- [`resume-work`](/commands/resume-work) - High-level restoration
+- [`health`](/commands/health) - Validate project state
+- [`execute`](/commands/execute) - Execute phase plan
+- [`plan-phase`](/commands/plan-phase) - Plan next phase
+- [`check-todos`](/commands/check-todos) - Review pending todos

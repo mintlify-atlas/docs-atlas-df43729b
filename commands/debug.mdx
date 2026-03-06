@@ -1,0 +1,301 @@
+---
+title: "debug"
+description: "Systematic debugging with persistent state across context resets"
+---
+
+## Overview
+
+The `debug` command uses scientific method and subagent isolation to systematically investigate and fix issues. Debug state persists across context resets, allowing deep investigation without burning main context.
+
+## Syntax
+
+```bash
+/gsd:debug [issue-description]
+```
+
+<ParamField path="issue-description" type="string" optional>
+  Brief description of the issue to debug. If omitted, GSD lists active debug sessions to resume.
+</ParamField>
+
+## How It Works
+
+### Orchestrator Role (Main Session)
+- Gathers symptoms from user
+- Spawns gsd-debugger subagents
+- Handles checkpoints
+- Spawns continuation agents
+- Keeps main context lean
+
+### Debugger Subagent (Fresh 200k Context)
+- Deep file investigation
+- Hypothesis formation and testing
+- Evidence gathering
+- Root cause analysis
+- Fix implementation
+- Writes to `.planning/debug/{slug}.md`
+
+### Why Subagents?
+Investigation burns context fast (reading files, forming hypotheses, testing). Fresh 200k context per investigation allows thorough debugging without clogging main session.
+
+## Debug Workflow
+
+### 1. Symptom Gathering
+
+GSD asks structured questions:
+
+1. **Expected behavior** - What should happen?
+2. **Actual behavior** - What happens instead?
+3. **Error messages** - Any errors? (paste or describe)
+4. **Timeline** - When did this start? Ever worked?
+5. **Reproduction** - How do you trigger it?
+
+### 2. Investigation
+
+Debugger agent:
+- Reads relevant files
+- Forms hypotheses
+- Tests assumptions
+- Gathers evidence
+- Eliminates possibilities
+- Identifies root cause
+
+### 3. Checkpoints
+
+Agent returns to orchestrator when:
+- **Root cause found** → Offers fix options
+- **Needs user input** → Asks for clarification
+- **Verification needed** → User tests the fix
+- **Context reset needed** → Saves state, spawns fresh agent
+
+### 4. Resolution
+
+Once root cause confirmed:
+- **Fix now** - Spawn fix subagent
+- **Plan fix** - Create phase plan (`--gaps` mode)
+- **Manual fix** - User handles it
+
+## Usage Examples
+
+### New debug session
+
+```bash
+/gsd:debug Users can't log in with Google OAuth
+```
+
+**GSD gathers symptoms:**
+```
+Expected: Users click "Login with Google" and authenticate
+Actual: Redirect happens but shows "Invalid state" error
+Errors: "OAuth state parameter mismatch"
+Timeline: Started after deploying yesterday
+Reproduction: Any user, any browser
+```
+
+**GSD spawns debugger:**
+- Investigates OAuth flow
+- Checks state parameter handling
+- Reviews recent changes
+- Finds: State stored in memory, lost on server restart
+- Root cause: Missing session persistence
+
+### Resume existing session
+
+```bash
+/gsd:debug
+```
+
+**GSD lists active sessions:**
+```
+ Active Debug Sessions:
+
+1. google-oauth-login-fails
+   Status: Root cause found
+   Hypothesis: Session state not persisted
+   Next: Ready to fix
+
+2. slow-dashboard-queries  
+   Status: Investigating
+   Hypothesis: Missing index on user_events
+   Next: Waiting for EXPLAIN results
+
+Select a number to resume, or describe a new issue:
+```
+
+### Debug with checkpoints
+
+```bash
+/gsd:debug API returns 500 on product search
+```
+
+**Investigation process:**
+
+**Checkpoint 1: Need user verification**
+```
+Agent: Found potential issue - search query isn't sanitized.
+       Can you try: curl -X POST /api/search -d '{"q":"test"}'
+       and share the full error?
+
+User: [pastes error with SQL syntax details]
+
+Agent continues with new evidence...
+```
+
+**Checkpoint 2: Root cause found**
+```
+ROOT CAUSE: SQL injection vulnerability
+- File: api/search.ts:45
+- Query concatenates user input directly
+- Missing parameterized query
+
+Options:
+1. Fix now (spawn fix agent)
+2. Plan fix (create security phase)
+3. Manual fix
+```
+
+## Debug File Structure
+
+```
+.planning/debug/
+├── google-oauth-login-fails.md
+├── slow-dashboard-queries.md
+└── api-500-product-search.md
+```
+
+### Debug File Format
+
+```markdown
+# Debug: google-oauth-login-fails
+
+Created: 2026-03-06 14:30
+Status: root_cause_found
+
+## Symptoms
+- Expected: OAuth login succeeds
+- Actual: "Invalid state" error
+- Errors: State parameter mismatch
+- Timeline: After deploy 2026-03-05
+- Reproduction: All users, all browsers
+
+## Hypotheses Tested
+1. ❌ Cookie settings - Cookies working fine
+2. ❌ Redirect URL mismatch - URLs correct
+3. ✅ Session persistence - State lost on restart
+
+## Evidence
+- server.ts:23 - Session uses MemoryStore
+- deploy.log - Server restarted 2026-03-05 23:15
+- User reports align with restart time
+
+## Root Cause
+OAuth state stored in memory-only session store.
+Server restart clears all sessions, invalidating
+state parameters for in-flight OAuth flows.
+
+## Solution
+Switch to persistent session store (Redis).
+```
+
+## Checkpoint Types
+
+### human-verify
+```
+Agent needs user to test something:
+- Run a command
+- Test a scenario
+- Verify behavior
+- Check logs
+```
+
+### need-input
+```
+Agent needs clarification:
+- Additional symptoms
+- Environment details
+- Configuration values
+- Access credentials
+```
+
+### context-reset
+```
+Agent used most of context window:
+- Saves state to debug file
+- Returns to orchestrator
+- Orchestrator spawns fresh agent
+- Fresh agent loads state, continues
+```
+
+## Debug Modes
+
+### find_and_fix (default)
+- Investigate root cause
+- Propose fix
+- Implement fix (if user approves)
+
+### investigate_only
+- Find root cause
+- Document findings
+- Don't implement fix
+
+## Status Values
+
+- `investigating` - Actively gathering evidence
+- `hypothesis_formed` - Testing specific theory
+- `root_cause_found` - Issue identified
+- `fix_proposed` - Solution ready
+- `fixed` - Fix implemented
+- `verified` - User confirmed fixed
+- `resolved` - Session complete
+
+## When to Use
+
+<Card title="Perfect for" icon="bug">
+  - Production issues
+  - Intermittent bugs
+  - Performance problems
+  - Integration failures
+  - "It worked yesterday" scenarios
+  - Complex reproduction steps
+  - Deep investigation needed
+</Card>
+
+<Card title="Not needed for" icon="circle-xmark">
+  - Syntax errors (clear from error message)
+  - Known bugs with known fixes
+  - Simple logic errors
+  - Tasks better suited for `/gsd:quick`
+</Card>
+
+## Integration with Planning
+
+If fix is complex, route to phase planning:
+
+```bash
+# Debug finds root cause
+/gsd:debug
+
+# Fix requires multiple changes
+GSD: "This fix needs a dedicated phase. Creating plan..."
+
+# Creates phase with --gaps context
+/gsd:plan-phase --gaps
+```
+
+The `--gaps` flag passes debug findings to planner.
+
+## Success Criteria
+
+- ✅ Active sessions checked
+- ✅ Symptoms gathered (if new)
+- ✅ gsd-debugger spawned with context
+- ✅ Checkpoints handled correctly
+- ✅ Root cause confirmed before fixing
+- ✅ Debug state persisted in file
+- ✅ User knows resolution status
+
+## Related Commands
+
+- [`quick`](/commands/quick) - For simple fixes after debugging
+- [`plan-phase`](/commands/plan-phase) - For complex fixes needing full phase
+- [`add-todo`](/commands/add-todo) - Capture debug findings as todos
+- [`health`](/commands/health) - Check for orphaned debug sessions

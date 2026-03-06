@@ -1,0 +1,525 @@
+---
+title: Git Branching
+description: Branch creation strategies for phases and milestones
+icon: code-branch
+---
+
+GSD supports three branching strategies to fit different workflows: no branches, per-phase branches, or per-milestone branches.
+
+## Strategies Overview
+
+| Strategy | Creates Branch | Scope | Best For |
+|----------|---------------|-------|----------|
+| `none` | Never | N/A | Solo development, simple projects |
+| `phase` | At each `execute-phase` | One phase per branch | Code review per phase, granular rollback |
+| `milestone` | At first `execute-phase` | All phases share one branch | Release branches, PR per version |
+
+## Strategy: none (Default)
+
+All commits go directly to your current branch.
+
+### Behavior
+
+```bash
+# You're on main
+git branch
+* main
+
+# Execute phase - commits to main
+/gsd:execute-phase 1
+
+# Still on main
+git branch  
+* main
+
+# All phase commits are on main
+git log --oneline
+abc123 feat(01-02): user registration endpoint
+def456 feat(01-01): user model and schema
+```
+
+### When to use
+
+- Solo developer
+- Simple projects with no code review
+- Continuous deployment from main
+- When you trust GSD's atomic commits
+
+### Advantages
+
+- ✅ Simplest workflow
+- ✅ No branch management overhead
+- ✅ Immediate deployment
+
+### Disadvantages
+
+- ❌ No isolation between phases
+- ❌ Harder to review work in chunks
+- ❌ Rollback requires reverting commits
+
+## Strategy: phase
+
+Creates a new branch for each phase, merges at phase completion.
+
+### Behavior
+
+```bash
+# You're on main
+git branch
+* main
+
+# Execute phase 1 - creates branch
+/gsd:execute-phase 1
+
+# Now on phase branch
+git branch
+  main
+* gsd/phase-01-user-authentication
+
+# All phase 1 commits are on this branch
+git log --oneline
+abc123 feat(01-02): user registration endpoint  
+def456 feat(01-01): user model and schema
+
+# Complete phase 1 - merges to main
+/gsd:execute-phase 2
+
+# Creates new branch for phase 2
+git branch
+  main
+  gsd/phase-01-user-authentication
+* gsd/phase-02-profile-management
+```
+
+### When to use
+
+- Team workflows with code review
+- Want to review each phase before merging
+- Need granular rollback capability
+- CI/CD runs per-phase validation
+
+### Advantages
+
+- ✅ Isolates each phase
+- ✅ Easy code review (one phase = one PR)
+- ✅ Granular rollback (delete branch)
+- ✅ Clear phase boundaries in git history
+
+### Disadvantages
+
+- ❌ More branch management
+- ❌ Merge conflicts if main moves
+- ❌ Requires manual PR creation
+
+## Strategy: milestone
+
+Creates one branch for the entire milestone at the first `execute-phase`, all phases share it.
+
+### Behavior
+
+```bash
+# You're on main
+git branch
+* main
+
+# Execute phase 1 - creates milestone branch
+/gsd:execute-phase 1
+
+# Now on milestone branch
+git branch
+  main
+* gsd/v1.0-user-system
+
+# Phase 1 commits
+git log --oneline
+abc123 feat(01-02): user registration endpoint
+def456 feat(01-01): user model and schema
+
+# Execute phase 2 - stays on same branch
+/gsd:execute-phase 2
+
+git branch
+  main
+* gsd/v1.0-user-system
+
+# All phases accumulate on this branch
+git log --oneline  
+hij789 feat(02-02): profile photo upload
+ghi012 feat(02-01): profile editing endpoint
+abc123 feat(01-02): user registration endpoint
+def456 feat(01-01): user model and schema
+
+# Complete milestone - merges to main
+/gsd:complete-milestone
+```
+
+### When to use
+
+- Release branches (v1.0, v2.0)
+- Want one PR per version
+- Milestone is a coherent unit
+- Team reviews entire milestone together
+
+### Advantages
+
+- ✅ Clean release workflow
+- ✅ One PR per milestone
+- ✅ All milestone work isolated
+- ✅ Easy to deploy milestone to staging
+
+### Disadvantages
+
+- ❌ Large PRs (many phases)
+- ❌ Harder to review incrementally
+- ❌ Rollback is all-or-nothing
+
+## Configuration
+
+### Via interactive settings
+
+```bash
+/gsd:settings
+
+# Question 5: Branching strategy?
+# 1. none (commits to current branch)
+# 2. phase (branch per phase)
+# 3. milestone (branch per milestone)
+
+> 2
+```
+
+### Via config file
+
+Edit `.planning/config.json`:
+
+```json
+{
+  "git": {
+    "branching_strategy": "phase",
+    "phase_branch_template": "gsd/phase-{phase}-{slug}",
+    "milestone_branch_template": "gsd/{milestone}-{slug}"
+  }
+}
+```
+
+### Template variables
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `{phase}` | `01`, `03`, `12` | Zero-padded phase number |
+| `{slug}` | `user-authentication` | Lowercase hyphenated phase name |
+| `{milestone}` | `v1.0`, `v2.1` | Milestone version |
+
+## Branch Templates
+
+### Default templates
+
+```json
+{
+  "phase_branch_template": "gsd/phase-{phase}-{slug}",
+  "milestone_branch_template": "gsd/{milestone}-{slug}"
+}
+```
+
+**Produces:**
+
+- Phase branch: `gsd/phase-01-user-authentication`
+- Milestone branch: `gsd/v1.0-user-system`
+
+### Custom templates
+
+```json
+{
+  "phase_branch_template": "feature/{slug}-phase-{phase}",
+  "milestone_branch_template": "release/{milestone}"
+}
+```
+
+**Produces:**
+
+- Phase branch: `feature/user-authentication-phase-01`
+- Milestone branch: `release/v1.0`
+
+## Merging Behavior
+
+### Phase strategy
+
+At the start of **next** phase (or milestone completion):
+
+<Steps>
+  <Step title="Checkout main">
+    `git checkout main`
+  </Step>
+  
+  <Step title="Merge phase branch">
+    `git merge --no-ff gsd/phase-01-user-authentication`
+  </Step>
+  
+  <Step title="Delete phase branch">
+    `git branch -d gsd/phase-01-user-authentication`
+  </Step>
+  
+  <Step title="Create next phase branch">
+    `git checkout -b gsd/phase-02-profile-management`
+  </Step>
+</Steps>
+
+Result: Clean phase boundaries, each phase is a merge commit.
+
+### Milestone strategy
+
+At `/gsd:complete-milestone`:
+
+<Steps>
+  <Step title="Offer squash merge">
+    "Merge with history or squash all phase commits?"
+    
+    - **Squash (recommended):** One commit for entire milestone
+    - **History:** All phase commits preserved
+  </Step>
+  
+  <Step title="Checkout main">
+    `git checkout main`
+  </Step>
+  
+  <Step title="Merge milestone branch">
+    `git merge --squash gsd/v1.0-user-system` (if squash)
+    
+    or
+    
+    `git merge --no-ff gsd/v1.0-user-system` (if history)
+  </Step>
+  
+  <Step title="Delete milestone branch">
+    `git branch -d gsd/v1.0-user-system`
+  </Step>
+</Steps>
+
+<Tabs>
+  <Tab title="Squash merge (recommended)">
+    ```bash
+    git log --oneline
+    
+    abc123 feat(milestone): v1.0 User System
+           
+           Completed phases:
+           - Phase 01: User authentication
+           - Phase 02: Profile management
+           - Phase 03: Social features
+    ```
+    
+    Clean main branch history, milestone is one atomic unit.
+  </Tab>
+  
+  <Tab title="Merge with history">
+    ```bash
+    git log --oneline
+    
+    abc123 Merge branch 'gsd/v1.0-user-system'
+    def456 feat(03-02): friend requests
+    ghi789 feat(03-01): follow system
+    jkl012 feat(02-02): profile photos
+    mno345 feat(02-01): profile editing
+    pqr678 feat(01-02): user registration
+    stu901 feat(01-01): user model
+    ```
+    
+    All phase commits visible in main history.
+  </Tab>
+</Tabs>
+
+## Working with PRs
+
+### Phase strategy workflow
+
+```bash
+# Execute phase - creates branch
+/gsd:execute-phase 1
+
+# Verify work
+/gsd:verify-work 1
+
+# Create PR (manual)
+gh pr create --title "Phase 01: User Authentication" \
+             --body "Implements user auth system"
+
+# Teammate reviews and approves
+
+# Move to next phase - auto-merges and creates next branch
+/gsd:execute-phase 2
+```
+
+Each phase gets its own PR for review.
+
+### Milestone strategy workflow
+
+```bash
+# Execute all phases (creates branch on first)
+/gsd:execute-phase 1
+/gsd:execute-phase 2
+# ...
+/gsd:execute-phase 8
+
+# Complete milestone
+/gsd:complete-milestone
+
+# Create PR (manual)
+gh pr create --title "v1.0: User System" \
+             --body "Complete user system milestone"
+
+# Team reviews entire milestone
+
+# Merge PR (manual)
+gh pr merge --squash
+```
+
+One PR for entire milestone.
+
+## Common Patterns
+
+### Solo developer
+
+```json
+{
+  "git": {
+    "branching_strategy": "none"
+  }
+}
+```
+
+Simplest - all commits to main.
+
+### Team with per-phase review
+
+```json
+{
+  "git": {
+    "branching_strategy": "phase",
+    "phase_branch_template": "feature/phase-{phase}-{slug}"
+  }
+}
+```
+
+Each phase reviewed in isolation.
+
+### Release workflow
+
+```json
+{
+  "git": {
+    "branching_strategy": "milestone",
+    "milestone_branch_template": "release/{milestone}"
+  }
+}
+```
+
+Milestones map to releases.
+
+## Best Practices
+
+<Tabs>
+  <Tab title="none strategy">
+    **Do:**
+    - Trust GSD's atomic commits
+    - Use for solo projects
+    - Deploy continuously
+    
+    **Don't:**
+    - Skip verification (`/gsd:verify-work`)
+    - Use on team projects requiring review
+  </Tab>
+  
+  <Tab title="phase strategy">
+    **Do:**
+    - Create PR after each phase
+    - Review before moving to next phase
+    - Keep main up to date
+    
+    **Don't:**
+    - Let phase branches go stale
+    - Execute 5 phases before creating PRs
+  </Tab>
+  
+  <Tab title="milestone strategy">
+    **Do:**
+    - Squash merge at completion (clean history)
+    - Deploy milestone branch to staging
+    - Review incrementally (even if one PR)
+    
+    **Don't:**
+    - Create milestone branches manually (let GSD do it)
+    - Leave milestone branches unmerged
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+### "Branch already exists"
+
+You may have an orphaned branch:
+
+```bash
+# Check branches
+git branch -a
+
+# Delete orphaned branch
+git branch -D gsd/phase-01-user-authentication
+
+# Retry
+/gsd:execute-phase 1
+```
+
+### "Merge conflicts"
+
+Main branch moved while you were working:
+
+```bash
+# On phase branch
+git checkout gsd/phase-03-social-features
+
+# Rebase on main
+git rebase main
+
+# Resolve conflicts
+
+# Continue
+/gsd:execute-phase 4
+```
+
+### "Switched strategies mid-milestone"
+
+Changing strategies mid-milestone can leave orphaned branches:
+
+```bash
+# Was using phase strategy, now using none
+# Old phase branches exist but won't be used
+
+# Clean up manually
+git branch | grep gsd/phase | xargs git branch -D
+```
+
+<Warning>
+Branching strategy changes apply to **future phases only**. Finish current phase before switching.
+</Warning>
+
+## Integration with Other Features
+
+### Quick mode
+
+Quick tasks respect branching strategy:
+
+- **none:** Commits to current branch
+- **phase/milestone:** Commits to active GSD branch
+
+### Decimal phases
+
+Decimal phases (3.1, 3.2) get their own branches in phase strategy:
+
+```bash
+/gsd:insert-phase 3 "Fix critical bug"
+/gsd:execute-phase 3.1
+
+# Creates: gsd/phase-3.1-fix-critical-bug
+```
+
+In milestone strategy, they commit to the existing milestone branch.

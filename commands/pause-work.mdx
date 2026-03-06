@@ -1,0 +1,103 @@
+---
+title: "pause-work"
+description: "Create context handoff when pausing work mid-phase"
+---
+
+## Overview
+
+The `pause-work` command creates a comprehensive handoff file when you need to pause work mid-phase. It captures your complete work state, making it easy to resume later without losing context.
+
+## Syntax
+
+```bash
+/gsd:pause-work
+```
+
+## How It Works
+
+When you run `pause-work`, GSD:
+
+1. **Detects your current phase** from recent files in `.planning/`
+2. **Gathers complete state** including:
+   - Current position in the phase
+   - Work completed so far
+   - Work remaining
+   - Decisions made
+   - Any blockers or open questions
+3. **Creates `.continue-here.md`** with all context sections and timestamp
+4. **Commits to git** as a WIP (work-in-progress) commit
+5. **Provides resume instructions** for your next session
+
+## What Gets Captured
+
+The handoff file includes:
+
+- **Phase identification** - Which phase you're working on
+- **Completion status** - What percentage complete, what's done
+- **Current position** - Exactly where you left off
+- **Recent changes** - Files modified in this session
+- **Decisions made** - Any architectural or implementation choices
+- **Next steps** - Clear list of what to do next
+- **Blockers** - Any issues preventing progress
+- **Context notes** - Important details to remember
+
+## Usage Examples
+
+### Basic pause
+
+```bash
+# Pause work on the current phase
+/gsd:pause-work
+```
+
+GSD will gather state and create:
+```
+.planning/phases/001-user-auth/.continue-here.md
+```
+
+### Resume later
+
+When you're ready to continue:
+
+```bash
+/gsd:resume-work
+```
+
+GSD automatically detects the `.continue-here.md` file and restores full context.
+
+## When to Use
+
+<Card title="Perfect for" icon="circle-check">
+  - Switching tasks mid-phase
+  - End of day during active work
+  - Before taking a break during complex changes
+  - When you need to context-switch urgently
+  - Handing off work to another team member
+</Card>
+
+<Card title="Not needed for" icon="circle-xmark">
+  - After completing a phase (state is already saved)
+  - At natural stopping points (after commits)
+  - When no work is in progress
+</Card>
+
+## Integration with Resume
+
+The `pause-work` and `resume-work` commands work together:
+
+1. **Pause** → Creates `.continue-here.md` with full state
+2. **Resume** → Detects checkpoint file and loads all context
+3. **Seamless continuation** → Pick up exactly where you left off
+
+## Files Created
+
+```
+.planning/phases/{phase-number}-{phase-name}/.continue-here.md
+```
+
+The handoff file uses markdown format with structured sections, making it both human-readable and machine-parseable.
+
+## Related Commands
+
+- [`resume-work`](/commands/resume-work) - Resume from a pause checkpoint
+- [`progress`](/commands/progress) - Check project progress and next actions

@@ -1,0 +1,210 @@
+---
+title: 'gsd:plan-phase'
+description: 'Create detailed phase plan (PLAN.md) with verification loop'
+---
+
+## Overview
+
+The `gsd:plan-phase` command creates executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification. It follows a default flow: Research (if needed) → Plan → Verify → Done.
+
+## Usage
+
+```bash
+/gsd:plan-phase [phase]
+```
+
+```bash
+/gsd:plan-phase 3 --research
+```
+
+```bash
+/gsd:plan-phase --skip-research --skip-verify
+```
+
+## Parameters
+
+<ParamField path="phase" type="number">
+  The phase number to plan. If omitted, auto-detects the next unplanned phase.
+</ParamField>
+
+<ParamField path="--auto" type="flag">
+  Automatic mode with minimal interaction.
+</ParamField>
+
+<ParamField path="--research" type="flag">
+  Force re-research even if RESEARCH.md already exists for this phase.
+</ParamField>
+
+<ParamField path="--skip-research" type="flag">
+  Skip research entirely and go straight to planning.
+</ParamField>
+
+<ParamField path="--gaps" type="flag">
+  Gap closure mode. Reads VERIFICATION.md and skips research. Use when addressing issues found during verification.
+</ParamField>
+
+<ParamField path="--skip-verify" type="flag">
+  Skip the verification loop that checks plan quality.
+</ParamField>
+
+<ParamField path="--prd" type="string">
+  Use a PRD or acceptance criteria file instead of discuss-phase. Parses requirements into CONTEXT.md automatically and skips discuss-phase entirely.
+  
+  Example: `--prd requirements.md`
+</ParamField>
+
+## How It Works
+
+The orchestrator manages the full workflow:
+
+1. **Parse Arguments** - Validates flags and phase number
+2. **Validate Phase** - Ensures phase exists in ROADMAP.md
+3. **Research Domain** (unless skipped) - Gathers relevant domain knowledge
+4. **Spawn gsd-planner** - Specialized agent creates the plan
+5. **Verify with gsd-plan-checker** - Quality assurance loop
+6. **Iterate** - Continues until pass or max iterations reached
+7. **Present Results** - Shows final plan and next steps
+
+<Info>
+  The verification loop ensures plans are executable, complete, and aligned with project context.
+</Info>
+
+## Auto-Detection
+
+When you run `/gsd:plan-phase` without a phase number:
+
+```bash
+/gsd:plan-phase
+```
+
+The system automatically detects the next unplanned phase from your ROADMAP.md and plans that phase.
+
+## Research Behavior
+
+By default, the system intelligently decides whether research is needed:
+
+- **Conducts research** when domain knowledge would help
+- **Skips research** for straightforward implementation tasks
+- **Reuses research** if RESEARCH.md already exists
+
+<Note>
+  Use `--research` to force fresh research, or `--skip-research` to bypass it entirely.
+</Note>
+
+## Gap Closure Mode
+
+When verification finds issues, use gap closure mode:
+
+```bash
+/gsd:plan-phase 3 --gaps
+```
+
+This mode:
+- Reads VERIFICATION.md to understand what failed
+- Skips research (issues are already understood)
+- Creates targeted fix plans
+
+## PRD Mode
+
+If you have a detailed PRD or acceptance criteria document:
+
+```bash
+/gsd:plan-phase 2 --prd product-requirements.md
+```
+
+This:
+- Parses the PRD into CONTEXT.md automatically
+- Skips the discuss-phase step entirely
+- Proceeds directly to planning
+
+<Warning>
+  PRD mode requires a well-structured requirements document. The system will parse it to extract implementation decisions.
+</Warning>
+
+## Files Created
+
+<ParamField path=".planning/{phase_num}-PLAN.md" type="file">
+  Executable phase plan with detailed tasks, dependencies, and implementation guidance
+</ParamField>
+
+<ParamField path=".planning/{phase_num}-RESEARCH.md" type="file">
+  Domain research findings (created when research is conducted)
+</ParamField>
+
+<ParamField path=".planning/{phase_num}-CONTEXT.md" type="file">
+  Implementation context (created when using --prd flag)
+</ParamField>
+
+## Examples
+
+### Plan Next Phase
+
+```bash
+/gsd:plan-phase
+```
+
+Auto-detects and plans the next unplanned phase.
+
+### Plan Specific Phase with Research
+
+```bash
+/gsd:plan-phase 4 --research
+```
+
+Forces fresh research for phase 4, even if RESEARCH.md exists.
+
+### Fast Planning (No Verification)
+
+```bash
+/gsd:plan-phase 2 --skip-verify
+```
+
+Creates a plan without running the quality verification loop.
+
+### Plan from PRD
+
+```bash
+/gsd:plan-phase 5 --prd @acceptance-criteria.md
+```
+
+Uses the acceptance criteria document as the source of truth, skipping discuss-phase.
+
+### Gap Closure
+
+```bash
+/gsd:plan-phase 3 --gaps
+```
+
+Reads VERIFICATION.md and creates plans to fix identified issues.
+
+## Workflow Gates
+
+All workflow gates are preserved:
+
+- **Validation** - Phase must exist in ROADMAP.md
+- **Research** - Domain knowledge gathering (when appropriate)
+- **Planning** - Specialized gsd-planner agent execution
+- **Verification Loop** - Quality checks until pass or max iterations
+- **Routing** - Automatic next-step suggestions
+
+## Next Steps
+
+After planning a phase, execute it:
+
+```bash
+/gsd:execute-phase <phase>
+```
+
+This runs all plans in the phase with wave-based parallel execution.
+
+## Allowed Tools
+
+This command has access to:
+- **Read** - Read context and code files
+- **Write** - Create plan files
+- **Bash** - Execute shell commands
+- **Glob** - Find files by pattern
+- **Grep** - Search file contents
+- **Task** - Spawn specialized agents (gsd-planner, gsd-plan-checker)
+- **WebFetch** - Fetch web resources for research
+- **mcp__context7__*** - Library documentation lookup

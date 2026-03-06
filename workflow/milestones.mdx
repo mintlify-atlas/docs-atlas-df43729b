@@ -1,0 +1,636 @@
+---
+title: Manage Milestones
+description: Complete milestones, archive work, and start new development cycles
+icon: flag-checkered
+---
+
+## Overview
+
+Milestones mark significant releases in your project. GSD provides commands to complete current work and start the next development cycle.
+
+<CardGroup cols={2}>
+  <Card title="Complete Milestone" icon="archive">
+    Archive completed work and tag a release
+  </Card>
+  <Card title="New Milestone" icon="plus">
+    Start the next version with fresh roadmap
+  </Card>
+</CardGroup>
+
+## Complete Milestone
+
+The `/gsd:complete-milestone` command marks your current milestone complete, archives artifacts, and prepares for the next cycle.
+
+### Command Usage
+
+```bash
+/gsd:complete-milestone <version>
+```
+
+<Tabs>
+  <Tab title="First Release">
+    ```bash
+    /gsd:complete-milestone 1.0
+    ```
+    
+    Completes your v1.0 milestone.
+  </Tab>
+  
+  <Tab title="Minor Version">
+    ```bash
+    /gsd:complete-milestone 1.1
+    ```
+    
+    Completes v1.1 features.
+  </Tab>
+  
+  <Tab title="Major Version">
+    ```bash
+    /gsd:complete-milestone 2.0
+    ```
+    
+    Completes v2.0 overhaul.
+  </Tab>
+</Tabs>
+
+### Pre-Flight Checks
+
+Before completion, GSD checks for milestone audit:
+
+<Steps>
+  <Step title="Check for Audit">
+    Looks for `.planning/v{version}-MILESTONE-AUDIT.md`
+  </Step>
+  
+  <Step title="Audit Status">
+    <Tabs>
+      <Tab title="No Audit">
+        ```markdown
+        ⚠ No milestone audit found.
+        
+        Run `/gsd:audit-milestone` first to verify:
+        - Requirements coverage
+        - Cross-phase integration
+        - End-to-end flows
+        
+        Proceed anyway? (yes/no)
+        ```
+      </Tab>
+      
+      <Tab title="Gaps Found">
+        ```markdown
+        ⚠ Milestone audit found gaps:
+        
+        - REQ-008: Email notifications not implemented
+        - Integration: Dashboard doesn't load user data
+        
+        Options:
+        1. /gsd:plan-milestone-gaps - Create phases to close gaps
+        2. Proceed anyway - Accept as tech debt
+        
+        What would you like to do?
+        ```
+      </Tab>
+      
+      <Tab title="Passed">
+        ```markdown
+        ✓ Milestone audit passed
+        
+        All requirements covered:
+        - REQ-001 through REQ-010 ✓
+        - Cross-phase integration verified ✓
+        - E2E flows working ✓
+        
+        Proceeding with completion...
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+### What It Does
+
+<Steps>
+  <Step title="Verify Readiness">
+    ```markdown
+    📋 Milestone v1.0 Completion Check
+    
+    Phases:
+    - Phase 1: Database Schema ✓
+    - Phase 2: User Authentication ✓
+    - Phase 3: Activity Dashboard ✓
+    - Phase 4: Settings & Profile ✓
+    
+    All phases have SUMMARY.md files.
+    Ready to complete milestone? (yes/no)
+    ```
+  </Step>
+  
+  <Step title="Gather Statistics">
+    ```markdown
+    📊 Milestone Statistics
+    
+    Scope:
+    - 4 phases completed
+    - 12 plans executed
+    - 47 tasks delivered
+    
+    Changes:
+    - 156 files changed
+    - 8,432 lines added
+    - 1,203 lines removed
+    
+    Timeline:
+    - Started: 2024-02-15
+    - Completed: 2024-03-06
+    - Duration: 20 days
+    
+    Confirm these stats? (yes/no)
+    ```
+  </Step>
+  
+  <Step title="Extract Accomplishments">
+    Reads all SUMMARY.md files and extracts key deliverables:
+    
+    ```markdown
+    🎯 Key Accomplishments
+    
+    1. User authentication with email/password
+    2. Activity dashboard with filtering and search
+    3. Real-time updates via WebSocket
+    4. Settings page with profile customization
+    5. Dark mode support
+    6. Comprehensive test coverage (94%)
+    
+    Approve these accomplishments? (yes/edit)
+    ```
+  </Step>
+  
+  <Step title="Archive Roadmap">
+    Creates `.planning/milestones/v1.0-ROADMAP.md` with full phase details:
+    
+    ```markdown
+    # Milestone v1.0: Initial Release
+    
+    **Status:** COMPLETE
+    **Completed:** 2024-03-06
+    
+    ## Scope
+    4 phases, 12 plans, 47 tasks
+    
+    ## Phases
+    
+    ### Phase 1: Database Schema
+    **Goal:** Set up data models and migrations
+    **Requirements:** REQ-001, REQ-002
+    **Status:** ✓ Complete
+    
+    [Full details for all phases...]
+    ```
+    
+    Updates `ROADMAP.md` to one-line summary:
+    ```markdown
+    ## Completed Milestones
+    
+    - [v1.0: Initial Release](.planning/milestones/v1.0-ROADMAP.md) - 4 phases, completed 2024-03-06
+    ```
+  </Step>
+  
+  <Step title="Archive Requirements">
+    Creates `.planning/milestones/v1.0-REQUIREMENTS.md` with final status:
+    
+    ```markdown
+    # v1.0 Requirements
+    
+    ## v1 Requirements (Delivered)
+    - [x] REQ-001: User registration and login
+    - [x] REQ-002: Activity tracking and display
+    - [x] REQ-003: User settings and preferences
+    ...
+    
+    ## v2 Requirements (Deferred)
+    - [ ] REQ-011: OAuth social login
+    - [ ] REQ-012: Email notifications
+    ...
+    
+    ## Outcomes
+    - All v1 requirements delivered
+    - 2 requirements adjusted during development
+    - 3 v2 requirements moved to next milestone
+    ```
+    
+    Deletes `.planning/REQUIREMENTS.md` (will be recreated for next milestone)
+  </Step>
+  
+  <Step title="Update PROJECT.md">
+    Adds "Current State" section:
+    
+    ```markdown
+    ## Current State
+    
+    **Version:** 1.0 (Shipped 2024-03-06)
+    
+    Delivered:
+    - User authentication system
+    - Activity dashboard with real-time updates
+    - User profile and settings
+    - Dark mode support
+    
+    ## Next Milestone Goals
+    
+    v1.1 will focus on:
+    - Email notifications
+    - Team collaboration features
+    - Advanced filtering and analytics
+    ```
+    
+    If v1.1+, archives previous content in `<details>` tags.
+  </Step>
+  
+  <Step title="Commit and Tag">
+    ```bash
+    git add .planning/milestones/ .planning/PROJECT.md .planning/ROADMAP.md .planning/STATE.md
+    git commit -m "chore: archive v1.0 milestone"
+    git tag -a v1.0 -m "v1.0: Initial Release
+    
+    - User authentication
+    - Activity dashboard
+    - Settings and profile
+    - Dark mode support"
+    ```
+    
+    ```markdown
+    ✓ Milestone v1.0 complete
+    ✓ Tagged as v1.0
+    
+    Push tag to remote? (yes/no)
+    ```
+  </Step>
+</Steps>
+
+### Files Created
+
+<CardGroup cols={2}>
+  <Card title="Milestone Archive" icon="box-archive">
+    `.planning/milestones/v1.0-ROADMAP.md` - Full phase details
+  </Card>
+  <Card title="Requirements Archive" icon="list-check">
+    `.planning/milestones/v1.0-REQUIREMENTS.md` - Final requirement status
+  </Card>
+</CardGroup>
+
+### Files Updated
+
+- `ROADMAP.md` - Collapsed to one-line summary
+- `PROJECT.md` - Added current state section
+- `STATE.md` - Reset for next milestone
+
+### Files Deleted
+
+- `REQUIREMENTS.md` - Will be recreated by `/gsd:new-milestone`
+
+<Info>
+  Archiving keeps ROADMAP.md and REQUIREMENTS.md at constant size regardless of project age. Old details move to `/milestones/`.
+</Info>
+
+### Next Steps After Completion
+
+```markdown
+✓ Milestone v1.0 archived
+
+Next steps:
+- /gsd:new-milestone - Start next development cycle
+- Take a break - You shipped something!
+```
+
+## New Milestone
+
+The `/gsd:new-milestone` command starts a fresh development cycle for your existing project.
+
+### Command Usage
+
+```bash
+/gsd:new-milestone [name]
+```
+
+<Tabs>
+  <Tab title="With Name">
+    ```bash
+    /gsd:new-milestone "v1.1 Notifications"
+    ```
+    
+    Starts milestone with provided name.
+  </Tab>
+  
+  <Tab title="Interactive">
+    ```bash
+    /gsd:new-milestone
+    ```
+    
+    Prompts for milestone name and description.
+  </Tab>
+</Tabs>
+
+### What It Does
+
+New milestone follows the same flow as `new-project`, but for existing codebases:
+
+<Steps>
+  <Step title="Questioning">
+    Deep conversation about what you want to build next:
+    
+    ```markdown
+    🎯 New Milestone: v1.1
+    
+    Your project currently has:
+    - User authentication
+    - Activity dashboard
+    - Settings and profile
+    
+    What do you want to add in v1.1?
+    
+    > I want to add email notifications for important events
+    
+    What types of events should trigger notifications?
+    
+    > When someone mentions you, when your post gets liked, when you get a new follower
+    
+    How should users control notification preferences?
+    
+    > In settings - they can enable/disable each type, plus set digest frequency
+    
+    [Conversation continues until complete understanding...]
+    ```
+  </Step>
+  
+  <Step title="Research (Optional)">
+    ```markdown
+    Would you like domain research for this milestone?
+    
+    Research will investigate:
+    - Email service providers (SendGrid, Mailgun, etc.)
+    - Notification patterns and best practices
+    - Queue systems for reliable delivery
+    - Anti-spam and delivery optimization
+    
+    Run research? (yes/no)
+    
+    > yes
+    
+    Spawning research agents...
+    ```
+    
+    <Info>
+      Research is especially valuable when adding unfamiliar features to an existing project.
+    </Info>
+  </Step>
+  
+  <Step title="Requirements">
+    ```markdown
+    📋 v1.1 Requirements
+    
+    ## v1 Requirements (This Milestone)
+    - [ ] REQ-011: Users can enable/disable notification types
+    - [ ] REQ-012: Email sent when user is mentioned
+    - [ ] REQ-013: Email sent when post is liked
+    - [ ] REQ-014: Email sent for new followers
+    - [ ] REQ-015: Digest mode (daily/weekly summaries)
+    - [ ] REQ-016: One-click unsubscribe from emails
+    
+    ## v2 Requirements (Future)
+    - [ ] REQ-017: In-app notification center
+    - [ ] REQ-018: Push notifications (mobile)
+    - [ ] REQ-019: SMS notifications
+    
+    Approve these requirements? (yes/edit)
+    ```
+  </Step>
+  
+  <Step title="Roadmap">
+    ```markdown
+    🗺 v1.1 Roadmap
+    
+    ### Phase 5: Notification System Core
+    **Goal:** Database schema and notification service
+    **Requirements:** REQ-011, REQ-015
+    
+    ### Phase 6: Email Delivery
+    **Goal:** Email sending with templates
+    **Requirements:** REQ-012, REQ-013, REQ-014, REQ-016
+    
+    ### Phase 7: Settings Integration
+    **Goal:** User controls in settings page
+    **Requirements:** REQ-011, REQ-015
+    
+    Note: Phase numbering continues from previous milestone
+    
+    Approve roadmap? (yes/edit)
+    ```
+    
+    <Info>
+      Phase numbers continue sequentially across milestones. v1.1 starts where v1.0 ended.
+    </Info>
+  </Step>
+  
+  <Step title="Update PROJECT.md">
+    ```markdown
+    ✓ PROJECT.md updated
+    
+    Added:
+    - v1.1 milestone goals
+    - Notification feature description
+    
+    Archived:
+    - Previous "Next Milestone" section
+    ```
+  </Step>
+  
+  <Step title="Create Files">
+    ```markdown
+    ✓ Files created:
+    - .planning/research/ (if research enabled)
+    - .planning/REQUIREMENTS.md (v1.1 requirements)
+    - .planning/ROADMAP.md (updated with v1.1 phases)
+    - .planning/STATE.md (reset for new work)
+    
+    ✓ Committed changes
+    
+    Ready to start building:
+    - /gsd:discuss-phase 5 - Capture implementation preferences
+    - /gsd:plan-phase 5 - Research and plan first phase
+    ```
+  </Step>
+</Steps>
+
+### Files Created/Updated
+
+<Tabs>
+  <Tab title="Created">
+    - `REQUIREMENTS.md` - Fresh requirements for v1.1
+    - `research/` - Domain investigation (if enabled)
+  </Tab>
+  
+  <Tab title="Updated">
+    - `PROJECT.md` - New milestone goals
+    - `ROADMAP.md` - New phases added (continues numbering)
+    - `STATE.md` - Reset for new milestone
+  </Tab>
+</Tabs>
+
+### Continuous Phase Numbering
+
+Phase numbers never reset:
+
+```markdown
+v1.0:
+- Phase 1: Database Schema
+- Phase 2: User Authentication
+- Phase 3: Activity Dashboard
+- Phase 4: Settings
+
+v1.1:
+- Phase 5: Notification System    ← Continues from 4
+- Phase 6: Email Delivery
+- Phase 7: Settings Integration
+
+v2.0:
+- Phase 8: Team Collaboration     ← Continues from 7
+...
+```
+
+This provides:
+- Unique identifiers across entire project history
+- Clean git history ("feat(08-02): ...")
+- Easy reference ("the bug from Phase 5")
+
+## Milestone Workflow
+
+The complete milestone cycle:
+
+<Steps>
+  <Step title="Build">
+    ```bash
+    /gsd:discuss-phase N
+    /gsd:plan-phase N
+    /gsd:execute-phase N
+    /gsd:verify-work N
+    ```
+    
+    Repeat for each phase in the milestone.
+  </Step>
+  
+  <Step title="Audit (Optional)">
+    ```bash
+    /gsd:audit-milestone
+    ```
+    
+    Verify requirements coverage and integration.
+  </Step>
+  
+  <Step title="Close Gaps (If Needed)">
+    ```bash
+    /gsd:plan-milestone-gaps
+    ```
+    
+    Create phases for any missing requirements.
+  </Step>
+  
+  <Step title="Complete">
+    ```bash
+    /gsd:complete-milestone 1.0
+    ```
+    
+    Archive work and tag release.
+  </Step>
+  
+  <Step title="Start Next Cycle">
+    ```bash
+    /gsd:new-milestone "v1.1 Feature Set"
+    ```
+    
+    Begin next development milestone.
+  </Step>
+</Steps>
+
+## Milestone Audit
+
+Before completing a milestone, audit verifies quality:
+
+```bash
+/gsd:audit-milestone
+```
+
+<Steps>
+  <Step title="Requirements Coverage">
+    Checks that all v1 requirements have associated phases.
+  </Step>
+  
+  <Step title="Cross-Phase Integration">
+    Verifies that phases work together correctly.
+  </Step>
+  
+  <Step title="End-to-End Flows">
+    Confirms complete user workflows function.
+  </Step>
+</Steps>
+
+Output: `v{version}-MILESTONE-AUDIT.md` with findings and recommendations.
+
+### Planning Gaps
+
+If audit finds issues:
+
+```bash
+/gsd:plan-milestone-gaps
+```
+
+Creates new phases to close gaps before completion:
+
+```markdown
+🔍 Gaps Found:
+- REQ-008: Email notifications not implemented
+- Integration: Dashboard missing user data
+
+📋 Gap Closure Phases:
+
+### Phase 8: Email Notification System
+**Goal:** Deliver REQ-008
+**Requirements:** REQ-008
+
+### Phase 9: Dashboard Data Integration
+**Goal:** Connect dashboard to user service
+**Requirements:** [Integration fix]
+
+Add these phases to roadmap? (yes/no)
+```
+
+## Tips
+
+<Tip>
+  **Run audit before completion.** Catching missing requirements before archiving is easier than retrofitting later.
+</Tip>
+
+<Tip>
+  **Use semantic versioning.** v1.0 for initial release, v1.1 for features, v2.0 for breaking changes.
+</Tip>
+
+<Tip>
+  **Celebrate milestones.** Each completion is a real achievement. Ship it, tag it, share it.
+</Tip>
+
+<Warning>
+  Don't skip requirements definition in new-milestone. Starting a milestone without clear scope leads to scope creep and delays.
+</Warning>
+
+## Next Steps
+
+After completing a milestone:
+
+<CardGroup cols={2}>
+  <Card title="New Milestone" icon="rocket" href="/workflow/new-project">
+    Start the next development cycle
+  </Card>
+  <Card title="Check Progress" icon="chart-line" href="/commands/navigation">
+    Review overall project status
+  </Card>
+</CardGroup>

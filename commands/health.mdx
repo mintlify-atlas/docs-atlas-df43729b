@@ -1,0 +1,349 @@
+---
+title: "health"
+description: "Diagnose planning directory health and optionally repair issues"
+---
+
+## Overview
+
+The `health` command validates `.planning/` directory integrity, reports actionable issues, and optionally repairs them. It checks for missing files, invalid configurations, inconsistent state, and orphaned plans.
+
+## Syntax
+
+```bash
+/gsd:health [--repair]
+```
+
+<ParamField path="--repair" type="flag" optional>
+  Automatically fix detected issues. Without this flag, health command only reports problems without making changes.
+</ParamField>
+
+## How It Works
+
+1. **Scans `.planning/` directory** for structure and files
+2. **Validates critical files** (STATE.md, ROADMAP.md, CONTEXT.md)
+3. **Checks phase consistency** between plans and roadmap
+4. **Detects orphaned work** (incomplete phases, abandoned debugs)
+5. **Reports issues** with severity levels
+6. **Repairs if `--repair` flag** is provided
+
+## Health Checks
+
+### Critical Files
+
+✅ **Checks:**
+- `.planning/STATE.md` exists and is valid JSON/YAML
+- `.planning/ROADMAP.md` exists with phase definitions
+- `.planning/CONTEXT.md` exists (can be empty)
+
+❌ **Issues detected:**
+- Missing STATE.md
+- Corrupted STATE.md (invalid format)
+- Missing ROADMAP.md
+- Missing CONTEXT.md
+
+### Phase Consistency
+
+✅ **Checks:**
+- Phases in roadmap match phase directories
+- Completed phases have SUMMARY.md
+- In-progress phases have PLAN.md
+- Phase numbers are sequential
+
+❌ **Issues detected:**
+- Phase in roadmap but no directory
+- Phase directory but not in roadmap
+- Completed phase without SUMMARY.md
+- Phase number gaps or duplicates
+
+### Orphaned Work
+
+✅ **Checks:**
+- No `.continue-here.md` older than 7 days
+- No debug sessions in `investigating` state older than 3 days
+- No quick tasks without STATE.md entries
+
+❌ **Issues detected:**
+- Stale checkpoint files
+- Abandoned debug sessions
+- Untracked quick tasks
+
+### Git Consistency
+
+✅ **Checks:**
+- No uncommitted changes in `.planning/`
+- Phase commits exist for completed phases
+- No `.planning/` files in gitignore
+
+❌ **Issues detected:**
+- Uncommitted planning files
+- Completed phase without commit
+
+## Usage Examples
+
+### Check health without repairs
+
+```bash
+/gsd:health
+```
+
+**Output:**
+```
+GSD Health Check
+================
+
+✅ Critical Files
+- STATE.md: valid
+- ROADMAP.md: valid (8 phases)
+- CONTEXT.md: exists
+
+⚠️  Phase Consistency (2 issues)
+- Phase 5 directory missing SUMMARY.md
+  Status: completed in roadmap but no summary file
+  
+- Phase 7 not in roadmap
+  Directory: .planning/phases/007-notifications/
+  Has PLAN.md but missing from ROADMAP.md
+
+⚠️  Orphaned Work (1 issue)
+- Stale checkpoint: .planning/phases/003-auth/.continue-here.md
+  Age: 9 days old
+  Suggests work was abandoned mid-phase
+
+✅ Git Consistency
+- No uncommitted changes
+- All phases have commits
+
+═══════════════════════════════════════════
+Summary: 3 issues detected
+
+To fix automatically, run:
+/gsd:health --repair
+```
+
+### Check and repair issues
+
+```bash
+/gsd:health --repair
+```
+
+**Output:**
+```
+GSD Health Check (Repair Mode)
+==============================
+
+✅ Critical Files
+- STATE.md: valid
+- ROADMAP.md: valid (8 phases)
+- CONTEXT.md: exists
+
+🔧 Phase Consistency (2 issues)
+
+1. Phase 5 missing SUMMARY.md
+   Creating from PLAN.md completion status...
+   ✓ Created .planning/phases/005-api-auth/SUMMARY.md
+   
+2. Phase 7 not in roadmap
+   Adding to ROADMAP.md based on PLAN.md...
+   ✓ Added "Phase 7: Notification system" to roadmap
+
+🔧 Orphaned Work (1 issue)
+
+1. Stale checkpoint (9 days old)
+   Archiving .continue-here.md...
+   ✓ Moved to .planning/phases/003-auth/.archived/
+
+✅ Git Consistency
+- No uncommitted changes
+- All phases have commits
+
+═══════════════════════════════════════════
+Repaired: 3 issues
+Remaining: 0 issues
+
+Project health: ✅ Good
+```
+
+### Healthy project
+
+```bash
+/gsd:health
+```
+
+**Output:**
+```
+GSD Health Check
+================
+
+✅ Critical Files
+- STATE.md: valid
+- ROADMAP.md: valid (5 phases)
+- CONTEXT.md: exists
+
+✅ Phase Consistency
+- All 5 phases consistent with roadmap
+- Completed phases have summaries
+- Phase numbers sequential
+
+✅ Orphaned Work
+- No stale checkpoints
+- No abandoned debug sessions
+- All quick tasks tracked
+
+✅ Git Consistency
+- No uncommitted changes
+- All phases committed
+
+═══════════════════════════════════════════
+Project health: ✅ Excellent
+
+No issues detected!
+```
+
+### Corrupted state
+
+```bash
+/gsd:health --repair
+```
+
+**Output:**
+```
+GSD Health Check (Repair Mode)
+==============================
+
+❌ Critical Files (1 issue)
+- STATE.md: corrupted (invalid YAML)
+
+🔧 Repairing STATE.md
+   Reconstructing from:
+   - ROADMAP.md phase definitions
+   - Phase SUMMARY.md files
+   - Git commit history
+   - Quick task files
+   
+   ✓ Rebuilt STATE.md from source files
+   ✓ Validated new format
+
+✅ Phase Consistency
+- All phases valid
+
+✅ Orphaned Work  
+- No issues
+
+✅ Git Consistency
+- No uncommitted changes
+
+═══════════════════════════════════════════
+Repaired: 1 critical issue
+
+Project health: ✅ Good
+```
+
+## Issue Severity Levels
+
+### ❌ Critical (Blocks Work)
+- Missing STATE.md
+- Corrupted STATE.md
+- Missing ROADMAP.md
+- Invalid phase structure
+
+**Action:** Must repair before continuing work
+
+### ⚠️ Warning (Should Fix)
+- Missing SUMMARY.md for completed phase
+- Phase directory without roadmap entry
+- Stale checkpoint files (>7 days)
+- Abandoned debug sessions (>3 days)
+
+**Action:** Repair when convenient, doesn't block work
+
+### ℹ️ Info (Nice to Fix)
+- Uncommitted changes in `.planning/`
+- Quick tasks not in STATE.md
+- Empty CONTEXT.md sections
+
+**Action:** Optional cleanup
+
+## Repair Actions
+
+### STATE.md Reconstruction
+```bash
+# Rebuilds from:
+1. ROADMAP.md → phase list
+2. SUMMARY.md files → completed phases
+3. Git log → commit hashes
+4. Quick task files → completed quick tasks
+5. Directory structure → current phase
+```
+
+### Phase Sync
+```bash
+# Missing SUMMARY.md
+→ Creates from PLAN.md + git log
+
+# Missing roadmap entry
+→ Adds based on directory name + PLAN.md
+
+# Orphaned directory
+→ Moves to .planning/.archived/
+```
+
+### Checkpoint Cleanup
+```bash
+# Stale .continue-here.md (>7 days)
+→ Moves to .planning/phases/{phase}/.archived/
+
+# Active checkpoint (<7 days)
+→ Keeps, offers resume in report
+```
+
+### Debug Session Cleanup
+```bash
+# Abandoned debug (>3 days in investigating)
+→ Updates status to 'stale'
+→ Suggests resume or close
+
+# Resolved debug sessions
+→ Moves to .planning/debug/.resolved/
+```
+
+## When to Run Health Check
+
+<Card title="Run health check" icon="heart-pulse">
+  - After long break from project
+  - After manual file edits
+  - Before important milestones
+  - If commands behave unexpectedly
+  - After force-push or branch operations
+  - Periodically (monthly for active projects)
+</Card>
+
+<Card title="Run with --repair" icon="wrench">
+  - When health check reports issues
+  - After recovering from editor crash
+  - After git conflicts in `.planning/`
+  - When STATE.md seems wrong
+  - Before demo or presentation
+</Card>
+
+## Exit Codes
+
+```bash
+/gsd:health
+```
+
+- `0` - No issues detected
+- `1` - Warning-level issues (doesn't block work)
+- `2` - Critical issues (blocks work)
+
+**Useful for CI/CD:**
+```bash
+# Pre-commit hook
+/gsd:health || exit 1
+```
+
+## Related Commands
+
+- [`resume-work`](/commands/resume-work) - Resumes work (runs health check implicitly)
+- [`progress`](/commands/progress) - Shows progress (reports if health issues)
+- [`new-project`](/commands/new-project) - Creates healthy structure
+- [`pause-work`](/commands/pause-work) - Creates checkpoint (checked by health)

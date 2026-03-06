@@ -1,0 +1,240 @@
+---
+title: "map-codebase"
+description: "Analyze codebase with parallel mapper agents to produce structured documentation"
+---
+
+## Overview
+
+The `map-codebase` command analyzes your existing codebase using parallel specialized agents, producing comprehensive documentation in `.planning/codebase/`. This creates a foundation for informed planning and development.
+
+## Syntax
+
+```bash
+/gsd:map-codebase [focus-area]
+```
+
+<ParamField path="focus-area" type="string" optional>
+  Optional focus area to map (e.g., 'api', 'auth', 'frontend'). If provided, agents concentrate on that subsystem while maintaining full codebase awareness.
+</ParamField>
+
+## How It Works
+
+GSD spawns **4 parallel mapper agents**, each with specialized focus:
+
+1. **Tech Agent** → `STACK.md`, `INTEGRATIONS.md`
+2. **Architecture Agent** → `ARCHITECTURE.md`, `STRUCTURE.md`
+3. **Quality Agent** → `CONVENTIONS.md`, `TESTING.md`
+4. **Concerns Agent** → `CONCERNS.md`
+
+Each agent explores the codebase independently and writes documents directly to `.planning/codebase/`, keeping orchestrator context usage minimal.
+
+## Documents Created
+
+The mapping process creates 7 comprehensive documents:
+
+### STACK.md
+- Languages and frameworks
+- Core dependencies
+- Build and runtime tools
+- Version requirements
+
+### INTEGRATIONS.md
+- External services and APIs
+- Database connections
+- Authentication providers
+- Third-party libraries
+- Environment configuration
+
+### ARCHITECTURE.md
+- System design patterns
+- Component relationships
+- Data flow
+- Key architectural decisions
+
+### STRUCTURE.md
+- Directory layout
+- Module organization
+- File naming conventions
+- Code organization patterns
+
+### CONVENTIONS.md
+- Code style and formatting
+- Naming conventions
+- Comment standards
+- Best practices in use
+
+### TESTING.md
+- Test frameworks and tools
+- Test coverage
+- Testing patterns
+- CI/CD integration
+
+### CONCERNS.md
+- Technical debt
+- Security issues
+- Performance bottlenecks
+- Maintenance risks
+- Deprecated patterns
+
+## Usage Examples
+
+### Map entire codebase
+
+```bash
+/gsd:map-codebase
+```
+
+GSD spawns 4 agents in parallel, each analyzing the full codebase from their perspective.
+
+### Focus on specific area
+
+```bash
+/gsd:map-codebase api
+```
+
+Agents focus on API-related code while maintaining awareness of dependencies and context.
+
+### Refresh existing map
+
+```bash
+/gsd:map-codebase
+```
+
+If `.planning/codebase/` exists, GSD offers:
+- **Refresh** - Update all documents
+- **Skip** - Use existing map
+- **Focus** - Update specific documents
+
+## When to Use
+
+<Card title="Perfect for" icon="circle-check">
+  - **Brownfield projects** - Understand existing code before planning
+  - **Onboarding** - Learn unfamiliar codebase structure
+  - **Before refactoring** - Document current state
+  - **After major changes** - Update codebase documentation
+  - **Outdated STATE.md** - Refresh codebase understanding
+</Card>
+
+<Card title="Skip for" icon="circle-xmark">
+  - **Greenfield projects** - No code to map yet
+  - **Trivial codebases** - Less than 5 files
+  - **Just created project** - Map after initial implementation
+</Card>
+
+## Workflow Integration
+
+### Brownfield Project Flow
+```bash
+# 1. Map existing code first
+/gsd:map-codebase
+
+# 2. Initialize project with codebase context
+/gsd:new-project
+
+# 3. Plan phases informed by existing code
+/gsd:plan-phase
+```
+
+### Greenfield Project Flow
+```bash
+# 1. Initialize empty project
+/gsd:new-project
+
+# 2. Plan and implement initial phases
+/gsd:plan-phase
+/gsd:execute 1
+
+# 3. Map codebase after significant implementation
+/gsd:map-codebase
+```
+
+### Refresh During Development
+```bash
+# After major refactoring or architecture changes
+/gsd:map-codebase
+
+# Update existing docs with new patterns
+```
+
+## Parallel Agent Execution
+
+The mapping process uses parallel execution for efficiency:
+
+```
+Orchestrator spawns 4 agents simultaneously:
+├─ Agent 1 (Tech)        → STACK.md, INTEGRATIONS.md
+├─ Agent 2 (Architecture) → ARCHITECTURE.md, STRUCTURE.md  
+├─ Agent 3 (Quality)      → CONVENTIONS.md, TESTING.md
+└─ Agent 4 (Concerns)     → CONCERNS.md
+
+Each agent:
+- Explores codebase independently
+- Writes documents directly
+- Returns only confirmation (not full content)
+- Keeps orchestrator context lean
+```
+
+## Verification
+
+After agents complete, GSD verifies:
+
+- All 7 documents exist
+- Files have substantial content (line counts)
+- Documents follow template structure
+- No agent errors occurred
+
+## Commit Behavior
+
+After successful mapping, GSD commits the codebase documentation:
+
+```bash
+feat: map codebase with 7 structured documents
+
+- STACK.md: technology stack and dependencies
+- INTEGRATIONS.md: external services and APIs
+- ARCHITECTURE.md: system design patterns
+- STRUCTURE.md: directory and module organization
+- CONVENTIONS.md: code style and standards
+- TESTING.md: test frameworks and coverage
+- CONCERNS.md: technical debt and risks
+```
+
+## Output Directory Structure
+
+```
+.planning/
+└── codebase/
+    ├── STACK.md           # Tech stack details
+    ├── INTEGRATIONS.md    # External dependencies
+    ├── ARCHITECTURE.md    # System design
+    ├── STRUCTURE.md       # Code organization
+    ├── CONVENTIONS.md     # Style and standards
+    ├── TESTING.md         # Test setup and coverage
+    └── CONCERNS.md        # Issues and tech debt
+```
+
+## Success Criteria
+
+Mapping succeeds when:
+
+- ✅ `.planning/codebase/` directory created
+- ✅ All 7 documents written by mapper agents
+- ✅ Documents follow template structure
+- ✅ Parallel agents completed without errors
+- ✅ Changes committed to git
+- ✅ User knows next steps
+
+## Next Steps After Mapping
+
+GSD suggests appropriate next commands:
+
+- **New brownfield project**: `/gsd:new-project`
+- **Existing project**: `/gsd:plan-phase`
+- **Architecture changes**: `/gsd:discuss`
+- **Found issues**: `/gsd:add-todo`
+
+## Related Commands
+
+- [`new-project`](/commands/new-project) - Initialize project (uses codebase docs)
+- [`plan-phase`](/commands/plan-phase) - Create phase plans (references codebase docs)
+- [`health`](/commands/health) - Validate codebase documentation exists

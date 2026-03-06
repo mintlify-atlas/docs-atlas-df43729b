@@ -1,0 +1,336 @@
+---
+title: "help"
+description: "Show available GSD commands and usage guide"
+---
+
+## Overview
+
+The `help` command displays the complete GSD command reference with descriptions and usage examples. It provides a quick reference guide to all available commands without any project-specific analysis.
+
+## Syntax
+
+```bash
+/gsd:help
+```
+
+## How It Works
+
+Displays the complete GSD command reference from the help workflow. Output includes:
+
+- Command categories (Project, Phase, Session, Utilities)
+- Command syntax and arguments
+- Brief descriptions
+- Common usage patterns
+- Links to detailed documentation
+
+**Important:** The help command outputs ONLY the reference content with no additions:
+- ❌ No project-specific analysis
+- ❌ No git status or file context
+- ❌ No next-step suggestions  
+- ❌ No commentary beyond the reference
+
+## Command Categories
+
+GSD commands are organized into logical categories:
+
+### Project Management
+- `new-project` - Initialize new project with goals and roadmap
+- `map-codebase` - Analyze existing codebase
+- `discuss` - Explore ideas and capture decisions
+
+### Phase Workflow
+- `plan-phase` - Create detailed phase plan
+- `execute` - Execute phase plan
+- `finalize` - Review and complete phase
+
+### Session Management  
+- `resume-work` - Resume from previous session
+- `pause-work` - Create checkpoint before pausing
+- `progress` - Check progress and route to next action
+
+### Utilities
+- `quick` - Execute quick tasks
+- `debug` - Systematic debugging
+- `add-todo` - Capture ideas as todos
+- `check-todos` - List and work on todos
+- `settings` - Configure GSD options
+- `set-profile` - Switch model profile
+- `health` - Diagnose and repair issues
+- `help` - Show this help
+- `update` - Update GSD to latest version
+
+## Usage Examples
+
+### Basic help
+
+```bash
+/gsd:help
+```
+
+**Output:**
+```
+GSD Command Reference
+═══════════════════════════════════════════
+
+## Project Management
+
+/gsd:new-project
+  Initialize new project with goals and roadmap.
+  Creates .planning/ directory with STATE.md and ROADMAP.md.
+  
+  Usage:
+    /gsd:new-project
+
+/gsd:map-codebase [focus-area]
+  Analyze existing codebase with parallel mapper agents.
+  Produces 7 documents in .planning/codebase/.
+  
+  Usage:
+    /gsd:map-codebase          # Map entire codebase
+    /gsd:map-codebase api      # Focus on API subsystem
+
+/gsd:discuss [topic]
+  Explore ideas and capture decisions in CONTEXT.md.
+  Lightweight discussion before planning.
+  
+  Usage:
+    /gsd:discuss
+    /gsd:discuss "caching strategy"
+
+## Phase Workflow
+
+/gsd:plan-phase [--no-research] [--gaps]
+  Create detailed phase plan with research and breakdown.
+  
+  Flags:
+    --no-research   Skip research agent
+    --gaps          Plan addresses specific gap or issue
+  
+  Usage:
+    /gsd:plan-phase
+    /gsd:plan-phase --no-research
+    /gsd:plan-phase --gaps
+
+/gsd:execute <phase-number> [--no-verify] [--branch]
+  Execute phase plan with optional verification.
+  
+  Arguments:
+    phase-number    Phase number to execute (required)
+  
+  Flags:
+    --no-verify     Skip post-execution verification
+    --branch        Create feature branch for this phase
+  
+  Usage:
+    /gsd:execute 3
+    /gsd:execute 5 --branch
+
+/gsd:finalize [phase-number]
+  Review implementation and complete phase.
+  Creates SUMMARY.md and updates STATE.md.
+  
+  Usage:
+    /gsd:finalize
+    /gsd:finalize 3
+
+## Session Management
+
+/gsd:resume-work
+  Resume from previous session with full context restoration.
+  Detects checkpoints and incomplete work.
+  
+  Usage:
+    /gsd:resume-work
+
+/gsd:pause-work
+  Create checkpoint before pausing mid-phase.
+  Saves complete work state to .continue-here.md.
+  
+  Usage:
+    /gsd:pause-work
+
+/gsd:progress
+  Check project progress and route to next action.
+  Analyzes recent work and upcoming tasks.
+  
+  Usage:
+    /gsd:progress
+
+## Utilities
+
+/gsd:quick [--discuss] [--full]
+  Execute quick tasks with GSD guarantees.
+  
+  Flags:
+    --discuss       Enable discussion phase
+    --full          Enable plan-checking and verification
+  
+  Usage:
+    /gsd:quick
+    /gsd:quick --discuss
+    /gsd:quick --full
+
+/gsd:debug [issue-description]
+  Systematic debugging with persistent state.
+  Uses subagents for deep investigation.
+  
+  Usage:
+    /gsd:debug                           # List active sessions
+    /gsd:debug "login fails with OAuth" # New session
+
+/gsd:add-todo [description]
+  Capture idea or task as structured todo.
+  Extracts context from conversation if no description.
+  
+  Usage:
+    /gsd:add-todo Add rate limiting
+    /gsd:add-todo                  # Extract from context
+
+/gsd:check-todos [area]
+  List pending todos and select one to work on.
+  
+  Usage:
+    /gsd:check-todos              # All todos
+    /gsd:check-todos api          # Filter by area
+
+/gsd:settings
+  Configure GSD workflow agents and model profile.
+  Interactive 5-question prompt.
+  
+  Usage:
+    /gsd:settings
+
+/gsd:set-profile <profile>
+  Quick switch model profile.
+  
+  Arguments:
+    profile    quality | balanced | budget (required)
+  
+  Usage:
+    /gsd:set-profile balanced
+    /gsd:set-profile quality
+
+/gsd:health [--repair]
+  Diagnose and optionally repair planning directory issues.
+  
+  Flags:
+    --repair        Automatically fix detected issues
+  
+  Usage:
+    /gsd:health
+    /gsd:health --repair
+
+/gsd:help
+  Show this command reference.
+  
+  Usage:
+    /gsd:help
+
+/gsd:update
+  Update GSD to latest version with changelog.
+  
+  Usage:
+    /gsd:update
+
+## Common Workflows
+
+**New Project (Greenfield)**
+  /gsd:new-project
+  /gsd:plan-phase
+  /gsd:execute 1
+
+**New Project (Brownfield)**
+  /gsd:map-codebase
+  /gsd:new-project
+  /gsd:plan-phase
+
+**Daily Work Cycle**
+  /gsd:resume-work
+  /gsd:progress
+  [work]
+  /gsd:pause-work
+
+**Quick Fix**
+  /gsd:quick
+  [describe task]
+
+**Complex Investigation**
+  /gsd:debug
+  [gather symptoms]
+  [agent investigates]
+  [fix or plan]
+
+**Idea Management**
+  /gsd:add-todo [idea]
+  [accumulate todos]
+  /gsd:check-todos
+  [work on selected]
+
+═══════════════════════════════════════════
+
+For detailed documentation: https://gsd-docs.example.com
+For issues or feedback: https://github.com/gsd/issues
+```
+
+## When to Use
+
+<Card title="Use help command" icon="circle-info">
+  - Forgot command syntax
+  - New to GSD framework
+  - Need quick reference
+  - Exploring available commands
+  - Looking for appropriate command
+  - Sharing GSD with teammates
+</Card>
+
+<Card title="Use documentation" icon="book">
+  - Detailed command behavior
+  - Workflow explanations
+  - Best practices
+  - Troubleshooting
+  - Advanced usage
+  - Configuration details
+</Card>
+
+## Output Characteristics
+
+**What help includes:**
+- ✅ Command list with syntax
+- ✅ Brief descriptions
+- ✅ Common usage examples
+- ✅ Workflow patterns
+- ✅ Links to documentation
+
+**What help excludes:**
+- ❌ Project-specific information
+- ❌ Current git status
+- ❌ File context or analysis
+- ❌ Suggestions based on project state
+- ❌ Commentary or explanations beyond reference
+
+## Quick Command Lookup
+
+| Need to... | Command |
+|------------|----------|
+| Start new project | `/gsd:new-project` |
+| Understand existing code | `/gsd:map-codebase` |
+| Plan next feature | `/gsd:plan-phase` |
+| Implement plan | `/gsd:execute N` |
+| Quick bug fix | `/gsd:quick` |
+| Debug issue | `/gsd:debug` |
+| Resume work | `/gsd:resume-work` |
+| Check progress | `/gsd:progress` |
+| Save and pause | `/gsd:pause-work` |
+| Capture idea | `/gsd:add-todo` |
+| Review todos | `/gsd:check-todos` |
+| Configure GSD | `/gsd:settings` |
+| Change models | `/gsd:set-profile` |
+| Fix issues | `/gsd:health --repair` |
+| Update GSD | `/gsd:update` |
+
+## Related Commands
+
+- [`settings`](/commands/settings) - Configure GSD behavior
+- [`progress`](/commands/progress) - Get project-specific guidance
+- [`resume-work`](/commands/resume-work) - Context-aware resumption
+- [`update`](/commands/update) - Get latest GSD version

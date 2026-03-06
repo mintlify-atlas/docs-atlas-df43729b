@@ -1,0 +1,527 @@
+---
+title: Verify Built Features
+description: Test features through conversational user acceptance testing
+icon: check
+---
+
+## Overview
+
+The `/gsd:verify-work` command validates that built features actually work from a user's perspective. This is **manual testing** - you test each feature and report whether it works or what's wrong.
+
+## Why Manual Verification
+
+Automated verification (during execute-phase) checks:
+- Code exists
+- Tests pass
+- Requirements are covered
+
+But it can't verify:
+- **User experience** - Does the flow make sense?
+- **Visual correctness** - Does it look right?
+- **Edge cases** - Does error handling work in practice?
+- **Integration feel** - Do pieces fit together?
+
+<Info>
+  Verify-work is where you **use** what Claude built and confirm it matches your vision.
+</Info>
+
+## What It Does
+
+<Steps>
+  <Step title="Extract Testable Deliverables">
+    Reads phase plans and identifies user-facing features.
+  </Step>
+  
+  <Step title="Present Tests One-by-One">
+    Shows each deliverable as a yes/no question.
+  </Step>
+  
+  <Step title="Capture Feedback">
+    For failures, asks what's wrong (plain text, no interrogation).
+  </Step>
+  
+  <Step title="Diagnose Issues">
+    Spawns debug agents to find root causes.
+  </Step>
+  
+  <Step title="Create Fix Plans">
+    Generates verified PLAN.md files for immediate re-execution.
+  </Step>
+</Steps>
+
+Output: `{phase_num}-UAT.md` tracking all results. If issues found: diagnosed fix plans ready for `/gsd:execute-phase --gaps-only`.
+
+## Command Usage
+
+```bash
+/gsd:verify-work [phase-number]
+```
+
+<Tabs>
+  <Tab title="Test Specific Phase">
+    ```bash
+    /gsd:verify-work 2
+    ```
+    
+    Tests all deliverables from phase 2.
+  </Tab>
+  
+  <Tab title="Resume Session">
+    ```bash
+    /gsd:verify-work
+    ```
+    
+    Omit phase number to:
+    - Resume active UAT session
+    - Or prompt for phase to test
+  </Tab>
+</Tabs>
+
+## Conversational Testing
+
+Verify-work presents one test at a time:
+
+<CodeGroup>
+```markdown Example Session
+📋 Phase 2 UAT: User Authentication
+
+4 deliverables to test
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Test 1/4: User Registration
+
+Can you create a new user account with email and password?
+
+Try:
+1. Navigate to /register
+2. Enter email and password
+3. Submit form
+
+Does registration work? (yes/no/skip)
+```
+</CodeGroup>
+
+### Response Options
+
+<Tabs>
+  <Tab title="yes">
+    Feature works as expected.
+    
+    ```
+    > yes
+    
+    ✓ Test 1 passed: User Registration
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    ✓ Test 2/4: Login Functionality
+    ...
+    ```
+  </Tab>
+  
+  <Tab title="no">
+    Feature doesn't work. GSD asks what's wrong.
+    
+    ```
+    > no
+    
+    What's wrong with registration?
+    
+    > The form submits but shows no error when email is invalid
+    
+    Got it. Diagnosing issue...
+    
+    [Spawns debug agent to investigate]
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    ✓ Test 2/4: Login Functionality
+    ...
+    ```
+  </Tab>
+  
+  <Tab title="skip">
+    Can't test right now or not important.
+    
+    ```
+    > skip
+    
+    ⊘ Test 1 skipped: User Registration
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    ✓ Test 2/4: Login Functionality
+    ...
+    ```
+  </Tab>
+  
+  <Tab title="Describe Issue">
+    Provide specific details about the problem.
+    
+    ```
+    > The password validation accepts "abc" which should fail
+    
+    Got it. Recording issue:
+    Password validation too lenient - accepts weak passwords
+    
+    Diagnosing...
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  **Be specific about failures.** "Doesn't work" is vague. "Submit button does nothing when clicked" helps debug agents find the issue faster.
+</Tip>
+
+## Automatic Diagnosis
+
+When you report a failure, GSD:
+
+<Steps>
+  <Step title="Spawn Debug Agent">
+    Loads phase context, plan details, and execution summary.
+  </Step>
+  
+  <Step title="Investigate Root Cause">
+    Examines code, tests, and configuration.
+  </Step>
+  
+  <Step title="Identify Fix">
+    Determines what needs to change.
+  </Step>
+  
+  <Step title="Create Gap Plan">
+    Generates a PLAN.md file marked as `gap_closure: true`.
+  </Step>
+</Steps>
+
+<CodeGroup>
+```markdown Diagnosis Example
+🔍 Diagnosing: Email validation not working
+
+Investigating:
+- src/app/api/auth/register/route.ts
+- src/lib/validation.ts
+- 02-01-SUMMARY.md
+
+Root cause identified:
+- validation.ts exports isValidEmail
+- register route imports it
+- BUT: route calls validateEmail (typo)
+- Function exists but isn't called
+
+Fix: Correct function name in register route
+
+✓ Created: 02-01-GAP-validation-fix-PLAN.md
+```
+</CodeGroup>
+
+## Gap Closure Plans
+
+Fix plans are standard PLAN.md files with one difference:
+
+```yaml
+---
+phase: 2
+plan: 1
+gap_closure: true          # Marks this as a fix
+parent_plan: "02-01"       # Links to original plan
+---
+```
+
+<Info>
+  Gap plans are executed with `/gsd:execute-phase 2 --gaps-only`, which runs only plans marked `gap_closure: true`.
+</Info>
+
+## UAT Output
+
+Results are saved to `{phase_num}-UAT.md`:
+
+<CodeGroup>
+```markdown Example: 02-UAT.md
+# Phase 2 UAT: User Authentication
+
+Tested: 2024-03-06
+Status: ISSUES_FOUND
+
+## Test Results
+
+### ✓ Test 1: User Registration
+**Status:** PASSED
+**Tested:** Form accepts valid input and creates user
+
+### ✗ Test 2: Email Validation
+**Status:** FAILED
+**Issue:** Form submits without validating email format
+**Diagnosis:** Function name typo in register route
+**Fix Plan:** 02-01-GAP-validation-fix-PLAN.md
+
+### ✓ Test 3: Password Hashing
+**Status:** PASSED
+**Tested:** Passwords stored as bcrypt hashes
+
+### ⊘ Test 4: Rate Limiting
+**Status:** SKIPPED
+**Reason:** Requires load testing tools
+
+## Summary
+- Passed: 2
+- Failed: 1
+- Skipped: 1
+
+## Next Steps
+1. Run `/gsd:execute-phase 2 --gaps-only` to fix issues
+2. Re-run `/gsd:verify-work 2` to confirm fixes
+3. Once all tests pass, proceed to next phase
+```
+</CodeGroup>
+
+## Session Persistence
+
+UAT sessions are saved after each test:
+
+```markdown
+✓ Test 2/4 complete
+
+Session saved. You can:
+- Continue testing
+- Stop and resume later with /gsd:verify-work 2
+- Review results so far in 02-UAT.md
+```
+
+If you stop mid-session, the next run resumes where you left off:
+
+```markdown
+📋 Resuming Phase 2 UAT
+
+Previous session:
+- Test 1: PASSED ✓
+- Test 2: FAILED ✗
+- Test 3: Not tested
+- Test 4: Not tested
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Test 3/4: Password Hashing
+...
+```
+
+## Fixing Issues
+
+After UAT identifies problems:
+
+<Steps>
+  <Step title="Review Fix Plans">
+    ```bash
+    ls .planning/*GAP*.md
+    ```
+    
+    Check that fix plans make sense before executing.
+  </Step>
+  
+  <Step title="Execute Gap Plans">
+    ```bash
+    /gsd:execute-phase 2 --gaps-only
+    ```
+    
+    Runs only the fix plans, skips already-completed work.
+  </Step>
+  
+  <Step title="Re-Test">
+    ```bash
+    /gsd:verify-work 2
+    ```
+    
+    Test again to confirm fixes worked.
+  </Step>
+  
+  <Step title="Pass All Tests">
+    Once everything passes:
+    
+    ```markdown
+    ✓ Phase 2 UAT complete
+    
+    All tests passed:
+    - User Registration ✓
+    - Email Validation ✓
+    - Password Hashing ✓
+    - Rate Limiting ✓
+    
+    Phase 2 verified and ready.
+    
+    Next steps:
+    - /gsd:discuss-phase 3 - Start next phase
+    - /gsd:complete-milestone - If all phases done
+    ```
+  </Step>
+</Steps>
+
+## Example Full Session
+
+<Steps>
+  <Step title="Start verification">
+    ```bash
+    /gsd:verify-work 2
+    ```
+    
+    ```markdown
+    📋 Phase 2 UAT: User Authentication
+    
+    Extracting deliverables from plans...
+    Found 4 testable features
+    ```
+  </Step>
+  
+  <Step title="Test 1 - Success">
+    ```markdown
+    ✓ Test 1/4: User Registration
+    
+    Can you create a new account?
+    Try: Navigate to /register, enter email/password, submit
+    
+    > yes
+    
+    ✓ Test 1 passed
+    ```
+  </Step>
+  
+  <Step title="Test 2 - Failure">
+    ```markdown
+    ✓ Test 2/4: Email Validation
+    
+    Does the form reject invalid emails?
+    Try: Enter "notanemail", submit
+    
+    > no, it accepts invalid emails
+    
+    Diagnosing issue...
+    
+    Root cause: Function name typo in register route
+    ✓ Created: 02-01-GAP-validation-fix-PLAN.md
+    
+    ✗ Test 2 failed (fix plan ready)
+    ```
+  </Step>
+  
+  <Step title="Test 3 - Success">
+    ```markdown
+    ✓ Test 3/4: Password Security
+    
+    Are passwords hashed in the database?
+    Try: Check DB after registration
+    
+    > yes
+    
+    ✓ Test 3 passed
+    ```
+  </Step>
+  
+  <Step title="Test 4 - Skip">
+    ```markdown
+    ✓ Test 4/4: Rate Limiting
+    
+    Does rate limiting block excessive requests?
+    Try: Make 50+ requests in 10 seconds
+    
+    > skip (don't have load testing setup)
+    
+    ⊘ Test 4 skipped
+    ```
+  </Step>
+  
+  <Step title="Session Complete">
+    ```markdown
+    ✓ Phase 2 UAT complete
+    
+    Results:
+    - Passed: 2
+    - Failed: 1
+    - Skipped: 1
+    
+    Issues found:
+    - Email validation not working
+    
+    Next steps:
+    1. /gsd:execute-phase 2 --gaps-only (fix issue)
+    2. /gsd:verify-work 2 (re-test)
+    ```
+  </Step>
+  
+  <Step title="Fix and Re-Test">
+    ```bash
+    /gsd:execute-phase 2 --gaps-only
+    ```
+    
+    ```markdown
+    🌊 Executing gap closure plans for Phase 2
+    
+    Plans:
+    - 02-01-GAP-validation-fix-PLAN.md (1 task)
+    
+    ✓ Fixed: Email validation function name
+    ✓ Committed: fix(02-01): correct validation function name
+    ```
+    
+    ```bash
+    /gsd:verify-work 2
+    ```
+    
+    ```markdown
+    ✓ Test 2/4: Email Validation
+    
+    Does the form reject invalid emails?
+    
+    > yes
+    
+    ✓ Test 2 passed
+    
+    All tests now passing!
+    Phase 2 fully verified.
+    ```
+  </Step>
+</Steps>
+
+## Tips
+
+<Tip>
+  **Test immediately after execution.** Don't wait until all phases are done - catch issues early.
+</Tip>
+
+<Tip>
+  **Focus on user workflows.** Don't test individual functions. Test complete features from a user's perspective.
+</Tip>
+
+<Tip>
+  **Use real data.** Test with realistic inputs, not just "test@test.com" and "password123".
+</Tip>
+
+<Warning>
+  If diagnosis repeatedly fails to find the issue, provide more detail: error messages, console output, screenshots, or exact steps to reproduce.
+</Warning>
+
+## When to Skip Verification
+
+You might skip verify-work if:
+
+- Phase is purely technical (refactoring, optimization)
+- Automated tests cover everything adequately
+- You're prototyping rapidly and will test later
+- Phase deliverables aren't user-facing
+
+<Info>
+  Even if you skip, UAT findings are valuable before shipping. Consider running verify-work before `/gsd:complete-milestone`.
+</Info>
+
+## Next Steps
+
+After verification:
+
+<CardGroup cols={2}>
+  <Card title="Next Phase" icon="forward" href="/workflow/discuss-phase">
+    Start discussing and planning the next phase
+  </Card>
+  <Card title="Complete Milestone" icon="flag-checkered" href="/workflow/milestones">
+    If all phases verified, complete the milestone
+  </Card>
+</CardGroup>

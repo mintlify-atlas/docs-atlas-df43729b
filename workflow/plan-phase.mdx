@@ -1,0 +1,540 @@
+---
+title: Plan Phase Execution
+description: Research and create detailed, verified execution plans
+icon: diagram-project
+---
+
+## Overview
+
+The `/gsd:plan-phase` command transforms a roadmap phase into executable plans. It researches the domain (optional), creates atomic task plans with XML structure, and verifies them against requirements.
+
+## What It Does
+
+<Steps>
+  <Step title="Research (Optional)">
+    Investigates how to implement this phase, guided by your CONTEXT.md decisions.
+  </Step>
+  
+  <Step title="Plan Creation">
+    Spawns planner agent to create 2-3 atomic task plans with XML structure.
+  </Step>
+  
+  <Step title="Verification Loop">
+    Spawns checker agent to verify plans against requirements. Loops until they pass or max iterations reached.
+  </Step>
+</Steps>
+
+Each plan is small enough to execute in a fresh 200k context window - no degradation, no "I'll be more concise now."
+
+## Files Created
+
+<CardGroup cols={2}>
+  <Card title="RESEARCH.md" icon="magnifying-glass">
+    `{phase_num}-RESEARCH.md` - Domain investigation findings
+  </Card>
+  <Card title="PLAN.md" icon="file-code">
+    `{phase_num}-{N}-PLAN.md` - Executable task plans (2-3 per phase)
+  </Card>
+</CardGroup>
+
+## Command Usage
+
+```bash
+/gsd:plan-phase [phase-number] [flags]
+```
+
+<Tabs>
+  <Tab title="Basic Usage">
+    ```bash
+    /gsd:plan-phase 1
+    ```
+    
+    Plans the specified phase with default flow:
+    - Research domain (if not exists)
+    - Create plans
+    - Verify plans
+  </Tab>
+  
+  <Tab title="Auto-Detect Next">
+    ```bash
+    /gsd:plan-phase
+    ```
+    
+    Omit phase number to auto-detect next unplanned phase.
+  </Tab>
+  
+  <Tab title="Skip Research">
+    ```bash
+    /gsd:plan-phase 2 --skip-research
+    ```
+    
+    Go straight to planning without domain research.
+    
+    Use when:
+    - Phase is similar to previous work
+    - You're in a hurry
+    - Research already exists
+  </Tab>
+  
+  <Tab title="Force Re-Research">
+    ```bash
+    /gsd:plan-phase 3 --research
+    ```
+    
+    Force new research even if RESEARCH.md exists.
+    
+    Use when:
+    - Context changed significantly
+    - Previous research was insufficient
+    - Tech stack decisions changed
+  </Tab>
+  
+  <Tab title="Skip Verification">
+    ```bash
+    /gsd:plan-phase 4 --skip-verify
+    ```
+    
+    Skip the plan verification loop.
+    
+    <Warning>
+      Only use this if you're confident in plan quality or prototyping rapidly.
+    </Warning>
+  </Tab>
+  
+  <Tab title="Gap Closure Mode">
+    ```bash
+    /gsd:plan-phase 5 --gaps
+    ```
+    
+    Special mode for planning fixes after verification failures.
+    
+    - Reads VERIFICATION.md to understand issues
+    - Skips research (problems already known)
+    - Creates targeted fix plans
+  </Tab>
+  
+  <Tab title="PRD Mode">
+    ```bash
+    /gsd:plan-phase 1 --prd requirements.md
+    ```
+    
+    Use a PRD or acceptance criteria file instead of discuss-phase.
+    
+    Automatically:
+    - Parses requirements from the file
+    - Creates CONTEXT.md
+    - Proceeds to research and planning
+    
+    <Info>
+      PRD mode lets you skip interactive discussion entirely if you have written requirements.
+    </Info>
+  </Tab>
+</Tabs>
+
+## Research Phase
+
+When research is enabled, GSD investigates your domain:
+
+<CodeGroup>
+```markdown Example Research Output
+# Phase 2 Research: User Authentication
+
+## Stack Investigation
+### NextAuth.js vs Clerk vs Auth0
+- NextAuth.js: Self-hosted, flexible, steeper learning curve
+- Clerk: Managed, beautiful UI, higher cost at scale
+- Auth0: Enterprise-grade, complex pricing, overkill for MVP
+
+Recommendation: NextAuth.js for cost control and flexibility
+
+## Implementation Patterns
+### Session Strategy
+- JWT: Stateless, works across services, can't invalidate easily
+- Database: Stateful, easy invalidation, needs DB queries
+
+Recommendation: Database sessions (REQ-003 needs instant logout)
+
+## Common Pitfalls
+- Don't store passwords in JWT
+- Use httpOnly cookies (XSS protection)
+- Implement rate limiting on login endpoint
+- Hash passwords with bcrypt (min 10 rounds)
+```
+</CodeGroup>
+
+Research is saved to `.planning/{phase_num}-RESEARCH.md` and loaded during planning.
+
+### Research Context
+
+Research agent reads:
+- `PROJECT.md` - Overall vision
+- `REQUIREMENTS.md` - What must be delivered
+- `{phase_num}-CONTEXT.md` - Your implementation preferences
+- `STATE.md` - Prior decisions and blockers
+- Previous RESEARCH.md files - Avoid re-investigating
+
+<Info>
+  **CONTEXT.md guides research.** If you said "use Clerk" in discuss-phase, research focuses on Clerk best practices instead of comparing auth providers.
+</Info>
+
+## Plan Creation
+
+The planner agent creates 2-3 atomic plans per phase:
+
+<CodeGroup>
+```xml Example Plan: 02-01-PLAN.md
+---
+phase: 2
+plan: 1
+title: User Registration Endpoint
+dependencies: []
+estimated_tasks: 4
+---
+
+# Plan 01: User Registration Endpoint
+
+## Goal
+Implement secure user registration with email validation and password hashing.
+
+## Context
+- Uses NextAuth with database sessions (from RESEARCH.md)
+- Reuses database connection from Phase 1
+- Follow validation patterns from CONTEXT.md
+
+## Tasks
+
+<task type="auto">
+  <name>Create user registration API route</name>
+  <files>src/app/api/auth/register/route.ts</files>
+  <action>
+    - Validate email format and password strength
+    - Check for existing user (email unique)
+    - Hash password with bcrypt (12 rounds)
+    - Create user record in database
+    - Return 201 on success, 400/409 on validation errors
+  </action>
+  <verify>
+    POST /api/auth/register with valid data returns 201
+    POST with duplicate email returns 409
+    POST with weak password returns 400
+  </verify>
+  <done>
+    Users can register with email/password
+    Passwords are securely hashed
+    Duplicate emails are rejected
+  </done>
+</task>
+
+<task type="auto">
+  <name>Add email validation</name>
+  <files>src/lib/validation.ts</files>
+  <action>
+    - Create email validation function
+    - Check format with regex
+    - Verify domain has MX records (optional, nice-to-have)
+    - Export for reuse across auth routes
+  </action>
+  <verify>
+    validation.ts exports isValidEmail function
+    Rejects invalid formats: no @, no domain, etc.
+  </verify>
+  <done>
+    Email validation reusable across auth system
+  </done>
+</task>
+
+<task type="auto">
+  <name>Add password strength validation</name>
+  <files>src/lib/validation.ts</files>
+  <action>
+    - Min 8 chars, one uppercase, one number, one special
+    - Return helpful error messages
+    - Export isValidPassword function
+  </action>
+  <verify>
+    Weak passwords rejected with clear error
+    Strong passwords accepted
+  </verify>
+  <done>
+    Password validation enforces security requirements
+  </done>
+</task>
+
+<task type="auto">
+  <name>Write registration integration test</name>
+  <files>tests/api/auth/register.test.ts</files>
+  <action>
+    - Test successful registration flow
+    - Test duplicate email rejection
+    - Test validation errors
+    - Verify password is hashed (not plain text in DB)
+  </action>
+  <verify>
+    npm test tests/api/auth/register.test.ts passes
+  </verify>
+  <done>
+    Registration endpoint fully tested
+  </done>
+</task>
+```
+</CodeGroup>
+
+### Plan Structure
+
+Each plan has:
+
+- **YAML Frontmatter** - Phase number, plan number, dependencies
+- **Goal** - What this plan achieves
+- **Context** - Key decisions from prior work
+- **Tasks** - 3-6 atomic tasks with XML structure
+
+### XML Task Format
+
+```xml
+<task type="auto">
+  <name>Clear, action-oriented name</name>
+  <files>Exact file paths to create/modify</files>
+  <action>
+    Precise instructions:
+    - Use X library (not Y - reason)
+    - Follow Z pattern from existing code
+    - Handle edge case A
+  </action>
+  <verify>
+    How executor agent confirms it works:
+    - Command to run
+    - Expected output
+  </verify>
+  <done>
+    User-facing outcome achieved
+  </done>
+</task>
+```
+
+<Info>
+  XML structure is optimized for Claude's attention mechanism. Tasks with clear structure get more consistent execution.
+</Info>
+
+## Plan Verification
+
+After plans are created, the checker agent verifies them:
+
+<Steps>
+  <Step title="Requirements Coverage">
+    Does the plan achieve all requirements for this phase?
+  </Step>
+  
+  <Step title="Dependency Validity">
+    Are dependencies realistic? Can plans execute in declared order?
+  </Step>
+  
+  <Step title="Atomic Scope">
+    Is each plan small enough to execute in fresh context?
+  </Step>
+  
+  <Step title="Task Clarity">
+    Are actions specific enough to execute without guessing?
+  </Step>
+  
+  <Step title="Verification Feasibility">
+    Can verify steps be executed to confirm success?
+  </Step>
+</Steps>
+
+If verification fails, the checker provides feedback and the planner iterates:
+
+<CodeGroup>
+```markdown Verification Feedback
+❌ Plan Verification Failed
+
+Issue: Plan 02 missing rate limiting (REQ-005 requires it)
+
+Feedback:
+- Add task for rate limiting middleware
+- Reference redis connection from Phase 1
+- Verify with load test (100 reqs/sec)
+
+Planner will revise plan...
+```
+</CodeGroup>
+
+### Verification Loop
+
+The loop continues until:
+- Plans pass all checks ✓
+- Max iterations reached (3)
+- User manually approves
+
+<Warning>
+  If plans repeatedly fail verification, consider:
+  - Phase scope too large (split into 2 phases)
+  - Requirements unclear (update REQUIREMENTS.md)
+  - Missing context (run discuss-phase)
+</Warning>
+
+## Plan Dependencies
+
+Plans can depend on other plans:
+
+```yaml
+---
+phase: 3
+plan: 3
+title: Checkout UI
+dependencies: ["03-01", "03-02"]
+---
+```
+
+Dependencies affect execution:
+- Independent plans run in **parallel**
+- Dependent plans run in **later waves**
+
+See [Execute Phase](/workflow/execute-phase) for wave execution details.
+
+<Tip>
+  **Design for parallelization.** Vertical slices (Plan 01: User auth end-to-end) parallelize better than horizontal layers (Plan 01: All models, Plan 02: All APIs).
+</Tip>
+
+## Configuration Impact
+
+### Granularity Setting
+
+Controls plan size and count:
+
+- **Coarse** - Fewer, larger plans (3-5 tasks each)
+- **Standard** (default) - Balanced (2-4 tasks each)
+- **Fine** - More, smaller plans (1-2 tasks each)
+
+### Model Profile
+
+Controls which Claude model plans:
+
+| Profile | Planning Model | Impact |
+|---------|----------------|--------|
+| `quality` | Opus | Best plan quality, highest cost |
+| `balanced` | Opus | Good quality (default) |
+| `budget` | Sonnet | Faster, lower cost |
+
+### Workflow Toggles
+
+```json
+{
+  "workflow": {
+    "research": true,      // Enable domain research
+    "plan_check": true     // Enable verification loop
+  }
+}
+```
+
+Disable via `/gsd:settings` or per-command flags.
+
+## Example Session
+
+<Steps>
+  <Step title="Start planning">
+    ```bash
+    /gsd:plan-phase 2
+    ```
+    
+    ```markdown
+    📋 Phase 2: User Authentication
+    Goal: Secure login and registration
+    Requirements: REQ-004, REQ-005, REQ-006
+    
+    Checking for existing research...
+    No research found. Starting domain investigation...
+    ```
+  </Step>
+  
+  <Step title="Research completes">
+    ```markdown
+    ✓ Research complete: 02-RESEARCH.md
+    
+    Key findings:
+    - NextAuth.js recommended for flexibility
+    - Database sessions for instant logout
+    - bcrypt for password hashing (12 rounds)
+    - Rate limiting required for login endpoint
+    
+    Spawning planner agent...
+    ```
+  </Step>
+  
+  <Step title="Plans created">
+    ```markdown
+    ✓ Plans created:
+    - 02-01-PLAN.md: User Registration Endpoint (4 tasks)
+    - 02-02-PLAN.md: Login and Session Management (5 tasks)
+    - 02-03-PLAN.md: Rate Limiting Middleware (2 tasks)
+    
+    Spawning verification agent...
+    ```
+  </Step>
+  
+  <Step title="Verification passes">
+    ```markdown
+    ✓ Plan verification passed
+    
+    Coverage:
+    - REQ-004: User registration ✓
+    - REQ-005: Rate limiting ✓
+    - REQ-006: Secure sessions ✓
+    
+    Dependencies:
+    - 02-01: No dependencies (Wave 1)
+    - 02-02: No dependencies (Wave 1)
+    - 02-03: Depends on 02-02 (Wave 2)
+    
+    Next steps:
+    - /gsd:execute-phase 2 - Run all plans
+    - /gsd:plan-phase 3 - Plan next phase
+    ```
+  </Step>
+</Steps>
+
+## After Planning
+
+Your `.planning/` directory now has:
+
+```
+.planning/
+├── 02-RESEARCH.md
+├── 02-01-PLAN.md
+├── 02-02-PLAN.md
+└── 02-03-PLAN.md
+```
+
+Each plan is ready for execution with:
+- Clear goals
+- Specific actions
+- Verification steps
+- Dependency declarations
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Execute Phase" icon="play" href="/workflow/execute-phase">
+    Run plans in parallel waves with fresh context per plan
+  </Card>
+  <Card title="Update Plans" icon="pen">
+    Edit PLAN.md files manually if needed before execution
+  </Card>
+</CardGroup>
+
+## Tips
+
+<Tip>
+  **Run research first.** Even for familiar domains, research finds edge cases and best practices you might miss.
+</Tip>
+
+<Tip>
+  **Review dependencies.** Bad dependencies create false sequencing. Plans that touch different files should be independent.
+</Tip>
+
+<Tip>
+  **Keep plans atomic.** If a plan feels too large, consider splitting the phase or increasing granularity.
+</Tip>
+
+<Warning>
+  Plans are executable prompts. Don't treat them as documentation - they need precise, actionable instructions.
+</Warning>

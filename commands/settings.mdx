@@ -1,0 +1,326 @@
+---
+title: "settings"
+description: "Configure GSD workflow toggles and model profile"
+---
+
+## Overview
+
+The `settings` command provides interactive configuration of GSD workflow agents and model profile through a guided multi-question prompt. Configure which optional agents run and which Claude models are used.
+
+## Syntax
+
+```bash
+/gsd:settings
+```
+
+## How It Works
+
+1. **Ensures config exists** - Creates `~/.claude/get-shit-done/config.json` with defaults if missing
+2. **Reads current settings** - Loads and parses existing configuration
+3. **Interactive 5-question prompt** - Presents choices with current values pre-selected
+4. **Merges config** - Updates only changed settings
+5. **Writes config file** - Saves merged configuration
+6. **Displays confirmation** - Shows updated settings with quick command references
+
+## Configuration Options
+
+### 1. Model Profile
+
+Controls which Claude model each agent uses.
+
+**Options:**
+- `quality` - Claude Opus for all agents (highest quality, highest cost)
+- `balanced` - Sonnet for most, Opus for critical agents (recommended)
+- `budget` - Sonnet for all agents (lower cost, good quality)
+
+### 2. Research Agent
+
+Runs codebase research before planning phases.
+
+**Options:**
+- `enabled` - Research runs by default (recommended)
+- `disabled` - Skip research, faster planning
+
+**Affects:** `/gsd:plan-phase`
+
+### 3. Plan Checker
+
+Validates plans before execution, suggests improvements.
+
+**Options:**
+- `enabled` - Plans reviewed before execution (recommended)
+- `disabled` - Execute plans without review
+
+**Affects:** `/gsd:execute`, `/gsd:quick --full`
+
+### 4. Verifier Agent
+
+Validates implementation after execution.
+
+**Options:**
+- `enabled` - Implementation verified against plan (recommended)
+- `disabled` - Skip verification, faster execution
+
+**Affects:** `/gsd:execute`, `/gsd:quick --full`
+
+### 5. Git Branching
+
+Controls branch creation during phase execution.
+
+**Options:**
+- `enabled` - Create feature branch per phase
+- `disabled` - Work directly on current branch (default)
+
+**Affects:** `/gsd:execute`
+
+## Usage Examples
+
+### Initial configuration
+
+```bash
+/gsd:settings
+```
+
+**Interactive prompt:**
+```
+GSD Configuration
+
+1. Model Profile
+   Which model profile?
+   → quality (Claude Opus for all agents)
+     balanced (Sonnet + Opus for critical) [current]
+     budget (Claude Sonnet for all agents)
+
+2. Research Agent
+   Run codebase research before planning?
+   → enabled [current]
+     disabled
+
+3. Plan Checker
+   Review plans before execution?
+   → enabled [current]
+     disabled
+
+4. Verifier Agent
+   Verify implementation after execution?
+   → enabled [current]
+     disabled
+
+5. Git Branching
+   Create feature branches during execution?
+     enabled
+   → disabled [current]
+
+Press Enter to use current values, or select options:
+```
+
+### Change to budget mode
+
+```bash
+/gsd:settings
+```
+
+**You select:**
+```
+1. budget
+2. disabled
+3. disabled  
+4. disabled
+5. disabled
+```
+
+**Confirmation:**
+```
+✓ Settings updated
+
+Active Configuration:
+- Model: budget (Sonnet for all agents)
+- Research: disabled
+- Plan checker: disabled
+- Verifier: disabled
+- Branching: disabled
+
+Fastest mode - minimal agent overhead.
+Good for: prototyping, simple codebases, low token budgets.
+
+Quick toggles:
+- /gsd:set-profile quality|balanced|budget
+- /gsd:plan-phase --no-research
+- /gsd:quick (always skips optional agents)
+```
+
+### Quality mode for critical project
+
+```bash
+/gsd:settings
+```
+
+**You select:**
+```
+1. quality
+2. enabled
+3. enabled
+4. enabled
+5. enabled
+```
+
+**Confirmation:**
+```
+✓ Settings updated
+
+Active Configuration:
+- Model: quality (Opus for all agents)
+- Research: enabled
+- Plan checker: enabled
+- Verifier: enabled
+- Branching: enabled
+
+Maximum quality mode - full agent workflow.
+Good for: production systems, complex domains, critical code.
+
+Note: Higher token usage. Monitor costs in usage dashboard.
+```
+
+## Model Profiles
+
+### Quality Profile
+```json
+{
+  "planner": "claude-opus-4",
+  "executor": "claude-opus-4",
+  "verifier": "claude-opus-4",
+  "plan_checker": "claude-opus-4",
+  "research": "claude-opus-4",
+  "debugger": "claude-opus-4"
+}
+```
+
+**Cost:** ~3-5x vs balanced
+**Quality:** Highest reasoning, best for complex work
+
+### Balanced Profile (Recommended)
+```json
+{
+  "planner": "claude-opus-4",
+  "executor": "claude-sonnet-4",
+  "verifier": "claude-sonnet-4",
+  "plan_checker": "claude-opus-4",
+  "research": "claude-sonnet-4",
+  "debugger": "claude-opus-4"
+}
+```
+
+**Cost:** ~1.5-2x vs budget
+**Quality:** High quality where it matters, efficient elsewhere
+
+### Budget Profile
+```json
+{
+  "planner": "claude-sonnet-4",
+  "executor": "claude-sonnet-4",
+  "verifier": "claude-sonnet-4",
+  "plan_checker": "claude-sonnet-4",
+  "research": "claude-sonnet-4",
+  "debugger": "claude-sonnet-4"
+}
+```
+
+**Cost:** Baseline
+**Quality:** Good for most tasks, excellent value
+
+## Config File Location
+
+```bash
+~/.claude/get-shit-done/config.json
+```
+
+**Format:**
+```json
+{
+  "model": "balanced",
+  "research": "enabled",
+  "plan_check": "enabled",
+  "verifier": "enabled",
+  "branching": "disabled"
+}
+```
+
+## Default Settings
+
+If no config exists, GSD uses:
+
+```json
+{
+  "model": "balanced",
+  "research": "enabled",
+  "plan_check": "enabled",
+  "verifier": "enabled",
+  "branching": "disabled"
+}
+```
+
+Balanced quality and cost, all quality gates enabled.
+
+## Per-Command Overrides
+
+Settings can be overridden per command:
+
+```bash
+# Skip research for this phase only
+/gsd:plan-phase --no-research
+
+# Full quality for quick task
+/gsd:quick --full
+
+# No verification for this execution
+/gsd:execute 4 --no-verify
+```
+
+## When to Change Settings
+
+<Card title="Use Quality Profile" icon="gem">
+  - Production systems
+  - Complex business logic
+  - Security-critical code
+  - Regulatory compliance
+  - High-stakes projects
+</Card>
+
+<Card title="Use Balanced Profile" icon="scale-balanced">
+  - Most projects (recommended default)
+  - Balances cost and quality
+  - Full-stack applications
+  - Team development
+</Card>
+
+<Card title="Use Budget Profile" icon="piggy-bank">
+  - Learning projects
+  - Prototyping
+  - Simple CRUD apps
+  - Personal projects
+  - Token budget constraints
+</Card>
+
+## Quick Commands
+
+Faster ways to change specific settings:
+
+```bash
+# Change model profile only
+/gsd:set-profile quality
+/gsd:set-profile balanced  
+/gsd:set-profile budget
+
+# Toggle research for one command
+/gsd:plan-phase --no-research
+
+# Full quality for one quick task
+/gsd:quick --full
+```
+
+## Related Commands
+
+- [`set-profile`](/commands/set-profile) - Quick model profile switching
+- [`plan-phase`](/commands/plan-phase) - Uses research setting
+- [`execute`](/commands/execute) - Uses verifier and branching settings
+- [`quick`](/commands/quick) - Always skips optional agents (--full overrides)

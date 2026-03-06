@@ -1,0 +1,321 @@
+---
+title: Quick Mode
+description: Execute ad-hoc tasks with GSD guarantees but skip optional planning steps
+icon: bolt
+---
+
+Quick mode is GSD's fast path for small, ad-hoc tasks that don't need full milestone ceremony. You get the same atomic commits and state tracking, but skip research, discussion, and verification agents.
+
+## When to Use Quick Mode
+
+<Info>
+Use `/gsd:quick` for tasks that are **clear, small, and urgent**. Use full workflow for anything that requires research, has ambiguity, or is part of a larger milestone.
+</Info>
+
+### Perfect for quick mode:
+
+- Bug fixes
+- Small feature additions
+- Configuration changes
+- Refactoring isolated code
+- One-off maintenance tasks
+- Urgent hotfixes
+
+### Use full workflow for:
+
+- Features that need research
+- Complex multi-file changes
+- Work with unclear requirements
+- Anything tied to milestone requirements
+- Tasks requiring architectural decisions
+
+## How It Works
+
+Quick mode is the **same system with a shorter path**:
+
+<Steps>
+  <Step title="Describe the task">
+    Tell GSD what you want to do. Be specific.
+  </Step>
+  
+  <Step title="Planning (quick mode)">
+    Spawns `gsd-planner` in quick mode - creates a single atomic plan without research or verification.
+  </Step>
+  
+  <Step title="Execution">
+    Spawns `gsd-executor` with fresh 200K context to implement the plan.
+  </Step>
+  
+  <Step title="Atomic commit">
+    Work is committed immediately with structured commit message.
+  </Step>
+  
+  <Step title="State tracking">
+    Updates `STATE.md` "Quick Tasks Completed" table (NOT `ROADMAP.md`).
+  </Step>
+</Steps>
+
+## Usage
+
+### Basic quick mode
+
+```bash
+/gsd:quick
+```
+
+You'll be prompted to describe what you want to do. The system skips research, plan-checking, and verification.
+
+### Quick mode with discussion
+
+```bash
+/gsd:quick --discuss
+```
+
+Adds a lightweight discussion phase before planning. Use when:
+
+- The task has some ambiguity
+- You want to surface assumptions upfront
+- Gray areas are worth resolving before coding
+
+The discussion creates a `CONTEXT.md` file that feeds into planning, ensuring Claude understands your preferences.
+
+### Full quick mode
+
+```bash
+/gsd:quick --full
+```
+
+Enables plan-checking (max 2 iterations) and post-execution verification. Use when:
+
+- You want quality guarantees
+- The task is important but doesn't justify full milestone ceremony
+- You're working in an unfamiliar area
+
+### Combined flags
+
+```bash
+/gsd:quick --discuss --full
+```
+
+Gives you discussion + plan-checking + verification. This is close to a regular phase but tracked separately.
+
+## Comparison: Quick vs Full Workflow
+
+<Tabs>
+  <Tab title="Quick Mode">
+    ```bash
+    /gsd:quick
+    > "Add dark mode toggle to settings"
+    ```
+    
+    **Flow:**
+    1. Task description
+    2. Planning (no research)
+    3. Execution
+    4. Commit
+    5. State update
+    
+    **Time:** 5-10 minutes
+    
+    **Agents spawned:** 2 (planner, executor)
+    
+    **Output:** `.planning/quick/001-add-dark-mode-toggle/`
+  </Tab>
+  
+  <Tab title="Full Workflow">
+    ```bash
+    /gsd:discuss-phase 1
+    /gsd:plan-phase 1
+    /gsd:execute-phase 1
+    /gsd:verify-work 1
+    ```
+    
+    **Flow:**
+    1. Discussion with assumption surfacing
+    2. Domain research (4 parallel agents)
+    3. Planning with verification loop
+    4. Parallel execution in waves
+    5. Automated verification
+    6. Manual UAT
+    
+    **Time:** 30-60 minutes
+    
+    **Agents spawned:** 10+ (researchers, planner, checker, executors, verifier)
+    
+    **Output:** `.planning/phases/01-phase-name/`
+  </Tab>
+</Tabs>
+
+## What Quick Mode Skips
+
+| Stage | Regular Phase | Quick Mode |
+|-------|--------------|------------|
+| Discussion | `gsd-discusser` | Skipped (unless `--discuss`) |
+| Research | 4 parallel researchers | Skipped |
+| Plan checking | `gsd-plan-checker` loops | Skipped (unless `--full`) |
+| Verification | `gsd-verifier` checks goals | Skipped (unless `--full`) |
+| UAT | `/gsd:verify-work` | Skipped |
+
+## What Quick Mode Keeps
+
+<Note>
+Quick mode preserves all GSD guarantees that matter for correctness and traceability.
+</Note>
+
+- **Atomic commits** - Each task gets its own commit immediately
+- **State tracking** - `STATE.md` is updated with completion
+- **Fresh context** - Executor gets clean 200K window
+- **Structured plans** - Uses same XML plan format
+- **Same agents** - Planner and executor are identical to full workflow
+
+## Directory Structure
+
+Quick tasks live in `.planning/quick/`, separate from phases:
+
+```
+.planning/
+  quick/
+    001-add-dark-mode-toggle/
+      PLAN.md
+      SUMMARY.md
+    002-fix-login-button/
+      PLAN.md
+      SUMMARY.md
+  phases/
+    01-user-authentication/
+      01-01-PLAN.md
+      01-01-SUMMARY.md
+```
+
+This separation keeps quick fixes from polluting your roadmap while still tracking them.
+
+## State Tracking
+
+Quick tasks update a separate table in `STATE.md`:
+
+```markdown
+## Quick Tasks Completed
+
+| ID | Description | Date |
+|----|-------------|------|
+| 001 | Add dark mode toggle | 2024-03-15 |
+| 002 | Fix login button mobile issue | 2024-03-15 |
+```
+
+This gives you history without cluttering `ROADMAP.md`.
+
+## Example Usage
+
+<CodeGroup>
+```bash Bug Fix
+/gsd:quick
+> "Fix the login button not responding on mobile Safari"
+
+# Creates:
+# .planning/quick/001-fix-login-button/PLAN.md
+# .planning/quick/001-fix-login-button/SUMMARY.md
+# Git commit: "fix(quick-001): login button mobile safari issue"
+```
+
+```bash Config Change
+/gsd:quick
+> "Add CORS headers for staging environment"
+
+# Quick, atomic, tracked
+```
+
+```bash Small Feature
+/gsd:quick --discuss --full
+> "Add export to CSV button on dashboard"
+
+# Discussion surfaces UI placement, format preferences
+# Plan-checker ensures CSV generation is complete
+# Verifier confirms button works and CSV downloads
+```
+</CodeGroup>
+
+## Deciding: Quick vs Full
+
+Ask yourself:
+
+<Tabs>
+  <Tab title="Choose Quick Mode If...">
+    - [ ] I know exactly what needs to be done
+    - [ ] It touches 1-3 files
+    - [ ] No research is needed
+    - [ ] It's not tied to roadmap requirements
+    - [ ] I need it done in under 10 minutes
+    - [ ] It's a fix, config, or small addition
+  </Tab>
+  
+  <Tab title="Choose Full Workflow If...">
+    - [ ] Requirements are unclear
+    - [ ] It needs domain research
+    - [ ] Multiple files and concerns
+    - [ ] Part of a larger milestone
+    - [ ] Quality matters more than speed
+    - [ ] Architectural decisions required
+  </Tab>
+</Tabs>
+
+## Best Practices
+
+### Do:
+
+- Use quick mode for **truly quick tasks**
+- Add `--full` flag when **quality matters**
+- Use `--discuss` when there's **any ambiguity**
+- Keep quick task descriptions **specific and actionable**
+
+### Don't:
+
+- Use quick mode for **milestone work** (plan it properly)
+- String multiple quick tasks together (consider a phase instead)
+- Skip full workflow to save time on **complex tasks** (you'll pay later)
+
+## Integration with Milestones
+
+Quick tasks are independent of your roadmap:
+
+```bash
+# You're in the middle of Phase 5
+/gsd:progress
+> Current phase: 5/12
+> Next: /gsd:execute-phase 5
+
+# But something urgent comes up
+/gsd:quick
+> "Fix production error in user export"
+
+# Done. Now back to roadmap.
+/gsd:execute-phase 5
+```
+
+Quick mode doesn't interrupt your milestone flow - it's a side channel for urgent work.
+
+## When Quick Mode Goes Wrong
+
+If you find yourself:
+
+- Running 5+ quick tasks in a row
+- Rewriting quick task output repeatedly
+- Wishing you had research or verification
+
+You probably need a proper phase:
+
+```bash
+# Instead of this:
+/gsd:quick  # attempt 1
+/gsd:quick  # attempt 2
+/gsd:quick  # attempt 3
+
+# Do this:
+/gsd:add-phase "Fix user export issues"
+/gsd:discuss-phase 13
+/gsd:plan-phase 13
+/gsd:execute-phase 13
+```
+
+<Warning>
+Quick mode is powerful but not magic. Complex work deserves full workflow planning, research, and verification.
+</Warning>

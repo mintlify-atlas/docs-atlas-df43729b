@@ -1,0 +1,416 @@
+---
+title: Discuss Phase Implementation
+description: Capture your vision before planning through adaptive questioning
+icon: comments
+---
+
+## Overview
+
+The `/gsd:discuss-phase` command extracts implementation decisions before research and planning begin. This is where you shape **how** a feature gets built - the details that make it yours.
+
+## Why This Matters
+
+Your roadmap has a sentence or two per phase:
+
+> Phase 3: User dashboard with activity feed
+
+That's not enough context to build what you imagine. Do you want cards or a table? Infinite scroll or pagination? Real-time updates or manual refresh?
+
+Discuss-phase captures these preferences so:
+1. **Researcher knows what to investigate** - "User wants card layout" → research card component libraries
+2. **Planner knows what's decided** - "Infinite scroll confirmed" → plan includes scroll handling
+
+<Info>
+  The deeper you go in discuss-phase, the more the system builds what you actually want. Skip it and you get reasonable defaults. Use it and you get **your** vision.
+</Info>
+
+## What It Does
+
+<Steps>
+  <Step title="Load Context">
+    Reads PROJECT.md, REQUIREMENTS.md, STATE.md, and prior CONTEXT.md files to avoid re-asking decided questions.
+  </Step>
+  
+  <Step title="Scout Codebase">
+    Searches for reusable assets, existing patterns, and integration points.
+  </Step>
+  
+  <Step title="Analyze Phase">
+    Identifies gray areas based on what's being built. Skips areas already decided in prior phases.
+  </Step>
+  
+  <Step title="Present Gray Areas">
+    Shows a menu of implementation areas to discuss. You choose which matter to you.
+  </Step>
+  
+  <Step title="Deep-Dive Each Area">
+    Asks 4 questions per area. After each set, you can dig deeper or move on.
+  </Step>
+  
+  <Step title="Write CONTEXT.md">
+    Creates `{phase_num}-CONTEXT.md` with your decisions. This file guides planning.
+  </Step>
+</Steps>
+
+## Command Usage
+
+```bash
+/gsd:discuss-phase <phase-number>
+```
+
+<Tabs>
+  <Tab title="First Discussion">
+    ```bash
+    /gsd:discuss-phase 1
+    ```
+    
+    Starts fresh discussion for phase 1.
+  </Tab>
+  
+  <Tab title="Update Existing">
+    ```bash
+    /gsd:discuss-phase 3
+    ```
+    
+    If `03-CONTEXT.md` exists, you'll be offered options:
+    - Update existing context
+    - View current context
+    - Skip to planning
+  </Tab>
+  
+  <Tab title="Automatic Mode">
+    ```bash
+    /gsd:discuss-phase 2 --auto
+    ```
+    
+    <Note>
+      Auto mode is for future use when you have pre-written context documents.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Domain-Aware Gray Areas
+
+GSD analyzes your phase goal and generates **specific** gray areas, not generic questions:
+
+<Tabs>
+  <Tab title="Visual Features">
+    For UI/UX work, gray areas might include:
+    
+    - **Layout & Structure** - Cards vs table, grid vs list, responsive breakpoints
+    - **Density & Spacing** - Compact vs spacious, information hierarchy
+    - **Interactions** - Click behavior, hover states, keyboard navigation
+    - **Empty States** - What shows when there's no data
+    - **Loading States** - Skeleton screens, spinners, progressive loading
+  </Tab>
+  
+  <Tab title="APIs & CLIs">
+    For backend or command-line tools:
+    
+    - **Response Format** - JSON structure, pagination approach, field naming
+    - **Error Handling** - Error codes, message detail level, recovery suggestions
+    - **Authentication** - Token format, refresh strategy, permission model
+    - **Versioning** - URL scheme, header-based, breaking change policy
+    - **Output Verbosity** - Default detail level, debug modes, quiet flags
+  </Tab>
+  
+  <Tab title="Content Systems">
+    For content management or documentation:
+    
+    - **Structure** - Hierarchies, taxonomies, categorization approach
+    - **Tone & Voice** - Formal vs casual, technical depth, audience level
+    - **Flow** - Reading order, navigation patterns, cross-references
+    - **Formatting** - Markdown flavor, rich text features, code highlighting
+  </Tab>
+  
+  <Tab title="Organization Tasks">
+    For refactoring or restructuring:
+    
+    - **Grouping Criteria** - What files go where, directory structure
+    - **Naming Conventions** - File names, function names, variable patterns
+    - **Duplicate Handling** - Merge strategy, conflict resolution
+    - **Exception Cases** - Special files, legacy code, migration approach
+  </Tab>
+</Tabs>
+
+## The Probing Process
+
+When you select a gray area, GSD asks 4 questions at a time:
+
+<CodeGroup>
+```markdown Example: Dashboard Layout
+🎯 Gray Area: Dashboard Layout & Structure
+
+Q1: Do you want the activity feed to use cards or a table layout?
+   - Cards: Better for varied content types, more visual
+   - Table: Better for scanning lots of items, more compact
+
+Q2: Should activities be grouped by day or shown as a continuous stream?
+
+Q3: How much detail should each activity show by default?
+   - Summary only (expandable)
+   - Full details always visible
+   - Configurable per user
+
+Q4: Where should filters be positioned?
+   - Top bar
+   - Sidebar
+   - Dropdown menu
+
+More questions about Dashboard Layout, or move to next area?
+```
+</CodeGroup>
+
+After each set of 4:
+- **More questions** → Ask 4 more, repeat
+- **Move to next** → Close this area, move on
+
+After all selected areas are explored:
+- **Ready to create context?** → Write CONTEXT.md
+
+<Tip>
+  Don't feel pressured to answer everything. If you don't care about a detail, say "whatever's standard" or "Claude's choice" and move on.
+</Tip>
+
+## Scope Guardrails
+
+<Warning>
+  **Discuss-phase clarifies HOW to implement, not WHETHER to add more features.**
+</Warning>
+
+The phase boundary from ROADMAP.md is fixed. If you suggest new capabilities during discussion:
+
+```markdown
+💡 That's a separate phase. I'll note it for later.
+
+Adding to deferred ideas:
+- Real-time collaboration features
+- Activity export to CSV
+
+Let's continue with the current phase scope.
+```
+
+This prevents scope creep while capturing good ideas for future work.
+
+## Code-Informed Questions
+
+GSD scouts your codebase before asking questions:
+
+<CodeGroup>
+```markdown Reusing Existing Patterns
+📋 Codebase Context:
+Found existing card component at src/components/Card.tsx
+Currently used in: Dashboard, Settings, Profile
+
+Q: Should activity feed use the existing Card component?
+   - Yes, reuse Card.tsx (maintains consistency)
+   - No, create new ActivityCard (custom styling needed)
+   - Enhance Card.tsx (add features, use everywhere)
+```
+</CodeGroup>
+
+This helps you:
+- Reuse existing components
+- Maintain design consistency
+- Identify opportunities to improve shared code
+
+## Context7 Integration
+
+When choosing libraries or frameworks, GSD can query Context7 for official documentation:
+
+```markdown
+🔍 Library Choice:
+
+You mentioned using ShadCN for the dashboard. Would you like me to:
+- Query Context7 for ShadCN best practices
+- Research alternative component libraries
+- Use what's already in the project
+```
+
+<Info>
+  Context7 queries require the MCP server to be configured. See [MCP Servers](/integrations/mcp-servers).
+</Info>
+
+## Output: CONTEXT.md
+
+After discussion, GSD creates `{phase_num}-CONTEXT.md`:
+
+<CodeGroup>
+```markdown Example: 03-CONTEXT.md
+# Phase 3 Context: Activity Dashboard
+
+## Dashboard Layout & Structure
+- Use card layout for activity items (visual, varied content)
+- Group activities by day with date headers
+- Show summary by default, expand on click for details
+- Filters in top bar: type, date range, user
+
+## Data Loading & Updates
+- Infinite scroll (load 20 items at a time)
+- Optimistic updates when user creates activity
+- Pull-to-refresh on mobile
+- No real-time updates (manual refresh)
+
+## Empty & Error States
+- Empty state: illustration + "No activity yet" + CTA button
+- Loading: skeleton cards (3 visible)
+- Error: toast notification + retry button
+
+## Code Context
+- Reuse Card.tsx component from src/components/
+- Follow existing loading pattern from Dashboard.tsx
+- Use date utility from src/lib/dates.ts
+```
+</CodeGroup>
+
+This file is loaded by:
+- **Research agent** - Knows what to investigate
+- **Planning agent** - Knows what decisions are locked
+
+## Prior Context Loading
+
+GSD reads all previous CONTEXT.md files to avoid repeating questions:
+
+<CodeGroup>
+```markdown Skipping Decided Areas
+📚 Prior Context Loaded:
+- 01-CONTEXT.md: Decided on ShadCN components
+- 02-CONTEXT.md: Decided on Zustand for state management
+
+🎯 Gray Areas for Phase 3:
+✓ Component library (decided in Phase 1) - skipping
+✓ State management (decided in Phase 2) - skipping
+- Dashboard layout (new)
+- Data loading strategy (new)
+- Filter implementation (new)
+
+Which would you like to discuss?
+```
+</CodeGroup>
+
+## What NOT to Ask
+
+Discuss-phase focuses on user-facing decisions. GSD does NOT ask about:
+
+- **Technical implementation** - Claude handles code structure
+- **Architecture choices** - Determined during planning
+- **Performance concerns** - Handled during execution
+- **Testing strategy** - Built into plan verification
+
+<Warning>
+  If you find yourself discussing file structure or function names, you're too deep in technical details. Discuss-phase is about **what users experience**, not how code is organized.
+</Warning>
+
+## Example Session
+
+<Steps>
+  <Step title="Start discussion">
+    ```bash
+    /gsd:discuss-phase 3
+    ```
+    
+    ```markdown
+    📋 Phase 3: User Activity Dashboard
+    Goal: Display user activity with filtering and search
+    Requirements: REQ-007, REQ-008, REQ-009
+    
+    Loading prior context...
+    Scouting codebase...
+    Analyzing gray areas...
+    ```
+  </Step>
+  
+  <Step title="Review gray areas">
+    ```markdown
+    🎯 Implementation Gray Areas:
+    
+    1. Dashboard Layout & Structure
+    2. Activity Item Display
+    3. Filtering & Search
+    4. Data Loading & Updates
+    5. Empty & Error States
+    
+    Which would you like to discuss? (Select multiple)
+    ```
+    
+    You select: 1, 3, 4
+  </Step>
+  
+  <Step title="Discuss first area">
+    ```markdown
+    🎯 Dashboard Layout & Structure
+    
+    Q1: Cards or table layout for activities?
+    > Cards - more visual
+    
+    Q2: Group by day or continuous stream?
+    > Group by day
+    
+    Q3: Detail level by default?
+    > Summary, expand on click
+    
+    Q4: Filter position?
+    > Top bar
+    
+    More questions about layout, or move to next?
+    > Move to next
+    ```
+  </Step>
+  
+  <Step title="Complete discussion">
+    After covering all selected areas:
+    
+    ```markdown
+    ✓ Discussed 3 gray areas
+    ✓ Created 03-CONTEXT.md
+    
+    Next steps:
+    - /gsd:plan-phase 3 - Research and create execution plans
+    - /gsd:discuss-phase 3 - Update this context
+    ```
+  </Step>
+</Steps>
+
+## When to Skip Discuss-Phase
+
+You can skip directly to planning if:
+
+- The phase is purely technical (refactoring, optimization)
+- You're happy with reasonable defaults
+- The implementation is obvious from requirements
+- You're prototyping and will iterate later
+
+<Info>
+  Even if you skip, you can always run discuss-phase later and update context before execution.
+</Info>
+
+## Next Steps
+
+After capturing context:
+
+<CardGroup cols={2}>
+  <Card title="Plan Phase" icon="diagram-project" href="/workflow/plan-phase">
+    Research the domain and create detailed execution plans
+  </Card>
+  <Card title="Update Context" icon="pen">
+    Re-run discuss-phase to revise decisions
+  </Card>
+</CardGroup>
+
+## Tips
+
+<Tip>
+  **Use code examples.** Show GSD a screenshot or existing component you like. Visual references clarify intent faster than words.
+</Tip>
+
+<Tip>
+  **Start broad, go deep.** Select multiple gray areas, explore each lightly, then dive deep into the ones that matter most.
+</Tip>
+
+<Tip>
+  **Capture "why" not just "what".** "Infinite scroll because users browse aimlessly" is better than "use infinite scroll".
+</Tip>
+
+<Warning>
+  Context is immutable during planning/execution. If you change your mind after execution starts, you'll need to update CONTEXT.md and re-plan.
+</Warning>

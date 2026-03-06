@@ -1,0 +1,106 @@
+---
+title: 'gsd:new-project'
+description: 'Initialize a new project with deep context gathering and PROJECT.md'
+---
+
+## Overview
+
+The `gsd:new-project` command initializes a new project through a unified flow: questioning → research (optional) → requirements → roadmap. This is the starting point for any new Get Shit Done project.
+
+## Usage
+
+```bash
+/gsd:new-project
+```
+
+```bash
+/gsd:new-project --auto
+```
+
+## Parameters
+
+<ParamField path="--auto" type="flag">
+  Automatic mode. After config questions, runs research → requirements → roadmap without further interaction. Expects idea document via @ reference.
+</ParamField>
+
+## How It Works
+
+The command executes a unified workflow that:
+
+1. **Questions** - Gathers initial project context through adaptive questioning
+2. **Research** (optional) - Conducts domain research if needed
+3. **Requirements** - Documents scoped requirements based on your inputs
+4. **Roadmap** - Creates a phase structure for execution
+
+<Info>
+  All workflow gates (validation, approvals, commits, routing) are preserved during execution.
+</Info>
+
+## Files Created
+
+This command creates a complete `.planning/` directory structure:
+
+<ParamField path=".planning/PROJECT.md" type="file">
+  Project context document - the source of truth for what you're building
+</ParamField>
+
+<ParamField path=".planning/config.json" type="file">
+  Workflow preferences and configuration settings
+</ParamField>
+
+<ParamField path=".planning/research/" type="directory">
+  Domain research directory (created when research is needed)
+</ParamField>
+
+<ParamField path=".planning/REQUIREMENTS.md" type="file">
+  Scoped requirements document defining what needs to be built
+</ParamField>
+
+<ParamField path=".planning/ROADMAP.md" type="file">
+  Phase structure defining the execution plan
+</ParamField>
+
+<ParamField path=".planning/STATE.md" type="file">
+  Project memory tracking progress and state
+</ParamField>
+
+## Examples
+
+### Interactive Mode
+
+```bash
+/gsd:new-project
+```
+
+Runs the full initialization flow with interactive questioning at each stage.
+
+### Automatic Mode
+
+```bash
+/gsd:new-project --auto @project-idea.md
+```
+
+Runs the entire flow automatically after initial config questions, using the referenced idea document as context.
+
+<Note>
+  In automatic mode, you must provide an idea document via @ reference for the system to work with.
+</Note>
+
+## Next Steps
+
+After running `gsd:new-project`, start working on your first phase:
+
+```bash
+/gsd:plan-phase 1
+```
+
+This will create a detailed execution plan for phase 1 of your roadmap.
+
+## Allowed Tools
+
+This command has access to:
+- **Read** - Read existing files
+- **Bash** - Execute shell commands
+- **Write** - Create new files
+- **Task** - Delegate to specialized agents
+- **AskUserQuestion** - Interactive questioning

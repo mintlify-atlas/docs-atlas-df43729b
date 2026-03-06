@@ -1,80 +1,423 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get your first project running with Get Shit Done in minutes
 ---
 
-## Get started in three steps
+This guide walks you through creating your first project with GSD, from installation to your first working feature.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before starting, make sure you have:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+- Claude Code, OpenCode, Gemini CLI, or Codex installed
+- GSD installed ([see installation guide](/installation))
+- A project idea or existing codebase
 
-### Step 2: Deploy your changes
+## Step 1: Install GSD
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+If you haven't already, install GSD:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+```bash
+npx get-shit-done-cc@latest
+```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Choose your runtime and installation location when prompted.
 
-### Step 3: Go live
+<Info>
+For existing codebases, run `/gsd:map-codebase` before starting a new project. This analyzes your stack, architecture, and conventions so GSD can work with your existing patterns.
+</Info>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Step 2: Start Your Runtime
 
-## Next steps
+Launch your AI coding assistant with recommended settings:
 
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+```bash
+claude --dangerously-skip-permissions
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+This flag prevents friction from repeated permission prompts. GSD is designed for automated workflows.
 </Note>
+
+## Step 3: Initialize Your Project
+
+Run the project initialization command:
+
+```bash
+/gsd:new-project
+```
+
+### What Happens Next
+
+GSD will guide you through a structured conversation:
+
+<Steps>
+  <Step title="Questions">
+    GSD asks about your project until it understands:
+    - What you're building
+    - Technical constraints and preferences
+    - Edge cases and requirements
+    - What's v1 vs v2
+  </Step>
+
+  <Step title="Research (Optional)">
+    GSD spawns parallel agents to investigate:
+    - Stack and technology choices
+    - Similar features in the ecosystem
+    - Architecture patterns
+    - Common pitfalls
+  </Step>
+
+  <Step title="Requirements">
+    GSD extracts and structures:
+    - v1 must-haves
+    - v2 nice-to-haves
+    - Out of scope items
+    - Acceptance criteria
+  </Step>
+
+  <Step title="Roadmap">
+    GSD creates phases mapped to requirements:
+    - Phase 1: Foundation
+    - Phase 2: Core features
+    - Phase 3: Polish
+    - ...
+  </Step>
+</Steps>
+
+Review and approve the roadmap. You're now ready to build.
+
+### Expected Output
+
+GSD creates these files in `.planning/`:
+
+```
+.planning/
+  PROJECT.md         # Project vision and context
+  REQUIREMENTS.md    # Scoped requirements with IDs
+  ROADMAP.md         # Phase breakdown
+  STATE.md           # Session memory
+  config.json        # Workflow configuration
+  research/          # Domain research (if enabled)
+```
+
+## Step 4: Shape Your Implementation
+
+Before planning, capture your implementation preferences:
+
+```bash
+/gsd:discuss-phase 1
+```
+
+GSD analyzes the phase and asks about gray areas:
+
+- **Visual features** → Layout, density, interactions, empty states
+- **APIs/CLIs** → Response format, flags, error handling
+- **Content systems** → Structure, tone, depth
+- **Organization** → Grouping criteria, naming conventions
+
+<Info>
+The deeper you go here, the more GSD builds what you actually want. Skip it and you get reasonable defaults.
+</Info>
+
+## Step 5: Plan the Phase
+
+Create execution plans for the phase:
+
+```bash
+/gsd:plan-phase 1
+```
+
+### Planning Process
+
+GSD orchestrates multiple agents:
+
+<Steps>
+  <Step title="Research">
+    4 parallel agents investigate:
+    - Stack patterns and libraries
+    - Feature implementation approaches
+    - Architecture decisions
+    - Common pitfalls to avoid
+  </Step>
+
+  <Step title="Planning">
+    Planner creates 2-3 atomic task plans with XML structure:
+    ```xml
+    <task type="auto">
+      <name>Create login endpoint</name>
+      <files>src/app/api/auth/login/route.ts</files>
+      <action>
+        Use jose for JWT (not jsonwebtoken).
+        Validate credentials against users table.
+        Return httpOnly cookie on success.
+      </action>
+      <verify>curl POST localhost:3000/api/auth/login returns 200</verify>
+    </task>
+    ```
+  </Step>
+
+  <Step title="Verification">
+    Plan checker verifies plans against requirements and loops until they pass (up to 3 iterations).
+  </Step>
+</Steps>
+
+### Expected Output
+
+```
+.planning/phases/01-foundation/
+  01-RESEARCH.md      # Domain research findings
+  01-01-PLAN.md       # First atomic task plan
+  01-02-PLAN.md       # Second atomic task plan
+  CONTEXT.md          # Your implementation preferences
+```
+
+## Step 6: Execute the Phase
+
+Run all plans in parallel waves:
+
+```bash
+/gsd:execute-phase 1
+```
+
+### Execution Flow
+
+GSD orchestrates parallel execution:
+
+```
+WAVE 1 (parallel)          WAVE 2 (parallel)
+┌─────────┐ ┌─────────┐    ┌─────────┐
+│ Plan 01 │ │ Plan 02 │ →  │ Plan 03 │
+│ User    │ │ Product │    │ Orders  │
+│ Model   │ │ Model   │    │ API     │
+└─────────┘ └─────────┘    └─────────┘
+```
+
+**Key features:**
+- **Fresh context per plan** - 200k tokens purely for implementation
+- **Parallel execution** - Independent plans run simultaneously
+- **Atomic commits** - Every task gets its own commit
+- **Automatic verification** - Checks codebase against phase goals
+
+### Expected Output
+
+```
+.planning/phases/01-foundation/
+  01-01-SUMMARY.md         # Execution outcomes
+  01-02-SUMMARY.md
+  01-VERIFICATION.md       # Post-execution verification
+
+Git commits:
+abc123f feat(01-01): implement user model
+def456g feat(01-02): implement product model
+```
+
+<Note>
+Walk away during execution. Come back to completed work with clean git history.
+</Note>
+
+## Step 7: Verify Your Work
+
+Manually test that everything works:
+
+```bash
+/gsd:verify-work 1
+```
+
+### Verification Process
+
+<Steps>
+  <Step title="Extract Deliverables">
+    GSD identifies what you should be able to do now:
+    - "Can you create a new user?"
+    - "Does the login form validate email?"
+    - "Can you view the product list?"
+  </Step>
+
+  <Step title="Manual Testing">
+    Test each deliverable and respond:
+    - **Yes** - It works
+    - **No** - Describe what's wrong
+  </Step>
+
+  <Step title="Auto-Diagnosis">
+    If something's broken, GSD:
+    - Spawns debug agents to find root causes
+    - Creates verified fix plans
+    - Ready for immediate re-execution
+  </Step>
+</Steps>
+
+If everything passes, move to the next phase. If issues are found, run `/gsd:execute-phase 1` again with the fix plans.
+
+## Step 8: Complete the Milestone
+
+Repeat the cycle for all phases:
+
+```bash
+/gsd:discuss-phase 2
+/gsd:plan-phase 2
+/gsd:execute-phase 2
+/gsd:verify-work 2
+...
+```
+
+When all phases are done:
+
+```bash
+/gsd:audit-milestone       # Verify milestone achieved definition of done
+/gsd:complete-milestone    # Archive milestone, tag release
+```
+
+## Quick Mode for Ad-Hoc Tasks
+
+For bug fixes, small features, or one-off tasks:
+
+```bash
+/gsd:quick
+```
+
+**Prompt:**
+```
+What do you want to do? "Add dark mode toggle to settings"
+```
+
+Quick mode gives you GSD guarantees (atomic commits, state tracking) with a faster path:
+- Same planner + executor agents
+- Skips research, plan checker, verifier
+- Lives in `.planning/quick/`, not phases
+
+## Example: Complete First Phase
+
+Here's what a complete first phase looks like:
+
+<Steps>
+  <Step title="Initialize">
+    ```bash
+    /gsd:new-project
+    # Answer questions about a todo app
+    # Approve roadmap with 3 phases
+    ```
+  </Step>
+
+  <Step title="Discuss">
+    ```bash
+    /gsd:discuss-phase 1
+    # Choose card layout for todos
+    # Decide on infinite scroll
+    # Pick color scheme
+    ```
+  </Step>
+
+  <Step title="Plan">
+    ```bash
+    /gsd:plan-phase 1
+    # GSD researches React component patterns
+    # Creates 2 plans: database setup + API routes
+    # Plan checker verifies against requirements
+    ```
+  </Step>
+
+  <Step title="Execute">
+    ```bash
+    /gsd:execute-phase 1
+    # Wave 1: Both plans run in parallel
+    # 2 atomic commits created
+    # Verification confirms database + API working
+    ```
+  </Step>
+
+  <Step title="Verify">
+    ```bash
+    /gsd:verify-work 1
+    # Test: Can create todos? ✓
+    # Test: Can list todos? ✓
+    # Test: Can delete todos? ✓
+    # Phase 1 complete!
+    ```
+  </Step>
+</Steps>
+
+## Navigation Tips
+
+### Check Your Progress
+
+```bash
+/gsd:progress              # Where am I? What's next?
+```
+
+### Resume After a Break
+
+```bash
+/gsd:resume-work           # Restore full context from last session
+```
+
+### Pause Mid-Phase
+
+```bash
+/gsd:pause-work            # Create handoff for next session
+```
+
+## Common Patterns
+
+### New Project from Document
+
+If you have a PRD or spec document:
+
+```bash
+/gsd:new-project --auto @prd.md
+```
+
+GSD auto-runs research, requirements, and roadmap from your document.
+
+### Existing Codebase
+
+Before starting a new project on existing code:
+
+```bash
+/gsd:map-codebase          # Analyze stack, architecture, conventions
+/gsd:new-project           # Questions focus on what you're ADDING
+```
+
+### Urgent Mid-Milestone Work
+
+Need to insert work between phases?
+
+```bash
+/gsd:insert-phase 3        # Insert between phases 3 and 4
+```
+
+### Change Scope
+
+Add or remove phases as needed:
+
+```bash
+/gsd:add-phase             # Append new phase to roadmap
+/gsd:remove-phase 7        # Descope phase 7 and renumber
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Learn about config.json settings and model profiles
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/concepts/context-engineering">
+    Deep dive into context engineering and multi-agent orchestration
+  </Card>
+  <Card title="Commands" icon="terminal" href="/commands/new-project">
+    Complete command reference
+  </Card>
+  <Card title="Advanced Topics" icon="star" href="/advanced/architecture">
+    Deep dive into architecture and agent system
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/core-concepts">
+    Understand how GSD works under the hood
+  </Card>
+  <Card title="Commands" icon="terminal" href="/commands">
+    Complete reference for all GSD commands
+  </Card>
+  <Card title="Best Practices" icon="star" href="/best-practices">
+    Tips for getting the most out of GSD
+  </Card>
+</CardGroup>

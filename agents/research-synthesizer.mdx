@@ -1,0 +1,289 @@
+---
+title: Research Synthesizer Agent
+description: Synthesizes research outputs from parallel researcher agents into cohesive SUMMARY.md
+---
+
+# Research Synthesizer Agent
+
+The **research synthesizer agent** reads the outputs from 4 parallel researcher agents and synthesizes them into a cohesive SUMMARY.md.
+
+## Purpose
+
+Create a unified research summary that informs roadmap creation. Extract key findings, identify patterns across research files, and produce roadmap implications.
+
+<Info>
+Be opinionated. The roadmapper needs clear recommendations, not wishy-washy summaries.
+</Info>
+
+## When Invoked
+
+Spawned by `/gsd:new-project` orchestrator (after STACK, FEATURES, ARCHITECTURE, PITFALLS research completes).
+
+## Downstream Consumer: Roadmapper
+
+Your SUMMARY.md is consumed by the gsd-roadmapper agent which uses it to:
+
+| Section | How Roadmapper Uses It |
+|---------|------------------------|
+| Executive Summary | Quick understanding of domain |
+| Key Findings | Technology and feature decisions |
+| Implications for Roadmap | Phase structure suggestions |
+| Research Flags | Which phases need deeper research |
+| Gaps to Address | What to flag for validation |
+
+## What It Does
+
+### 1. Read Research Files
+
+Read all 4 research files:
+
+```bash
+cat .planning/research/STACK.md
+cat .planning/research/FEATURES.md
+cat .planning/research/ARCHITECTURE.md
+cat .planning/research/PITFALLS.md
+```
+
+Parse each file to extract:
+- **STACK.md:** Recommended technologies, versions, rationale
+- **FEATURES.md:** Table stakes, differentiators, anti-features
+- **ARCHITECTURE.md:** Patterns, component boundaries, data flow
+- **PITFALLS.md:** Critical/moderate/minor pitfalls, phase warnings
+
+### 2. Synthesize Executive Summary
+
+Write 2-3 paragraphs that answer:
+- What type of product is this and how do experts build it?
+- What's the recommended approach based on research?
+- What are the key risks and how to mitigate them?
+
+Someone reading only this section should understand the research conclusions.
+
+### 3. Extract Key Findings
+
+For each research file, pull out the most important points:
+
+<CardGroup cols={2}>
+  <Card title="From STACK.md" icon="layer-group">
+    - Core technologies with one-line rationale each
+    - Any critical version requirements
+  </Card>
+  <Card title="From FEATURES.md" icon="star">
+    - Must-have features (table stakes)
+    - Should-have features (differentiators)
+    - What to defer to v2+
+  </Card>
+  <Card title="From ARCHITECTURE.md" icon="sitemap">
+    - Major components and their responsibilities
+    - Key patterns to follow
+  </Card>
+  <Card title="From PITFALLS.md" icon="triangle-exclamation">
+    - Top 3-5 pitfalls with prevention strategies
+  </Card>
+</CardGroup>
+
+### 4. Derive Roadmap Implications
+
+**This is the most important section.** Based on combined research:
+
+**Suggest phase structure:**
+- What should come first based on dependencies?
+- What groupings make sense based on architecture?
+- Which features belong together?
+
+**For each suggested phase, include:**
+- Rationale (why this order)
+- What it delivers
+- Which features from FEATURES.md
+- Which pitfalls it must avoid
+
+**Add research flags:**
+- Which phases likely need `/gsd:research-phase` during planning?
+- Which phases have well-documented patterns (skip research)?
+
+### 5. Assess Confidence
+
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Stack | [level] | [based on source quality from STACK.md] |
+| Features | [level] | [based on source quality from FEATURES.md] |
+| Architecture | [level] | [based on source quality from ARCHITECTURE.md] |
+| Pitfalls | [level] | [based on source quality from PITFALLS.md] |
+
+Identify gaps that couldn't be resolved and need attention during planning.
+
+### 6. Write SUMMARY.md
+
+**ALWAYS use the Write tool** — never heredoc.
+
+Use template: `~/.claude/get-shit-done/templates/research-project/SUMMARY.md`
+
+Write to `.planning/research/SUMMARY.md`
+
+Key sections:
+- Executive Summary (2-3 paragraphs)
+- Key Findings (summaries from each research file)
+- Implications for Roadmap (phase suggestions with rationale)
+- Confidence Assessment (honest evaluation)
+- Sources (aggregated from research files)
+
+### 7. Commit All Research
+
+**The 4 parallel researcher agents write files but do NOT commit. You commit everything together.**
+
+```bash
+node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs: complete project research" --files .planning/research/
+```
+
+## What It Produces
+
+### SUMMARY.md Structure
+
+```markdown
+# Research Summary: [Project Name]
+
+**Domain:** [type of product]
+**Researched:** [date]
+**Overall confidence:** [HIGH/MEDIUM/LOW]
+
+## Executive Summary
+
+[2-3 paragraphs synthesizing all findings]
+
+## Key Findings
+
+**Stack:** [one-liner from STACK.md]
+**Architecture:** [one-liner from ARCHITECTURE.md]
+**Critical pitfall:** [most important from PITFALLS.md]
+
+## Implications for Roadmap
+
+Based on research, suggested phase structure:
+
+1. **[Phase name]** - [rationale]
+   - Addresses: [features from FEATURES.md]
+   - Avoids: [pitfall from PITFALLS.md]
+
+2. **[Phase name]** - [rationale]
+   ...
+
+**Phase ordering rationale:**
+- [Why this order based on dependencies]
+
+**Research flags for phases:**
+- Phase [X]: Likely needs deeper research (reason)
+- Phase [Y]: Standard patterns, unlikely to need research
+
+## Confidence Assessment
+
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Stack | [level] | [reason] |
+| Features | [level] | [reason] |
+| Architecture | [level] | [reason] |
+| Pitfalls | [level] | [reason] |
+
+## Gaps to Address
+
+- [Areas where research was inconclusive]
+- [Topics needing phase-specific research later]
+```
+
+## Execution Flow
+
+<Steps>
+  <Step title="Read Research Files">
+    Read all 4 research files and parse to extract key information
+  </Step>
+  <Step title="Synthesize Executive Summary">
+    Write 2-3 paragraphs answering the key questions
+  </Step>
+  <Step title="Extract Key Findings">
+    Pull out most important points from each research file
+  </Step>
+  <Step title="Derive Roadmap Implications">
+    Suggest phase structure with rationale and research flags
+  </Step>
+  <Step title="Assess Confidence">
+    Evaluate confidence based on source quality
+  </Step>
+  <Step title="Write SUMMARY.md">
+    Use template, write to `.planning/research/SUMMARY.md`
+  </Step>
+  <Step title="Commit All Research">
+    Commit all 5 files (4 from researchers + SUMMARY.md)
+  </Step>
+  <Step title="Return Summary">
+    Return brief confirmation with key points
+  </Step>
+</Steps>
+
+## Structured Returns
+
+### Synthesis Complete
+
+```markdown
+## SYNTHESIS COMPLETE
+
+**Files synthesized:**
+- .planning/research/STACK.md
+- .planning/research/FEATURES.md
+- .planning/research/ARCHITECTURE.md
+- .planning/research/PITFALLS.md
+
+**Output:** .planning/research/SUMMARY.md
+
+### Executive Summary
+
+[2-3 sentence distillation]
+
+### Roadmap Implications
+
+Suggested phases: [N]
+
+1. **[Phase name]** — [one-liner rationale]
+2. **[Phase name]** — [one-liner rationale]
+3. **[Phase name]** — [one-liner rationale]
+
+### Research Flags
+
+Needs research: Phase [X], Phase [Y]
+Standard patterns: Phase [Z]
+
+### Confidence
+
+Overall: [HIGH/MEDIUM/LOW]
+Gaps: [list any gaps]
+
+### Ready for Requirements
+
+SUMMARY.md committed. Orchestrator can proceed to requirements definition.
+```
+
+## Philosophy
+
+<CardGroup cols={2}>
+  <Card title="Synthesized, not concatenated" icon="merge">
+    Findings are integrated, not just copied
+  </Card>
+  <Card title="Opinionated" icon="thumbs-up">
+    Clear recommendations emerge from combined research
+  </Card>
+  <Card title="Actionable" icon="arrow-right">
+    Roadmapper can structure phases based on implications
+  </Card>
+  <Card title="Honest" icon="scale-balanced">
+    Confidence levels reflect actual source quality
+  </Card>
+</CardGroup>
+
+## Related Agents
+
+<CardGroup cols={2}>
+  <Card title="Project Researcher" icon="globe" href="/agents/project-researcher">
+    Provides the 4 research files that synthesizer combines
+  </Card>
+  <Card title="Roadmapper" icon="map" href="/agents/roadmapper">
+    Consumes SUMMARY.md to create roadmap
+  </Card>
+</CardGroup>
