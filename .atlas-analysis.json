@@ -1,0 +1,225 @@
+{
+  "projectType": "framework",
+  "projectName": "Get Shit Done",
+  "projectDescription": "A meta-prompting, context engineering and spec-driven development framework for AI code assistants.",
+  "theme": "aspen",
+  "primaryColor": "#848c8e",
+  "lightColor": "#11161e",
+  "darkColor": "#cfd0d2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "introduction",
+              "why-gsd",
+              "how-it-works"
+            ]
+          },
+          {
+            "group": "Getting Started",
+            "pages": [
+              "installation",
+              "quickstart",
+              "configuration"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/context-engineering",
+              "concepts/multi-agent-orchestration",
+              "concepts/xml-prompting",
+              "concepts/workflow-stages",
+              "concepts/atomic-commits"
+            ]
+          },
+          {
+            "group": "Workflow",
+            "pages": [
+              "workflow/new-project",
+              "workflow/discuss-phase",
+              "workflow/plan-phase",
+              "workflow/execute-phase",
+              "workflow/verify-work",
+              "workflow/milestones"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/brownfield-projects",
+              "guides/quick-mode",
+              "guides/debugging",
+              "guides/phase-management",
+              "guides/model-profiles",
+              "guides/git-branching"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/architecture",
+              "advanced/agent-system",
+              "advanced/wave-execution",
+              "advanced/state-management",
+              "advanced/security"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Commands",
+        "groups": [
+          {
+            "group": "Core Workflow",
+            "pages": [
+              "commands/new-project",
+              "commands/discuss-phase",
+              "commands/plan-phase",
+              "commands/execute-phase",
+              "commands/verify-work"
+            ]
+          },
+          {
+            "group": "Milestone Management",
+            "pages": [
+              "commands/audit-milestone",
+              "commands/complete-milestone",
+              "commands/new-milestone"
+            ]
+          },
+          {
+            "group": "Phase Management",
+            "pages": [
+              "commands/add-phase",
+              "commands/insert-phase",
+              "commands/remove-phase",
+              "commands/list-phase-assumptions",
+              "commands/plan-milestone-gaps"
+            ]
+          },
+          {
+            "group": "Session Management",
+            "pages": [
+              "commands/pause-work",
+              "commands/resume-work"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "commands/map-codebase",
+              "commands/quick",
+              "commands/debug",
+              "commands/add-todo",
+              "commands/check-todos",
+              "commands/settings",
+              "commands/set-profile",
+              "commands/health",
+              "commands/progress",
+              "commands/help",
+              "commands/update"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Agents",
+        "groups": [
+          {
+            "group": "Agent Reference",
+            "pages": [
+              "agents/overview",
+              "agents/planner",
+              "agents/executor",
+              "agents/verifier",
+              "agents/debugger",
+              "agents/plan-checker",
+              "agents/phase-researcher",
+              "agents/project-researcher",
+              "agents/codebase-mapper",
+              "agents/roadmapper",
+              "agents/research-synthesizer",
+              "agents/integration-checker",
+              "agents/nyquist-auditor"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Configuration",
+            "pages": [
+              "reference/config-schema",
+              "reference/model-profiles",
+              "reference/workflow-agents",
+              "reference/git-settings"
+            ]
+          },
+          {
+            "group": "File Structure",
+            "pages": [
+              "reference/planning-directory",
+              "reference/project-md",
+              "reference/requirements-md",
+              "reference/roadmap-md",
+              "reference/state-md",
+              "reference/plan-xml"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "reference/troubleshooting",
+              "reference/faq",
+              "reference/changelog",
+              "reference/contributing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-agent orchestration for parallel task execution",
+    "Context engineering to prevent quality degradation",
+    "XML-structured planning for precise AI instructions",
+    "Wave-based parallel execution with dependency management",
+    "Atomic git commits for surgical version control",
+    "Manual verification workflow with automated debugging",
+    "Support for Claude Code, OpenCode, Gemini CLI, and Codex",
+    "Brownfield codebase mapping and analysis",
+    "Quick mode for ad-hoc tasks",
+    "Configurable model profiles (quality/balanced/budget)",
+    "Git branching strategies per phase or milestone",
+    "Research-driven planning with domain investigation"
+  ],
+  "publicApiSurface": [
+    "/gsd:new-project",
+    "/gsd:discuss-phase",
+    "/gsd:plan-phase",
+    "/gsd:execute-phase",
+    "/gsd:verify-work",
+    "/gsd:complete-milestone",
+    "/gsd:new-milestone",
+    "/gsd:quick",
+    "/gsd:map-codebase",
+    "/gsd:add-phase",
+    "/gsd:insert-phase",
+    "/gsd:remove-phase",
+    "/gsd:debug",
+    "/gsd:settings",
+    "/gsd:set-profile",
+    "/gsd:pause-work",
+    "/gsd:resume-work",
+    "/gsd:progress",
+    "/gsd:help",
+    "/gsd:update"
+  ]
+}
