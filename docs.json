@@ -141,7 +141,8 @@
               "commands/health",
               "commands/progress",
               "commands/help",
-              "commands/update"
+              "commands/update",
+              "commands/join-discord"
             ]
           }
         ]
